@@ -1,0 +1,233 @@
+@using DeckSyncWorkbench.Core.Models
+@model DeckSyncWorkbench.Web.Models.DeckDiffViewModel
+@{
+    var suggestionMode = Model.SuggestionRequest.Mode;
+    var suggestionInputSource = Model.SuggestionRequest.ArchidektInputSource;
+    ViewData["Title"] = "Suggest Categories";
+}
+
+<section class="hero">
+    <h1>Suggest Categories</h1>
+    <p class="lede">Look up a single card against an Archidekt deck, the local category store, recent public decks, and then EDHREC if needed.</p>
+</section>
+
+@await Html.PartialAsync("_BusyIndicator")
+@await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
+
+<div class="warning-banner">
+    Suggestions are separated by confidence. Cached store results are the default source, exact Archidekt deck matches are optional, and EDHREC themes are weakest.
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.SuggestionErrorMessage))
+{
+    <div class="error-banner" role="alert">@Model.SuggestionErrorMessage</div>
+}
+
+<form method="post" action="/suggest-categories" class="deck-form" data-busy-title="Finding Categories" data-busy-message="Checking the local store, recent Archidekt decks, and fallback sources.">
+    @Html.AntiForgeryToken()
+    <div class="toolbar">
+        <label class="mode-picker">
+            <span>Lookup mode</span>
+            <select name="Mode" onchange="updateSuggestionInputModeUi()">
+                <option value="@CategorySuggestionMode.CachedData" selected="@(suggestionMode == CategorySuggestionMode.CachedData)">Use cached data</option>
+                <option value="@CategorySuggestionMode.ReferenceDeck" selected="@(suggestionMode == CategorySuggestionMode.ReferenceDeck)">Use reference deck</option>
+            </select>
+        </label>
+        <label class="mode-picker flex-grow">
+            <span>Card name</span>
+            <input type="text" name="CardName" value="@Model.SuggestionRequest.CardName" placeholder="Guardian Project" />
+        </label>
+        <button type="submit" class="run-button">Suggest</button>
+    </div>
+
+    <div class="mode-note">
+        <span>Cached data is the default. Switch to a reference deck only when you want exact deck-local categories from a specific Archidekt list.</span>
+    </div>
+
+    <div class="reference-controls @(suggestionMode == CategorySuggestionMode.ReferenceDeck ? string.Empty : "hidden")">
+        <label class="mode-picker">
+            <span>Reference deck input</span>
+            <select name="ArchidektInputSource" onchange="updateSuggestionInputModeUi()">
+                <option value="@DeckInputSource.PublicUrl" selected="@(suggestionInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
+                <option value="@DeckInputSource.PasteText" selected="@(suggestionInputSource == DeckInputSource.PasteText)">Paste text</option>
+            </select>
+        </label>
+
+        <div class="url-grid @(suggestionInputSource == DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-suggest-panel="url">
+            <label class="field" data-suggest-panel="archidekt-url">
+                <span>Archidekt public deck URL</span>
+                <input type="url" name="ArchidektUrl" value="@Model.SuggestionRequest.ArchidektUrl" placeholder="https://archidekt.com/decks/..." />
+            </label>
+        </div>
+
+        <div class="field-grid @(suggestionInputSource == DeckInputSource.PasteText ? string.Empty : "hidden")" data-suggest-panel="text">
+            <label class="field" data-suggest-panel="archidekt-text">
+                <span>Archidekt export text</span>
+                <textarea name="ArchidektText" spellcheck="false">@Model.SuggestionRequest.ArchidektText</textarea>
+            </label>
+        </div>
+    </div>
+</form>
+
+@if (Model.NoSuggestionsFound)
+{
+    <section class="result-panel retry-panel">
+        <div class="panel-heading">
+            <div>
+                <h2>No Suggestions Found</h2>
+                <p>@Model.NoSuggestionsMessage</p>
+            </div>
+            <form method="post" action="/suggest-categories" data-busy-title="Retrying Category Lookup" data-busy-message="Starting the category checks again.">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Mode" value="@Model.SuggestionRequest.Mode" />
+                <input type="hidden" name="ArchidektInputSource" value="@Model.SuggestionRequest.ArchidektInputSource" />
+                <input type="hidden" name="ArchidektUrl" value="@Model.SuggestionRequest.ArchidektUrl" />
+                <input type="hidden" name="ArchidektText" value="@Model.SuggestionRequest.ArchidektText" />
+                <input type="hidden" name="CardName" value="@Model.SuggestionRequest.CardName" />
+                <button type="submit" class="run-button">Check Again</button>
+            </form>
+        </div>
+    </section>
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.ExactSuggestedCategoriesText) || !string.IsNullOrWhiteSpace(Model.InferredCategoriesText) || !string.IsNullOrWhiteSpace(Model.LiveSearchCategoriesText) || !string.IsNullOrWhiteSpace(Model.EdhrecCategoriesText))
+{
+    <section class="stack">
+        @if (!string.IsNullOrWhiteSpace(Model.SuggestionSourceSummary))
+        {
+            <section class="result-panel summary-panel">
+                <strong>Source used</strong>
+                <p>@Model.SuggestionSourceSummary</p>
+            </section>
+        }
+
+        @if (suggestionMode == CategorySuggestionMode.ReferenceDeck)
+        {
+            <section class="result-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Exact Deck Match</h2>
+                        <p>@Model.ExactSuggestionContextText</p>
+                    </div>
+                    <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('exact-suggested-categories-output').value)">Copy</button>
+                </div>
+                <textarea id="exact-suggested-categories-output" readonly spellcheck="false">@Model.ExactSuggestedCategoriesText</textarea>
+            </section>
+        }
+
+        <section class="result-panel inferred-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Exact Deck Match</h2>
+                    <p>@Model.ExactSuggestionContextText</p>
+                </div>
+                <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('exact-suggested-categories-output').value)">Copy</button>
+            </div>
+            <textarea id="exact-suggested-categories-output" readonly spellcheck="false">@Model.ExactSuggestedCategoriesText</textarea>
+        </section>
+
+        <section class="result-panel inferred-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Cached Store Matches</h2>
+                    <p>@Model.InferredSuggestionContextText</p>
+                </div>
+                <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('inferred-categories-output').value)">Copy</button>
+            </div>
+            <textarea id="inferred-categories-output" readonly spellcheck="false">@Model.InferredCategoriesText</textarea>
+        </section>
+
+        @if (!string.IsNullOrWhiteSpace(Model.LiveSearchCategoriesText) || !string.IsNullOrWhiteSpace(Model.EdhrecCategoriesText))
+        {
+            <details class="result-panel fallback-panel">
+                <summary>Lower-Confidence Fallback Sources</summary>
+
+                @if (!string.IsNullOrWhiteSpace(Model.LiveSearchCategoriesText))
+                {
+                    <section class="result-panel live-search-panel nested-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <h2>Live Archidekt Search</h2>
+                                <p>@Model.LiveSearchSuggestionContextText</p>
+                            </div>
+                            <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('live-search-categories-output').value)">Copy</button>
+                        </div>
+                        <textarea id="live-search-categories-output" readonly spellcheck="false">@Model.LiveSearchCategoriesText</textarea>
+                    </section>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.EdhrecCategoriesText))
+                {
+                    <section class="result-panel edhrec-panel nested-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <h2>EDHREC Themes</h2>
+                                <p>@Model.EdhrecSuggestionContextText</p>
+                            </div>
+                            <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('edhrec-categories-output').value)">Copy</button>
+                        </div>
+                        <textarea id="edhrec-categories-output" readonly spellcheck="false">@Model.EdhrecCategoriesText</textarea>
+                    </section>
+                }
+            </details>
+        }
+    </section>
+}
+
+<script>
+function updateSuggestionInputModeUi() {
+    var modeSelect = document.querySelector('select[name="Mode"]');
+    var archidektModeSelect = document.querySelector('select[name="ArchidektInputSource"]');
+    if (!modeSelect || !archidektModeSelect) {
+        return;
+    }
+
+    var useReferenceDeck = modeSelect.value === '@CategorySuggestionMode.ReferenceDeck';
+    var showUrl = archidektModeSelect.value === '@DeckInputSource.PublicUrl';
+    var showText = archidektModeSelect.value === '@DeckInputSource.PasteText';
+    document.querySelectorAll('select[name="ArchidektInputSource"]').forEach(function (element) {
+        var wrapper = element.closest('.mode-picker');
+        if (wrapper) {
+            wrapper.classList.toggle('hidden', !useReferenceDeck);
+        }
+    });
+    document.querySelectorAll('.reference-input').forEach(function (element) {
+        element.classList.toggle('hidden', !useReferenceDeck);
+    });
+    document.querySelectorAll('[data-suggest-panel="url"]').forEach(function (element) {
+        element.classList.toggle('hidden', !showUrl);
+    });
+    document.querySelectorAll('[data-suggest-panel="text"]').forEach(function (element) {
+        element.classList.toggle('hidden', !showText);
+    });
+
+    document.querySelectorAll('.reference-controls').forEach(function (element) {
+        element.classList.toggle('hidden', !useReferenceDeck);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    updateSuggestionInputModeUi();
+});
+
+function showBusyIndicator(title, message) {
+    var container = document.getElementById('busy-indicator');
+    var titleNode = document.getElementById('busy-indicator-title');
+    var messageNode = document.getElementById('busy-indicator-message');
+    if (!container || !titleNode || !messageNode) {
+        return;
+    }
+
+    titleNode.textContent = title || 'Working';
+    messageNode.textContent = message || 'Request in progress.';
+    container.classList.remove('hidden');
+}
+
+document.querySelectorAll('form[data-busy-title]').forEach(function (form) {
+    form.addEventListener('submit', function () {
+        showBusyIndicator(form.getAttribute('data-busy-title'), form.getAttribute('data-busy-message'));
+    });
+});
+
+updateSuggestionInputModeUi();
+</script>

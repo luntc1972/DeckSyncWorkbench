@@ -1,0 +1,7 @@
+@using DeckSyncWorkbench.Web.Models
+@model DeckPageTab
+
+<nav class="tab-bar" aria-label="Deck tools">
+    <a class="tab-link @(Model == DeckPageTab.Sync ? "is-active" : string.Empty)" href="/">Sync Decks</a>
+    <a class="tab-link @(Model == DeckPageTab.SuggestCategories ? "is-active" : string.Empty)" href="/suggest-categories">Suggest Categories</a>
+</nav>

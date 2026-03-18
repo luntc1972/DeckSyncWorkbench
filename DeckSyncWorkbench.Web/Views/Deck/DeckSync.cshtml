@@ -1,0 +1,300 @@
+@using DeckSyncWorkbench.Core.Models
+@model DeckSyncWorkbench.Web.Models.DeckDiffViewModel
+@{
+    var direction = Model.Request.Direction;
+    var moxfieldInputSource = Model.Request.MoxfieldInputSource;
+    var archidektInputSource = Model.Request.ArchidektInputSource;
+    var sourceName = direction == SyncDirection.DeckSyncWorkbench ? "Moxfield" : "Archidekt";
+    var targetName = direction == SyncDirection.DeckSyncWorkbench ? "Archidekt" : "Moxfield";
+    var sourceTextareaName = direction == SyncDirection.DeckSyncWorkbench ? "MoxfieldText" : "ArchidektText";
+    var sourceTextareaValue = direction == SyncDirection.DeckSyncWorkbench ? Model.Request.MoxfieldText : Model.Request.ArchidektText;
+    var targetTextareaName = direction == SyncDirection.DeckSyncWorkbench ? "ArchidektText" : "MoxfieldText";
+    var targetTextareaValue = direction == SyncDirection.DeckSyncWorkbench ? Model.Request.ArchidektText : Model.Request.MoxfieldText;
+    ViewData["Title"] = "Deck Sync";
+}
+
+<section class="hero">
+    <h1>Deck Sync</h1>
+    <p class="lede">Generate delta imports, full exports, and manual printing swap checklists without mixing that workflow with category suggestion tools.</p>
+</section>
+
+@await Html.PartialAsync("_BusyIndicator")
+@await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
+
+<div class="warning-banner">
+    Existing target cards stay in place. Moxfield maybeboard and sideboard entries are excluded from comparison and export.
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="error-banner" role="alert">@Model.ErrorMessage</div>
+}
+
+<form method="post" class="deck-form" data-busy-title="Running Deck Sync" data-busy-message="Comparing decks and building import output.">
+    @Html.AntiForgeryToken()
+    <div class="toolbar">
+        <div class="direction-group">
+            <label class="mode-picker">
+                <span>Sync direction</span>
+                <select name="Direction">
+                    <option value="@SyncDirection.DeckSyncWorkbench" selected="@(direction == SyncDirection.DeckSyncWorkbench)">Moxfield to Archidekt</option>
+                    <option value="@SyncDirection.ArchidektToMoxfield" selected="@(direction == SyncDirection.ArchidektToMoxfield)">Archidekt to Moxfield</option>
+                </select>
+            </label>
+            <button type="button" class="swap-direction-button" onclick="toggleSyncDirection()">Swap main deck</button>
+        </div>
+        <label class="mode-picker">
+            <span>Match mode</span>
+            <select name="Mode">
+                <option value="@MatchMode.Loose" selected="@(Model.Request.Mode == MatchMode.Loose)">Loose</option>
+                <option value="@MatchMode.Strict" selected="@(Model.Request.Mode == MatchMode.Strict)">Strict</option>
+            </select>
+        </label>
+        <button type="submit" class="run-button">Run Diff</button>
+    </div>
+
+    <div class="source-grid">
+        <label class="field">
+            <span>Moxfield input</span>
+            <select name="MoxfieldInputSource">
+                <option value="@DeckInputSource.PasteText" selected="@(moxfieldInputSource == DeckInputSource.PasteText)">Paste text</option>
+                <option value="@DeckInputSource.PublicUrl" selected="@(moxfieldInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
+            </select>
+        </label>
+        <label class="field">
+            <span>Archidekt input</span>
+            <select name="ArchidektInputSource">
+                <option value="@DeckInputSource.PasteText" selected="@(archidektInputSource == DeckInputSource.PasteText)">Paste text</option>
+                <option value="@DeckInputSource.PublicUrl" selected="@(archidektInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
+            </select>
+        </label>
+    </div>
+
+    <div class="mode-note">
+        <span>You can mix input methods. Public URLs are convenient when the deck APIs respond; pasted text is the more reliable fallback.</span>
+    </div>
+
+    <div class="url-grid hidden" data-sync-panel="url">
+        <label class="field hidden" data-sync-panel="moxfield-url">
+            <span>Moxfield public deck URL</span>
+            <input type="url" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" placeholder="https://moxfield.com/decks/..." />
+        </label>
+        <label class="field hidden" data-sync-panel="archidekt-url">
+            <span>Archidekt public deck URL</span>
+            <input type="url" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" placeholder="https://archidekt.com/decks/..." />
+        </label>
+    </div>
+
+    <div class="field-grid hidden" data-sync-panel="text">
+        <label class="field hidden" data-sync-panel="moxfield-text">
+            <span>@sourceName export text</span>
+            <textarea name="@sourceTextareaName" spellcheck="false">@sourceTextareaValue</textarea>
+        </label>
+        <label class="field hidden" data-sync-panel="archidekt-text">
+            <span>@targetName export text</span>
+            <textarea name="@targetTextareaName" spellcheck="false">@targetTextareaValue</textarea>
+        </label>
+    </div>
+</form>
+
+<script>
+function scrollResults() {
+    var hash = document.getElementById('results-anchor');
+    if (hash) {
+        hash.scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+document.querySelector('form.deck-form').addEventListener('submit', function() {
+    setTimeout(scrollResults, 2500);
+});
+</script>
+
+@if (Model.Diff is not null)
+{
+<section id="results-anchor" class="stack">
+        <section class="result-panel">
+            <h2>Reconciliation Report</h2>
+            <pre>@Model.ReportText</pre>
+        </section>
+
+        <section class="result-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Add Missing Cards</h2>
+                    <p>Paste this into @targetName to add only the cards that are missing from the target deck.</p>
+                </div>
+                <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('delta-output').value)">Copy</button>
+            </div>
+            <textarea id="delta-output" readonly spellcheck="false">@Model.DeltaText</textarea>
+        </section>
+
+        <section class="result-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Full Deck Export</h2>
+                    <p>A full export formatted for @targetName, reusing target printings and board placement where matches already exist.</p>
+                </div>
+                <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('full-import-output').value)">Copy</button>
+            </div>
+            <textarea id="full-import-output" readonly spellcheck="false">@Model.FullImportText</textarea>
+        </section>
+
+        @if (Model.Diff.PrintingConflicts.Count > 0)
+        {
+            <form method="post" action="/resolve" class="result-panel" data-busy-title="Generating Swap Checklist" data-busy-message="Applying your printing choices.">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="MoxfieldInputSource" value="@Model.Request.MoxfieldInputSource" />
+                <input type="hidden" name="ArchidektInputSource" value="@Model.Request.ArchidektInputSource" />
+                <input type="hidden" name="Direction" value="@Model.Request.Direction" />
+                <input type="hidden" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" />
+                <input type="hidden" name="MoxfieldText" value="@Model.Request.MoxfieldText" />
+                <input type="hidden" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" />
+                <input type="hidden" name="ArchidektText" value="@Model.Request.ArchidektText" />
+                <input type="hidden" name="Mode" value="@Model.Request.Mode" />
+                <div class="panel-heading">
+                    <div>
+                        <h2>Printing Conflicts</h2>
+                        <p>@targetName printings stay in place unless you generate a manual checklist for swapping them afterward.</p>
+                    </div>
+                    <div class="conflict-actions">
+                        <button type="button" class="copy-button" onclick="setAllPrintingChoices('@PrintingChoice.KeepArchidekt')">Select All @targetName</button>
+                        <button type="button" class="copy-button" onclick="setAllPrintingChoices('@PrintingChoice.UseMoxfield')">Select All @sourceName</button>
+                        <button type="submit" class="run-button">Generate Printing Swap Checklist</button>
+                    </div>
+                </div>
+                <table class="conflicts-table">
+                    <thead>
+                        <tr>
+                            <th>Card</th>
+                            <th>@targetName</th>
+                            <th>@sourceName</th>
+                            <th>Use</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var conflict in Model.Diff.PrintingConflicts)
+                    {
+                        <tr>
+                            <td>@conflict.CardName</td>
+                            <td>(@conflict.ArchidektVersion.SetCode) @conflict.ArchidektVersion.CollectorNumber [@conflict.ArchidektVersion.Category]</td>
+                            <td>(@conflict.MoxfieldVersion.SetCode) @conflict.MoxfieldVersion.CollectorNumber</td>
+                            <td class="choice-cell">
+                                <label><input type="radio" name="Resolutions[@conflict.CardName]" value="@PrintingChoice.KeepArchidekt" checked /> @targetName</label>
+                                <label><input type="radio" name="Resolutions[@conflict.CardName]" value="@PrintingChoice.UseMoxfield" /> @sourceName</label>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </form>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.SwapChecklistText))
+        {
+            <section class="result-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Swap Checklist</h2>
+                        <p>Use this as your checklist for changing printings in @targetName after import.</p>
+                    </div>
+                    <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('swap-output').value)">Copy</button>
+                </div>
+                <textarea id="swap-output" readonly spellcheck="false">@Model.SwapChecklistText</textarea>
+            </section>
+        }
+
+        <details class="result-panel">
+            <summary>How to import safely</summary>
+            <pre>@Model.InstructionsText</pre>
+        </details>
+    </section>
+}
+
+<script>
+function setAllPrintingChoices(value) {
+    document.querySelectorAll('input[type="radio"][name^="Resolutions["][value="' + value + '"]').forEach(function (input) { input.checked = true; });
+}
+
+function togglePanel(selector, shouldHide) {
+    document.querySelectorAll(selector).forEach(function (element) {
+        element.classList.toggle('hidden', shouldHide);
+    });
+}
+
+function updateSyncInputModeUi() {
+    var moxfieldModeSelect = document.querySelector('select[name="MoxfieldInputSource"]');
+    var archidektModeSelect = document.querySelector('select[name="ArchidektInputSource"]');
+    if (!moxfieldModeSelect || !archidektModeSelect) {
+        return;
+    }
+
+    var showMoxfieldUrl = moxfieldModeSelect.value === '@DeckInputSource.PublicUrl';
+    var showArchidektUrl = archidektModeSelect.value === '@DeckInputSource.PublicUrl';
+    var showMoxfieldText = moxfieldModeSelect.value === '@DeckInputSource.PasteText';
+    var showArchidektText = archidektModeSelect.value === '@DeckInputSource.PasteText';
+
+    togglePanel('[data-sync-panel="moxfield-url"]', !showMoxfieldUrl);
+    togglePanel('[data-sync-panel="archidekt-url"]', !showArchidektUrl);
+    togglePanel('[data-sync-panel="moxfield-text"]', !showMoxfieldText);
+    togglePanel('[data-sync-panel="archidekt-text"]', !showArchidektText);
+    togglePanel('[data-sync-panel="url"]', !(showMoxfieldUrl || showArchidektUrl));
+    togglePanel('[data-sync-panel="text"]', !(showMoxfieldText || showArchidektText));
+}
+
+function initializeSyncInputModeUi() {
+    if (initializeSyncInputModeUi.hasRun) {
+        return;
+    }
+
+    initializeSyncInputModeUi.hasRun = true;
+    var inputSelectors = document.querySelectorAll('select[name="MoxfieldInputSource"], select[name="ArchidektInputSource"]');
+    inputSelectors.forEach(function (element) {
+        element.addEventListener('change', updateSyncInputModeUi);
+    });
+
+    updateSyncInputModeUi();
+}
+
+function toggleSyncDirection() {
+    var directionSelect = document.querySelector('select[name="Direction"]');
+    var form = document.querySelector('form.deck-form');
+    if (!directionSelect || !form) {
+        return;
+    }
+
+    directionSelect.value = directionSelect.value === '@SyncDirection.DeckSyncWorkbench'
+        ? '@SyncDirection.ArchidektToMoxfield'
+        : '@SyncDirection.DeckSyncWorkbench';
+
+    if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+    } else {
+        form.submit();
+    }
+}
+
+function showBusyIndicator(title, message) {
+    var container = document.getElementById('busy-indicator');
+    var titleNode = document.getElementById('busy-indicator-title');
+    var messageNode = document.getElementById('busy-indicator-message');
+    if (!container || !titleNode || !messageNode) {
+        return;
+    }
+
+    titleNode.textContent = title || 'Working';
+    messageNode.textContent = message || 'Request in progress.';
+    container.classList.remove('hidden');
+}
+
+document.querySelectorAll('form[data-busy-title]').forEach(function (form) {
+    form.addEventListener('submit', function () {
+        showBusyIndicator(form.getAttribute('data-busy-title'), form.getAttribute('data-busy-message'));
+    });
+});
+
+document.addEventListener('DOMContentLoaded', initializeSyncInputModeUi);
+if (document.readyState !== 'loading') {
+    initializeSyncInputModeUi();
+}
+</script>
