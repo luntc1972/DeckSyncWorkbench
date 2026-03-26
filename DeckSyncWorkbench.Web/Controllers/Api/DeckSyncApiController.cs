@@ -110,6 +110,6 @@ public sealed class DeckSyncApiController : ControllerBase
             return "Moxfield blocked the deck URL request from this local web app with HTTP 403. Paste the Moxfield export text into the form instead, or run the compare from the CLI/WSL environment where URL fetches succeed.";
         }
 
-        return exception.Message;
+        return UpstreamErrorMessageBuilder.BuildDeckSyncMessage(request.ToDeckDiffRequest(), exception);
     }
 }

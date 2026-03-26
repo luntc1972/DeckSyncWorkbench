@@ -1,6 +1,9 @@
 "use strict";
 (() => {
     'use strict';
+    const formStateStoragePrefix = 'decksync-form-state-';
+    const formResultStoragePrefix = 'decksync-form-result-';
+    const tabNavigationKey = 'decksync-tab-navigation';
     const toggleSuggestionPanel = (selector, visible) => {
         const element = document.querySelector(`[data-api-panel="${selector}"]`);
         if (!element) {
@@ -35,7 +38,6 @@
     const resetCardUi = () => {
         toggleSuggestionPanel('suggest-error', false);
         toggleSuggestionPanel('cache-info', false);
-        toggleSuggestionPanel('additional-decks', false);
         toggleSuggestionPanel('source-summary', false);
         toggleSuggestionPanel('exact', false);
         toggleSuggestionPanel('inferred', false);
@@ -48,8 +50,16 @@
         toggleSuggestionPanel('commander-error', false);
         toggleSuggestionPanel('commander-results', false);
         toggleSuggestionPanel('commander-no-results', false);
-        toggleSuggestionPanel('commander-additional', false);
         toggleSuggestionPanel('commander-hint', false);
+    };
+    const scrollPanelIntoCenter = (selector) => {
+        const element = document.querySelector(selector);
+        if (!element) {
+            return;
+        }
+        window.setTimeout(() => {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
     };
     const updateSuggestionInputModeUi = () => {
         const modeSelect = document.querySelector('select[name="Mode"]');
@@ -76,17 +86,13 @@
         handleError('suggest-error', null);
         const hintText = response.noSuggestionsFound && response.noSuggestionsMessage
             ? response.noSuggestionsMessage
-            : `The cached store tracks Archidekt categories that appear on decks containing ${response.cardName}. Click Suggest to keep scanning public decks for another 30 seconds so those categories can populate.`;
+            : `The cached store tracks Archidekt categories that appear on decks containing ${response.cardName}. Click Suggest to keep scanning public decks for another 20 seconds so those categories can populate.`;
         setFieldText('lookup-hint-text', hintText);
         toggleSuggestionPanel('lookup-hint', true);
         if (response.cardDeckTotals.totalDeckCount > 0) {
             setFieldText('cache-info-count', response.cardDeckTotals.totalDeckCount.toString());
             setFieldText('cache-info-text', `The cached store currently contains ${response.cardDeckTotals.totalDeckCount} deck(s) featuring ${response.cardName}.`);
             toggleSuggestionPanel('cache-info', true);
-        }
-        if (response.additionalDecksFound > 0) {
-            setFieldText('additional-deck-count', response.additionalDecksFound.toString());
-            toggleSuggestionPanel('additional-decks', true);
         }
         if (response.suggestionSourceSummary) {
             setFieldText('source-summary-text', response.suggestionSourceSummary);
@@ -109,6 +115,19 @@
         toggleSuggestionPanel('no-suggestions', response.noSuggestionsFound);
         if (response.noSuggestionsFound) {
             setFieldText('no-suggestions-text', (_a = response.noSuggestionsMessage) !== null && _a !== void 0 ? _a : `No category suggestions were found for ${response.cardName}.`);
+            scrollPanelIntoCenter('[data-api-panel="no-suggestions"]');
+            return;
+        }
+        if (response.hasInferredCategories) {
+            scrollPanelIntoCenter('#cached-store-matches');
+            return;
+        }
+        if (response.hasExactCategories) {
+            scrollPanelIntoCenter('[data-api-panel="exact"]');
+            return;
+        }
+        if (response.hasEdhrecCategories) {
+            scrollPanelIntoCenter('[data-api-panel="edhrec"]');
         }
     };
     const handleCommanderResponse = (response) => {
@@ -120,14 +139,11 @@
             : `No commander categories for ${response.commanderName} have been observed in the cached data yet. Run Show Categories again to refresh the cache.`;
         setFieldText('commander-hint-text', hintText);
         toggleSuggestionPanel('commander-hint', true);
-        if (response.additionalDecksFound > 0) {
-            setFieldText('commander-additional-count', response.additionalDecksFound.toString());
-            toggleSuggestionPanel('commander-additional', true);
-        }
         toggleSuggestionPanel('commander-results', hasResults);
         toggleSuggestionPanel('commander-no-results', !hasResults);
         if (!hasResults) {
             setFieldText('commander-no-results-text', (_a = response.noResultsMessage) !== null && _a !== void 0 ? _a : hintText);
+            scrollPanelIntoCenter('[data-api-panel="commander-no-results"]');
             return;
         }
         setFieldText('commander-cards-count', `${response.cardRowCount} cards contributed to this summary.`);
@@ -146,6 +162,7 @@
             row.appendChild(createTextCell(summary.deckCount));
             body.appendChild(row);
         });
+        scrollPanelIntoCenter('#commander-results-anchor');
     };
     const readRequestData = (form) => {
         const data = {};
@@ -165,7 +182,7 @@
         if (!key) {
             return;
         }
-        const payload = sessionStorage.getItem(key);
+        const payload = sessionStorage.getItem(`${formStateStoragePrefix}${key}`);
         if (!payload) {
             return;
         }
@@ -181,7 +198,7 @@
         }
         catch (error) {
             console.warn('Unable to restore cached form state', error);
-            sessionStorage.removeItem(key);
+            sessionStorage.removeItem(`${formStateStoragePrefix}${key}`);
         }
     };
     const persistFormState = (form) => {
@@ -189,10 +206,47 @@
         if (!key) {
             return;
         }
-        sessionStorage.setItem(key, JSON.stringify(readRequestData(form)));
+        sessionStorage.setItem(`${formStateStoragePrefix}${key}`, JSON.stringify(readRequestData(form)));
+    };
+    const persistResultState = (form, envelope) => {
+        const key = form.dataset.cacheKey;
+        if (!key) {
+            return;
+        }
+        sessionStorage.setItem(`${formResultStoragePrefix}${key}`, JSON.stringify(envelope));
+    };
+    const restoreResultState = (form) => {
+        const key = form.dataset.cacheKey;
+        if (!key) {
+            return;
+        }
+        const payload = sessionStorage.getItem(`${formResultStoragePrefix}${key}`);
+        if (!payload) {
+            return;
+        }
+        try {
+            const envelope = JSON.parse(payload);
+            if (envelope.type === 'card') {
+                handleCardResponse(form, envelope.payload);
+                return;
+            }
+            handleCommanderResponse(envelope.payload);
+        }
+        catch (error) {
+            console.warn('Unable to restore cached suggestion result', error);
+            sessionStorage.removeItem(`${formResultStoragePrefix}${key}`);
+        }
+    };
+    const clearStoredState = (form) => {
+        const key = form.dataset.cacheKey;
+        if (!key) {
+            return;
+        }
+        sessionStorage.removeItem(`${formStateStoragePrefix}${key}`);
+        sessionStorage.removeItem(`${formResultStoragePrefix}${key}`);
     };
     const submitSuggestion = async (form) => {
-        var _a, _b;
+        var _a, _b, _c, _d, _e, _f;
         const endpoint = form.dataset.suggestionApi;
         if (!endpoint) {
             return;
@@ -211,28 +265,44 @@
                 try {
                     payload = await response.json();
                 }
-                catch (_c) {
+                catch (_g) {
                     payload = null;
                 }
                 handleError(type === 'commander' ? 'commander-error' : 'suggest-error', (_b = (_a = payload === null || payload === void 0 ? void 0 : payload.message) !== null && _a !== void 0 ? _a : payload === null || payload === void 0 ? void 0 : payload.Message) !== null && _b !== void 0 ? _b : 'Unable to fetch suggestions.');
+                (_c = window.hideBusyIndicator) === null || _c === void 0 ? void 0 : _c.call(window);
                 return;
             }
             if (type === 'card') {
-                handleCardResponse(form, await response.json());
+                const payload = await response.json();
+                persistResultState(form, { type: 'card', payload });
+                handleCardResponse(form, payload);
+                (_d = window.hideBusyIndicator) === null || _d === void 0 ? void 0 : _d.call(window);
                 return;
             }
             if (type === 'commander') {
-                handleCommanderResponse(await response.json());
+                const payload = await response.json();
+                persistResultState(form, { type: 'commander', payload });
+                handleCommanderResponse(payload);
+                (_e = window.hideBusyIndicator) === null || _e === void 0 ? void 0 : _e.call(window);
             }
         }
         catch (error) {
             const message = error instanceof Error ? error.message : 'Unable to fetch suggestions.';
             handleError(type === 'commander' ? 'commander-error' : 'suggest-error', message);
+            (_f = window.hideBusyIndicator) === null || _f === void 0 ? void 0 : _f.call(window);
         }
     };
     const attachSuggestionHandlers = () => {
         document.querySelectorAll('form[data-suggestions-type]').forEach(form => {
-            restoreFormState(form);
+            const restoredFromTabs = sessionStorage.getItem(tabNavigationKey) === '1';
+            if (restoredFromTabs) {
+                restoreFormState(form);
+                restoreResultState(form);
+            }
+            else {
+                clearStoredState(form);
+            }
+            sessionStorage.removeItem(tabNavigationKey);
             updateSuggestionInputModeUi();
             form.addEventListener('submit', event => {
                 event.preventDefault();
@@ -251,10 +321,7 @@
             if (clearButton) {
                 clearButton.addEventListener('click', () => {
                     form.reset();
-                    const key = form.dataset.cacheKey;
-                    if (key) {
-                        sessionStorage.removeItem(key);
-                    }
+                    clearStoredState(form);
                     if (form.dataset.suggestionsType === 'card') {
                         resetCardUi();
                     }
@@ -271,6 +338,12 @@
                     form.requestSubmit();
                 });
             }
+            document.querySelectorAll('.tab-bar .tab-link').forEach(link => {
+                link.addEventListener('click', () => {
+                    persistFormState(form);
+                    sessionStorage.setItem(tabNavigationKey, '1');
+                });
+            });
         });
     };
     document.addEventListener('DOMContentLoaded', attachSuggestionHandlers);

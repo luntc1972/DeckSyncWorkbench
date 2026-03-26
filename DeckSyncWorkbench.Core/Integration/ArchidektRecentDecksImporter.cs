@@ -35,6 +35,17 @@ public sealed partial class ArchidektRecentDecksImporter
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, CancellationToken cancellationToken = default)
     {
+        return await ImportRecentDeckIdsAsync(count, 1, cancellationToken);
+    }
+
+    /// <summary>
+    /// Imports the requested number of recent public Archidekt deck IDs starting from the supplied page.
+    /// </summary>
+    /// <param name="count">Number of decks to collect.</param>
+    /// <param name="startPage">Page number to start crawling from.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, int startPage, CancellationToken cancellationToken = default)
+    {
         if (count <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(count));
@@ -42,7 +53,7 @@ public sealed partial class ArchidektRecentDecksImporter
 
         var deckIds = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var page = 1;
+        var page = Math.Max(1, startPage);
 
         while (deckIds.Count < count)
         {
@@ -71,11 +82,19 @@ public sealed partial class ArchidektRecentDecksImporter
     }
 
     /// <summary>
+    /// Fetches a single page of recent public Archidekt deck IDs.
+    /// </summary>
+    /// <param name="page">Page index to request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default)
+        => ImportRecentDeckIdsPageCoreAsync(page, cancellationToken);
+
+    /// <summary>
     /// Fetches a page of recent deck IDs from Archidekt.
     /// </summary>
     /// <param name="page">Page index to request.</param>
     /// <param name="cancellationToken">Cancellation token for the HTTP call.</param>
-    private async Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<string>> ImportRecentDeckIdsPageCoreAsync(int page, CancellationToken cancellationToken)
     {
         var response = await RetryPolicy.ExecuteAsync(ct => _restClient.ExecuteAsync(CreatePageRequest(page), ct), cancellationToken);
         var body = response.Content ?? string.Empty;

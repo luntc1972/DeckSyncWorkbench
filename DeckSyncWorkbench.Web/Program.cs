@@ -76,12 +76,15 @@ public class Program
         app.UseStaticFiles();
         app.UseRouting();
         app.UseSerilogRequestLogging();
-        app.UseSwagger();
-        app.UseSwaggerUI(c =>
+        if (app.Environment.IsDevelopment())
         {
-            c.SwaggerEndpoint("/swagger/v1/swagger.json", "Deck Sync Workbench API v1");
-            c.RoutePrefix = "swagger";
-        });
+            app.UseSwagger();
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "Deck Sync Workbench API v1");
+                c.RoutePrefix = "swagger";
+            });
+        }
 
         app.UseAuthorization();
 

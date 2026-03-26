@@ -9,6 +9,18 @@
     };
   };
 
+  type SuggestionResponseEnvelope =
+    | { type: 'card'; payload: CardSuggestionResponse }
+    | { type: 'commander'; payload: CommanderSuggestionResponse };
+
+  interface Window {
+    hideBusyIndicator?: () => void;
+  }
+
+  const formStateStoragePrefix = 'decksync-form-state-';
+  const formResultStoragePrefix = 'decksync-form-result-';
+  const tabNavigationKey = 'decksync-tab-navigation';
+
   type CardSuggestionResponse = {
     cardName: string;
     exactCategoriesText: string;
@@ -23,7 +35,6 @@
     suggestionSourceSummary?: string | null;
     noSuggestionsFound: boolean;
     noSuggestionsMessage?: string | null;
-    additionalDecksFound: number;
     cardDeckTotals: {
       totalDeckCount: number;
     };
@@ -34,7 +45,6 @@
     cardRowCount: number;
     categoryCount: number;
     harvestedDeckCount: number;
-    additionalDecksFound: number;
     noResultsMessage?: string | null;
     cardDeckTotals: {
       totalDeckCount: number;
@@ -88,7 +98,6 @@
   const resetCardUi = (): void => {
     toggleSuggestionPanel('suggest-error', false);
     toggleSuggestionPanel('cache-info', false);
-    toggleSuggestionPanel('additional-decks', false);
     toggleSuggestionPanel('source-summary', false);
     toggleSuggestionPanel('exact', false);
     toggleSuggestionPanel('inferred', false);
@@ -102,8 +111,18 @@
     toggleSuggestionPanel('commander-error', false);
     toggleSuggestionPanel('commander-results', false);
     toggleSuggestionPanel('commander-no-results', false);
-    toggleSuggestionPanel('commander-additional', false);
     toggleSuggestionPanel('commander-hint', false);
+  };
+
+  const scrollPanelIntoCenter = (selector: string): void => {
+    const element = document.querySelector<HTMLElement>(selector);
+    if (!element) {
+      return;
+    }
+
+    window.setTimeout(() => {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
   };
 
   const updateSuggestionInputModeUi = (): void => {
@@ -136,7 +155,7 @@
 
     const hintText = response.noSuggestionsFound && response.noSuggestionsMessage
       ? response.noSuggestionsMessage
-      : `The cached store tracks Archidekt categories that appear on decks containing ${response.cardName}. Click Suggest to keep scanning public decks for another 30 seconds so those categories can populate.`;
+      : `The cached store tracks Archidekt categories that appear on decks containing ${response.cardName}. Click Suggest to keep scanning public decks for another 20 seconds so those categories can populate.`;
 
     setFieldText('lookup-hint-text', hintText);
     toggleSuggestionPanel('lookup-hint', true);
@@ -145,11 +164,6 @@
       setFieldText('cache-info-count', response.cardDeckTotals.totalDeckCount.toString());
       setFieldText('cache-info-text', `The cached store currently contains ${response.cardDeckTotals.totalDeckCount} deck(s) featuring ${response.cardName}.`);
       toggleSuggestionPanel('cache-info', true);
-    }
-
-    if (response.additionalDecksFound > 0) {
-      setFieldText('additional-deck-count', response.additionalDecksFound.toString());
-      toggleSuggestionPanel('additional-decks', true);
     }
 
     if (response.suggestionSourceSummary) {
@@ -180,6 +194,22 @@
     toggleSuggestionPanel('no-suggestions', response.noSuggestionsFound);
     if (response.noSuggestionsFound) {
       setFieldText('no-suggestions-text', response.noSuggestionsMessage ?? `No category suggestions were found for ${response.cardName}.`);
+      scrollPanelIntoCenter('[data-api-panel="no-suggestions"]');
+      return;
+    }
+
+    if (response.hasInferredCategories) {
+      scrollPanelIntoCenter('#cached-store-matches');
+      return;
+    }
+
+    if (response.hasExactCategories) {
+      scrollPanelIntoCenter('[data-api-panel="exact"]');
+      return;
+    }
+
+    if (response.hasEdhrecCategories) {
+      scrollPanelIntoCenter('[data-api-panel="edhrec"]');
     }
   };
 
@@ -194,15 +224,11 @@
     setFieldText('commander-hint-text', hintText);
     toggleSuggestionPanel('commander-hint', true);
 
-    if (response.additionalDecksFound > 0) {
-      setFieldText('commander-additional-count', response.additionalDecksFound.toString());
-      toggleSuggestionPanel('commander-additional', true);
-    }
-
     toggleSuggestionPanel('commander-results', hasResults);
     toggleSuggestionPanel('commander-no-results', !hasResults);
     if (!hasResults) {
       setFieldText('commander-no-results-text', response.noResultsMessage ?? hintText);
+      scrollPanelIntoCenter('[data-api-panel="commander-no-results"]');
       return;
     }
 
@@ -224,6 +250,8 @@
       row.appendChild(createTextCell(summary.deckCount));
       body.appendChild(row);
     });
+
+    scrollPanelIntoCenter('#commander-results-anchor');
   };
 
   const readRequestData = (form: HTMLFormElement): Record<string, string> => {
@@ -249,7 +277,7 @@
       return;
     }
 
-    const payload = sessionStorage.getItem(key);
+    const payload = sessionStorage.getItem(`${formStateStoragePrefix}${key}`);
     if (!payload) {
       return;
     }
@@ -266,7 +294,7 @@
       });
     } catch (error) {
       console.warn('Unable to restore cached form state', error);
-      sessionStorage.removeItem(key);
+      sessionStorage.removeItem(`${formStateStoragePrefix}${key}`);
     }
   };
 
@@ -276,7 +304,51 @@
       return;
     }
 
-    sessionStorage.setItem(key, JSON.stringify(readRequestData(form)));
+    sessionStorage.setItem(`${formStateStoragePrefix}${key}`, JSON.stringify(readRequestData(form)));
+  };
+
+  const persistResultState = (form: SuggestionForm, envelope: SuggestionResponseEnvelope): void => {
+    const key = form.dataset.cacheKey;
+    if (!key) {
+      return;
+    }
+
+    sessionStorage.setItem(`${formResultStoragePrefix}${key}`, JSON.stringify(envelope));
+  };
+
+  const restoreResultState = (form: SuggestionForm): void => {
+    const key = form.dataset.cacheKey;
+    if (!key) {
+      return;
+    }
+
+    const payload = sessionStorage.getItem(`${formResultStoragePrefix}${key}`);
+    if (!payload) {
+      return;
+    }
+
+    try {
+      const envelope = JSON.parse(payload) as SuggestionResponseEnvelope;
+      if (envelope.type === 'card') {
+        handleCardResponse(form, envelope.payload);
+        return;
+      }
+
+      handleCommanderResponse(envelope.payload);
+    } catch (error) {
+      console.warn('Unable to restore cached suggestion result', error);
+      sessionStorage.removeItem(`${formResultStoragePrefix}${key}`);
+    }
+  };
+
+  const clearStoredState = (form: SuggestionForm): void => {
+    const key = form.dataset.cacheKey;
+    if (!key) {
+      return;
+    }
+
+    sessionStorage.removeItem(`${formStateStoragePrefix}${key}`);
+    sessionStorage.removeItem(`${formResultStoragePrefix}${key}`);
   };
 
   const submitSuggestion = async (form: SuggestionForm): Promise<void> => {
@@ -305,26 +377,42 @@
         }
 
         handleError(type === 'commander' ? 'commander-error' : 'suggest-error', payload?.message ?? payload?.Message ?? 'Unable to fetch suggestions.');
+        window.hideBusyIndicator?.();
         return;
       }
 
       if (type === 'card') {
-        handleCardResponse(form, await response.json() as CardSuggestionResponse);
+        const payload = await response.json() as CardSuggestionResponse;
+        persistResultState(form, { type: 'card', payload });
+        handleCardResponse(form, payload);
+        window.hideBusyIndicator?.();
         return;
       }
 
       if (type === 'commander') {
-        handleCommanderResponse(await response.json() as CommanderSuggestionResponse);
+        const payload = await response.json() as CommanderSuggestionResponse;
+        persistResultState(form, { type: 'commander', payload });
+        handleCommanderResponse(payload);
+        window.hideBusyIndicator?.();
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to fetch suggestions.';
       handleError(type === 'commander' ? 'commander-error' : 'suggest-error', message);
+      window.hideBusyIndicator?.();
     }
   };
 
   const attachSuggestionHandlers = (): void => {
     document.querySelectorAll<SuggestionForm>('form[data-suggestions-type]').forEach(form => {
-      restoreFormState(form);
+      const restoredFromTabs = sessionStorage.getItem(tabNavigationKey) === '1';
+      if (restoredFromTabs) {
+        restoreFormState(form);
+        restoreResultState(form);
+      } else {
+        clearStoredState(form);
+      }
+
+      sessionStorage.removeItem(tabNavigationKey);
       updateSuggestionInputModeUi();
 
       form.addEventListener('submit', event => {
@@ -347,10 +435,7 @@
       if (clearButton) {
         clearButton.addEventListener('click', () => {
           form.reset();
-          const key = form.dataset.cacheKey;
-          if (key) {
-            sessionStorage.removeItem(key);
-          }
+          clearStoredState(form);
 
           if (form.dataset.suggestionsType === 'card') {
             resetCardUi();
@@ -369,6 +454,13 @@
           form.requestSubmit();
         });
       }
+
+      document.querySelectorAll<HTMLAnchorElement>('.tab-bar .tab-link').forEach(link => {
+        link.addEventListener('click', () => {
+          persistFormState(form);
+          sessionStorage.setItem(tabNavigationKey, '1');
+        });
+      });
     });
   };
 

@@ -106,6 +106,24 @@ public sealed class SuggestionsApiControllerTests
         Assert.True(payload.CacheSweepPerformed);
     }
 
+    [Fact]
+    public async Task PostCardSuggestionAsync_ReturnsSiteSpecificMessage_WhenUpstreamRequestFails()
+    {
+        var controller = new SuggestionsApiController(
+            new ThrowingCategorySuggestionService(new HttpRequestException("EDHREC returned HTTP 503.", null, System.Net.HttpStatusCode.ServiceUnavailable)),
+            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            NullLogger<SuggestionsApiController>.Instance);
+
+        var response = await controller.PostCardSuggestionAsync(new CategorySuggestionRequest
+        {
+            CardName = "Sol Ring"
+        }, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
+        var message = badRequest.Value?.GetType().GetProperty("Message")?.GetValue(badRequest.Value) as string;
+        Assert.Equal("EDHREC returned HTTP 503. Try again shortly.", message);
+    }
+
     private sealed class FakeCategorySuggestionService : ICategorySuggestionService
     {
         private readonly CategorySuggestionResult _result;
@@ -130,5 +148,18 @@ public sealed class SuggestionsApiControllerTests
 
         public Task<CommanderCategoryResult> LookupAsync(string commanderName, CancellationToken cancellationToken = default)
             => Task.FromResult(_result);
+    }
+
+    private sealed class ThrowingCategorySuggestionService : ICategorySuggestionService
+    {
+        private readonly Exception _exception;
+
+        public ThrowingCategorySuggestionService(Exception exception)
+        {
+            _exception = exception;
+        }
+
+        public Task<CategorySuggestionResult> SuggestAsync(CategorySuggestionRequest request, CancellationToken cancellationToken = default)
+            => Task.FromException<CategorySuggestionResult>(_exception);
     }
 }

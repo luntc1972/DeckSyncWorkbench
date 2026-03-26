@@ -14,7 +14,7 @@ namespace DeckSyncWorkbench.Web.Controllers;
 
 public sealed class DeckController : Controller
 {
-    private static readonly TimeSpan SuggestionTimeout = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan SuggestionTimeout = TimeSpan.FromSeconds(20);
     private readonly IDeckSyncService _deckSyncService;
     private readonly ICardSearchService _cardSearchService;
     private readonly ICategorySuggestionService _categorySuggestionService;
@@ -167,7 +167,7 @@ public sealed class DeckController : Controller
             {
                 ActiveTab = DeckPageTab.SuggestCategories,
                 SuggestionRequest = request,
-                SuggestionErrorMessage = "Category lookup timed out after 60 seconds. Try again, or use a direct Archidekt deck with the card already categorized.",
+                SuggestionErrorMessage = "Category lookup timed out after 20 seconds. Try again, or use a direct Archidekt deck with the card already categorized.",
             });
         }
     }

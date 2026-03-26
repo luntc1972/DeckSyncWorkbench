@@ -36,31 +36,51 @@ public sealed class ArchidektDeckCacheSession
 
         await _repository.EnsureSchemaAsync(cancellationToken);
         var stopwatch = Stopwatch.StartNew();
-        var processed = 0;
+        var added = 0;
+        var updated = 0;
         var skipped = 0;
 
         while (stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested)
         {
+            var newestDeckIds = await _recentImporter.ImportRecentDeckIdsPageAsync(1, cancellationToken);
+            if (newestDeckIds.Count > 0)
+            {
+                await _repository.AddDeckIdsAsync(newestDeckIds, cancellationToken);
+            }
+
+            var crawlPage = await _repository.GetRecentDeckCrawlPageAsync(cancellationToken);
+            var deeperDeckIds = await _recentImporter.ImportRecentDeckIdsPageAsync(crawlPage, cancellationToken);
+            if (deeperDeckIds.Count > 0)
+            {
+                await _repository.AddDeckIdsAsync(deeperDeckIds, cancellationToken);
+                await _repository.SetRecentDeckCrawlPageAsync(crawlPage + 1, cancellationToken);
+            }
+            else
+            {
+                await _repository.SetRecentDeckCrawlPageAsync(2, cancellationToken);
+            }
+
             var deckIds = await _repository.GetNextUnprocessedDeckIdsAsync(queueBatchSize, cancellationToken);
             if (deckIds.Count == 0)
             {
-                var newIds = await _recentImporter.ImportRecentDeckIdsAsync(fetchBatchSize, cancellationToken);
-                if (newIds.Count == 0)
-                {
-                    break;
-                }
-
-                await _repository.AddDeckIdsAsync(newIds, cancellationToken);
-                continue;
+                break;
             }
 
             foreach (var deckId in deckIds)
             {
                 try
                 {
-                    await PersistDeckAsync(deckId, cancellationToken);
-                    processed++;
-                    _logger?.LogInformation("Cached categories from deck {DeckId}.", deckId);
+                    var cacheResult = await PersistDeckAsync(deckId, cancellationToken);
+                    if (cacheResult == DeckCacheWriteResult.Added)
+                    {
+                        added++;
+                    }
+                    else
+                    {
+                        updated++;
+                    }
+
+                    _logger?.LogInformation("Cached categories from deck {DeckId} ({Result}).", deckId, cacheResult);
                     await _repository.MarkDecksProcessedAsync(new[] { deckId }, cancellationToken: cancellationToken);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -82,7 +102,7 @@ public sealed class ArchidektDeckCacheSession
         }
 
         stopwatch.Stop();
-        return new ArchidektCacheRunResult(processed, skipped, stopwatch.Elapsed);
+        return new ArchidektCacheRunResult(added, updated, skipped, stopwatch.Elapsed);
     }
 
     /// <summary>
@@ -90,11 +110,23 @@ public sealed class ArchidektDeckCacheSession
     /// </summary>
     /// <param name="deckId">Deck ID to process.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task PersistDeckAsync(string deckId, CancellationToken cancellationToken)
+    private async Task<DeckCacheWriteResult> PersistDeckAsync(string deckId, CancellationToken cancellationToken)
     {
+        var source = $"archidekt_live:{deckId}";
+        var alreadyCached = await _repository.HasSourceDataAsync(source, cancellationToken);
         var entries = await _deckImporter.ImportAsync(deckId, cancellationToken);
-        await DeckCategoryCacheWriter.PersistDeckEntriesAsync(_repository, "archidekt_live", entries, cancellationToken);
+        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(_repository, source, entries, cancellationToken);
+        return alreadyCached ? DeckCacheWriteResult.Updated : DeckCacheWriteResult.Added;
     }
 }
 
-public sealed record ArchidektCacheRunResult(int DecksProcessed, int DecksSkipped, TimeSpan Duration);
+internal enum DeckCacheWriteResult
+{
+    Added,
+    Updated,
+}
+
+public sealed record ArchidektCacheRunResult(int DecksAdded, int DecksUpdated, int DecksSkipped, TimeSpan Duration)
+{
+    public int DecksProcessed => DecksAdded + DecksUpdated;
+}

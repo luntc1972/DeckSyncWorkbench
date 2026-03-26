@@ -6,6 +6,7 @@
     var archidektInputSource = Model.Request.ArchidektInputSource;
     var sourceName = direction == SyncDirection.DeckSyncWorkbench ? "Moxfield" : "Archidekt";
     var targetName = direction == SyncDirection.DeckSyncWorkbench ? "Archidekt" : "Moxfield";
+    var targetUsesArchidektVersion = direction == SyncDirection.DeckSyncWorkbench;
     ViewData["Title"] = "Deck Sync";
 }
 
@@ -170,10 +171,21 @@
             {
                 foreach (var conflict in Model.Diff.PrintingConflicts)
                 {
+                    var archidektCategorySuffix = string.IsNullOrWhiteSpace(conflict.ArchidektVersion.Category)
+                        ? string.Empty
+                        : $" [{conflict.ArchidektVersion.Category}]";
                     <tr>
                         <td>@conflict.CardName</td>
-                        <td>(@conflict.ArchidektVersion.SetCode) @conflict.ArchidektVersion.CollectorNumber [@conflict.ArchidektVersion.Category]</td>
-                        <td>(@conflict.MoxfieldVersion.SetCode) @conflict.MoxfieldVersion.CollectorNumber</td>
+                        @if (targetUsesArchidektVersion)
+                        {
+                            <td>(@conflict.ArchidektVersion.SetCode) @conflict.ArchidektVersion.CollectorNumber@archidektCategorySuffix</td>
+                            <td>(@conflict.MoxfieldVersion.SetCode) @conflict.MoxfieldVersion.CollectorNumber</td>
+                        }
+                        else
+                        {
+                            <td>(@conflict.MoxfieldVersion.SetCode) @conflict.MoxfieldVersion.CollectorNumber</td>
+                            <td>(@conflict.ArchidektVersion.SetCode) @conflict.ArchidektVersion.CollectorNumber@archidektCategorySuffix</td>
+                        }
                     </tr>
                 }
             }

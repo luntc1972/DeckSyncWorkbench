@@ -11,6 +11,7 @@ namespace DeckSyncWorkbench.Core.Knowledge;
 public sealed class CategoryKnowledgeRepository
 {
     private static readonly Func<string, SqliteConnection> ConnectionFactory = path => new SqliteConnection($"Data Source={path}");
+    private static readonly TimeSpan DeckRefreshCooldown = TimeSpan.FromDays(1);
     private readonly string _databasePath;
     private readonly string _directoryPath;
 
@@ -47,6 +48,15 @@ public sealed class CategoryKnowledgeRepository
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
+
+        var crawlStateCommand = connection.CreateCommand();
+        crawlStateCommand.CommandText = """
+            CREATE TABLE IF NOT EXISTS crawl_state (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            """;
+        await crawlStateCommand.ExecuteNonQueryAsync(cancellationToken);
 
         await EnsureDeckQueueColumnsAsync(connection, cancellationToken);
         await EnsureCategoryObservationSchemaAsync(connection, cancellationToken);
@@ -298,6 +308,38 @@ public sealed class CategoryKnowledgeRepository
     }
 
     /// <summary>
+    /// Removes all cached observation and deck total rows for the provided source.
+    /// </summary>
+    /// <param name="source">Source label to remove.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    public async Task DeleteSourceDataAsync(string source, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return;
+        }
+
+        await EnsureSchemaAsync(cancellationToken);
+        await using var connection = ConnectionFactory(_databasePath);
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        var deleteObservationsCommand = connection.CreateCommand();
+        deleteObservationsCommand.Transaction = (SqliteTransaction)transaction;
+        deleteObservationsCommand.CommandText = "DELETE FROM card_category_observations WHERE source = $source;";
+        deleteObservationsCommand.Parameters.AddWithValue("$source", source);
+        await deleteObservationsCommand.ExecuteNonQueryAsync(cancellationToken);
+
+        var deleteTotalsCommand = connection.CreateCommand();
+        deleteTotalsCommand.Transaction = (SqliteTransaction)transaction;
+        deleteTotalsCommand.CommandText = "DELETE FROM card_deck_totals WHERE source = $source;";
+        deleteTotalsCommand.Parameters.AddWithValue("$source", source);
+        await deleteTotalsCommand.ExecuteNonQueryAsync(cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Persists observed categories for a specific card occurrence.
     /// </summary>
     /// <param name="source">Data source label.</param>
@@ -455,6 +497,8 @@ public sealed class CategoryKnowledgeRepository
         var unique = deckIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .Distinct(StringComparer.Ordinal);
+        var insertedUtc = DateTimeOffset.UtcNow;
+        var requeueBeforeUtc = insertedUtc.Subtract(DeckRefreshCooldown);
 
         await EnsureSchemaAsync(cancellationToken);
         await using var connection = ConnectionFactory(_databasePath);
@@ -466,11 +510,25 @@ public sealed class CategoryKnowledgeRepository
             var command = connection.CreateCommand();
             command.Transaction = (SqliteTransaction)transaction;
             command.CommandText = """
-                INSERT OR IGNORE INTO deck_queue (deck_id, inserted_utc, processed)
-                VALUES ($deckId, $insertedUtc, 0);
+                INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc)
+                VALUES ($deckId, $insertedUtc, 0, 0, NULL)
+                ON CONFLICT(deck_id)
+                DO UPDATE SET
+                    inserted_utc = excluded.inserted_utc,
+                    processed = CASE
+                        WHEN deck_queue.processed = 0 AND deck_queue.skipped = 0 THEN 0
+                        WHEN deck_queue.last_checked_utc IS NULL OR deck_queue.last_checked_utc <= $requeueBeforeUtc THEN 0
+                        ELSE deck_queue.processed
+                    END,
+                    skipped = CASE
+                        WHEN deck_queue.processed = 0 AND deck_queue.skipped = 0 THEN 0
+                        WHEN deck_queue.last_checked_utc IS NULL OR deck_queue.last_checked_utc <= $requeueBeforeUtc THEN 0
+                        ELSE deck_queue.skipped
+                    END;
                 """;
             command.Parameters.AddWithValue("$deckId", deckId);
-            command.Parameters.AddWithValue("$insertedUtc", DateTimeOffset.UtcNow.ToString("O"));
+            command.Parameters.AddWithValue("$insertedUtc", insertedUtc.ToString("O"));
+            command.Parameters.AddWithValue("$requeueBeforeUtc", requeueBeforeUtc.ToString("O"));
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
 
@@ -543,6 +601,51 @@ public sealed class CategoryKnowledgeRepository
         command.CommandText = "SELECT COUNT(1) FROM deck_queue WHERE processed = 1;";
         var result = (long)(await command.ExecuteScalarAsync(cancellationToken) ?? 0L);
         return (int)result;
+    }
+
+    /// <summary>
+    /// Gets the next recent Archidekt search page to crawl after page one.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<int> GetRecentDeckCrawlPageAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken);
+        await using var connection = ConnectionFactory(_databasePath);
+        await connection.OpenAsync(cancellationToken);
+
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT value FROM crawl_state WHERE key = 'archidekt_recent_page';";
+        var result = await command.ExecuteScalarAsync(cancellationToken) as string;
+
+        if (int.TryParse(result, out var page) && page >= 2)
+        {
+            return page;
+        }
+
+        return 2;
+    }
+
+    /// <summary>
+    /// Persists the next recent Archidekt search page to crawl.
+    /// </summary>
+    /// <param name="page">Page number to store.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task SetRecentDeckCrawlPageAsync(int page, CancellationToken cancellationToken = default)
+    {
+        var normalizedPage = Math.Max(2, page);
+        await EnsureSchemaAsync(cancellationToken);
+        await using var connection = ConnectionFactory(_databasePath);
+        await connection.OpenAsync(cancellationToken);
+
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO crawl_state (key, value)
+            VALUES ('archidekt_recent_page', $page)
+            ON CONFLICT(key)
+            DO UPDATE SET value = excluded.value;
+            """;
+        command.Parameters.AddWithValue("$page", normalizedPage.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     /// <summary>

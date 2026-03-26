@@ -81,12 +81,12 @@ public sealed class SuggestionsApiController : ControllerBase
         }
         catch (OperationCanceledException)
         {
-            return StatusCode(408, new { Message = "Category lookup timed out after 60 seconds. Try again, or use a direct Archidekt deck with the card already categorized." });
+            return StatusCode(408, new { Message = "Category lookup timed out after 20 seconds. Try again, or use a direct Archidekt deck with the card already categorized." });
         }
         catch (Exception exception) when (exception is DeckParseException or InvalidOperationException or HttpRequestException)
         {
             _logger.LogWarning(exception, "Card suggestion lookup failed.");
-            return BadRequest(new { Message = exception.Message });
+            return BadRequest(new { Message = UpstreamErrorMessageBuilder.BuildSuggestionMessage(exception) });
         }
     }
 
@@ -135,12 +135,12 @@ public sealed class SuggestionsApiController : ControllerBase
         }
         catch (OperationCanceledException)
         {
-            return StatusCode(408, new { Message = "Category lookup timed out. Try again in a moment." });
+            return StatusCode(408, new { Message = "Category lookup timed out after 20 seconds. Try again in a moment." });
         }
         catch (Exception exception)
         {
             _logger.LogError(exception, "Failed to load commander categories for {Commander}.", request.CommanderName);
-            return BadRequest(new { Message = "Archidekt could not be reached right now. Try again shortly." });
+            return BadRequest(new { Message = UpstreamErrorMessageBuilder.BuildCommanderMessage(exception) });
         }
     }
 

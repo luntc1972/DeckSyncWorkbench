@@ -7,6 +7,22 @@ namespace DeckSyncWorkbench.Core.Knowledge;
 internal static class DeckCategoryCacheWriter
 {
     /// <summary>
+    /// Replaces the cached category rows for a single deck source.
+    /// </summary>
+    /// <param name="repository">Repository the categories should be persisted to.</param>
+    /// <param name="source">Source label for the deck.</param>
+    /// <param name="entries">Deck entries to write.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static async Task ReplaceDeckEntriesAsync(CategoryKnowledgeRepository repository, string source, IEnumerable<DeckEntry> entries, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentException.ThrowIfNullOrEmpty(source);
+
+        await repository.DeleteSourceDataAsync(source, cancellationToken);
+        await PersistDeckEntriesAsync(repository, source, entries, cancellationToken);
+    }
+
+    /// <summary>
     /// Persists the categories found in a single deck to the repository.
     /// </summary>
     /// <param name="repository">Repository the categories should be persisted to.</param>

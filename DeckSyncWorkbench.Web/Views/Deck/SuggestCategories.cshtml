@@ -32,7 +32,7 @@
     <span data-api-field="card-search-error-text"></span>
 </div>
 
-<form method="post" action="/suggest-categories" class="deck-form" data-cache-key="suggest-categories" data-validate-lookup data-busy-title="Finding Categories" data-busy-message="Checking the local store, recent Archidekt decks, and fallback sources." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Querying fallback sources" data-busy-duration="30000" data-busy-hold-final-step="true" data-suggestions-type="card" data-suggestion-api="/api/suggestions/card">
+<form method="post" action="/suggest-categories" class="deck-form" data-cache-key="suggest-categories" data-validate-lookup data-busy-title="Finding Categories" data-busy-message="Checking the local store, recent Archidekt decks, and fallback sources." data-busy-progress="Refreshing cached store|Scanning recent Archidekt decks|Querying fallback sources" data-busy-hold-final-step="true" data-suggestions-type="card" data-suggestion-api="/api/suggestions/card">
     @Html.AntiForgeryToken()
     <div class="toolbar">
         <label class="mode-picker">
@@ -55,7 +55,7 @@
         <span>Cached data is the default. Switch to a reference deck only when you want exact deck-local categories from a specific Archidekt list.</span>
     </div>
     <div class="mode-note">
-        <span>Click Suggest to keep scanning Archidekt decks for another 30 seconds and expand the cached category store.</span>
+        <span>Click Suggest to keep scanning Archidekt decks for another 20 seconds and expand the cached category store.</span>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(Model.SuggestionRequest.CardName) && Model.CardDeckTotals.TotalDeckCount > 0)
@@ -98,7 +98,7 @@
         }
         else if (cardSpecified)
         {
-            <text>The cached store tracks Archidekt categories that appear on decks containing @Model.SuggestionRequest.CardName. Click Suggest to keep scanning public decks for another 30 seconds so those categories can populate.</text>
+            <text>The cached store tracks Archidekt categories that appear on decks containing @Model.SuggestionRequest.CardName. Click Suggest to keep scanning public decks for another 20 seconds so those categories can populate.</text>
         }
         else
         {
@@ -109,10 +109,6 @@
 
 <div class="info-banner @(Model.CardDeckTotals.TotalDeckCount > 0 && cardSpecified ? string.Empty : "hidden")" data-api-panel="cache-info">
     <p data-api-field="cache-info-text">The cached store currently contains <strong data-api-field="cache-info-count">@Model.CardDeckTotals.TotalDeckCount</strong> deck(s) featuring @Model.SuggestionRequest.CardName.</p>
-</div>
-
-<div class="info-banner @(Model.AdditionalDecksFound > 0 ? string.Empty : "hidden")" data-api-panel="additional-decks">
-    <p><strong data-api-field="additional-deck-count">@Model.AdditionalDecksFound</strong> additional Archidekt deck(s) were added to the cache during this lookup.</p>
 </div>
 
 <section class="result-panel retry-panel @(Model.NoSuggestionsFound ? string.Empty : "hidden")" data-api-panel="no-suggestions">
@@ -142,7 +138,7 @@
         <textarea id="exact-suggested-categories-output" data-api-field="exact-text" readonly spellcheck="false">@Model.ExactSuggestedCategoriesText</textarea>
     </section>
 
-    <section class="result-panel inferred-panel @(hasInferred ? string.Empty : "hidden")" data-api-panel="inferred">
+    <section class="result-panel inferred-panel @(hasInferred ? string.Empty : "hidden")" data-api-panel="inferred" id="cached-store-matches">
         <div class="panel-heading">
             <div>
                 <h2>Cached Store Matches</h2>

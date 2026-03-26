@@ -59,6 +59,27 @@ public sealed class DeckSyncApiControllerTests
         Assert.Single(payload.PrintingConflicts);
     }
 
+    [Fact]
+    public async Task PostDiffAsync_ReturnsSiteSpecificMessage_WhenUpstreamRequestFails()
+    {
+        var controller = new DeckSyncApiController(
+            new ThrowingDeckSyncService(new HttpRequestException("Archidekt returned HTTP 503.", null, System.Net.HttpStatusCode.ServiceUnavailable)),
+            NullLogger<DeckSyncApiController>.Instance);
+
+        var response = await controller.PostDiffAsync(new DeckSyncApiRequest
+        {
+            Direction = SyncDirection.DeckSyncWorkbench,
+            MoxfieldInputSource = DeckInputSource.PasteText,
+            MoxfieldText = "1 Sol Ring",
+            ArchidektInputSource = DeckInputSource.PasteText,
+            ArchidektText = "1 Arcane Signet"
+        }, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
+        var message = badRequest.Value?.GetType().GetProperty("Message")?.GetValue(badRequest.Value) as string;
+        Assert.Equal("Archidekt returned HTTP 503. Try again shortly.", message);
+    }
+
     private sealed class FakeDeckSyncService : IDeckSyncService
     {
         public Task<DeckSyncResult> CompareDecksAsync(DeckDiffRequest request, CancellationToken cancellationToken)
@@ -129,5 +150,18 @@ public sealed class DeckSyncApiControllerTests
 
             return Task.FromResult(new DeckSyncResult(diff, loadedDecks));
         }
+    }
+
+    private sealed class ThrowingDeckSyncService : IDeckSyncService
+    {
+        private readonly Exception _exception;
+
+        public ThrowingDeckSyncService(Exception exception)
+        {
+            _exception = exception;
+        }
+
+        public Task<DeckSyncResult> CompareDecksAsync(DeckDiffRequest request, CancellationToken cancellationToken)
+            => Task.FromException<DeckSyncResult>(_exception);
     }
 }

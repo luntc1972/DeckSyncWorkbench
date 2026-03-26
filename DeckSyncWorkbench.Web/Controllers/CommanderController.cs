@@ -9,6 +9,7 @@ namespace DeckSyncWorkbench.Web.Controllers;
 
 public sealed class CommanderController : Controller
 {
+    private static readonly TimeSpan LookupTimeout = TimeSpan.FromSeconds(20);
     private readonly ICommanderSearchService _searchService;
     private readonly ICommanderCategoryService _commanderCategoryService;
     private readonly ILogger<CommanderController> _logger;
@@ -49,9 +50,11 @@ public sealed class CommanderController : Controller
         }
 
         var trimmed = request.CommanderName.Trim();
-        var cancellationToken = HttpContext?.RequestAborted ?? CancellationToken.None;
         try
         {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(HttpContext?.RequestAborted ?? CancellationToken.None);
+            timeoutCts.CancelAfter(LookupTimeout);
+            var cancellationToken = timeoutCts.Token;
             var result = await _commanderCategoryService.LookupAsync(trimmed, cancellationToken);
             var viewModel = new CommanderCategoryViewModel
             {
@@ -71,7 +74,7 @@ public sealed class CommanderController : Controller
             return View("CommanderCategories", new CommanderCategoryViewModel
             {
                 Request = new CommanderCategoryRequest { CommanderName = trimmed },
-                ErrorMessage = "Category lookup timed out. Try again in a moment."
+                ErrorMessage = "Category lookup timed out after 20 seconds. Try again in a moment."
             });
         }
         catch (Exception exception)

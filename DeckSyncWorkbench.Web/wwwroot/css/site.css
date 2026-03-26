@@ -255,6 +255,35 @@ body {
   letter-spacing: 0.02em;
 }
 
+.back-to-top-button {
+  position: fixed;
+  right: 2.25rem;
+  bottom: 2.25rem;
+  z-index: 900;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #1e293b;
+  color: #fff;
+  font-size: 0.95rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
+  cursor: pointer;
+}
+
+.back-to-top-button:hover {
+  background: #0f172a;
+}
+
+.back-to-top-button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
 .tab-bar {
   display: flex;
   gap: 0.75rem;

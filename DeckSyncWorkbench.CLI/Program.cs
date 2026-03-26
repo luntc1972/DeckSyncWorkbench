@@ -57,7 +57,7 @@ var archidektCacheSecondsOption = new Option<int>("--seconds", () => 20);
 var archidektCacheMinutesOption = new Option<int>("--minutes", () => 0);
 var categoryFindCommand = new Command("category-find", "Keep running the cache job until a card is observed in the knowledge DB.");
 var categoryFindCardOption = new Option<string>("--card") { IsRequired = true };
-var categoryFindSecondsOption = new Option<int>("--cache-seconds", () => 30);
+var categoryFindSecondsOption = new Option<int>("--cache-seconds", () => 20);
 var categoryFindTimeoutOption = new Option<int>("--timeout", () => 600);
 
 compareCommand.AddOption(moxfieldOption);
@@ -477,8 +477,16 @@ static async Task<int> RunArchidektCacheAsync(int seconds, Serilog.ILogger? logg
 
         var result = await session.RunAsync(duration, queueBatchSize: 5, fetchBatchSize: 10);
 
-        logger.Information("Cache run stopped after {ElapsedSeconds:F1}s. Decks processed: {DecksProcessed}; skipped: {DecksSkipped}.", result.Duration.TotalSeconds, result.DecksProcessed, result.DecksSkipped);
-        Console.WriteLine($"Cache run stopped after {result.Duration.TotalSeconds:F1} seconds. Decks cached: {result.DecksProcessed}; skipped: {result.DecksSkipped}.");
+        logger.Information(
+            "Cache run stopped after {ElapsedSeconds:F1}s. New decks: {DecksAdded}; updated decks: {DecksUpdated}; skipped: {DecksSkipped}.",
+            result.Duration.TotalSeconds,
+            result.DecksAdded,
+            result.DecksUpdated,
+            result.DecksSkipped);
+        Console.WriteLine($"Cache run stopped after {result.Duration.TotalSeconds:F1} seconds.");
+        Console.WriteLine($"New decks cached: {result.DecksAdded}");
+        Console.WriteLine($"Existing decks updated: {result.DecksUpdated}");
+        Console.WriteLine($"Decks skipped: {result.DecksSkipped}");
         return 0;
     }
     catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or HttpRequestException)

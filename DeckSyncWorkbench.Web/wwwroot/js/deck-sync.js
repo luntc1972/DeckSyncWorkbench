@@ -264,30 +264,38 @@ const setDeckSyncResultLabels = (sourceSystem, targetSystem) => {
         node.textContent = targetSystem;
     });
 };
-const renderDeckSyncConflicts = (printingConflicts) => {
+const buildConflictCellText = (system, conflict) => {
+    var _a, _b;
+    if (system === 'Archidekt') {
+        const categorySuffix = conflict.archidektCategory ? ` [${conflict.archidektCategory}]` : '';
+        return `(${conflict.archidektSetCode}) ${conflict.archidektCollectorNumber}${categorySuffix}`;
+    }
+    const setCode = (_a = conflict.moxfieldSetCode) !== null && _a !== void 0 ? _a : '';
+    const collectorNumber = (_b = conflict.moxfieldCollectorNumber) !== null && _b !== void 0 ? _b : '';
+    return `(${setCode}) ${collectorNumber}`.trim();
+};
+const renderDeckSyncConflicts = (printingConflicts, sourceSystem, targetSystem) => {
     const panel = document.getElementById('deck-sync-conflicts-js');
     const body = document.getElementById('deck-sync-conflicts-body');
     if (!panel || !body) {
         return;
     }
-    body.innerHTML = '';
+    body.replaceChildren();
     if (printingConflicts.length === 0) {
         panel.classList.add('hidden');
         return;
     }
     printingConflicts.forEach(conflict => {
-        var _a, _b;
         const row = document.createElement('tr');
-        const targetCategory = conflict.archidektCategory ? ` [${conflict.archidektCategory}]` : '';
         const cardCell = document.createElement('td');
         cardCell.textContent = conflict.cardName;
-        const archidektCell = document.createElement('td');
-        archidektCell.textContent = `(${conflict.archidektSetCode}) ${conflict.archidektCollectorNumber}${targetCategory}`;
-        const moxfieldCell = document.createElement('td');
-        moxfieldCell.textContent = `(${(_a = conflict.moxfieldSetCode) !== null && _a !== void 0 ? _a : ''}) ${(_b = conflict.moxfieldCollectorNumber) !== null && _b !== void 0 ? _b : ''}`;
+        const targetCell = document.createElement('td');
+        targetCell.textContent = buildConflictCellText(targetSystem, conflict);
+        const sourceCell = document.createElement('td');
+        sourceCell.textContent = buildConflictCellText(sourceSystem, conflict);
         row.appendChild(cardCell);
-        row.appendChild(archidektCell);
-        row.appendChild(moxfieldCell);
+        row.appendChild(targetCell);
+        row.appendChild(sourceCell);
         body.appendChild(row);
     });
     panel.classList.remove('hidden');
@@ -316,7 +324,7 @@ const renderDeckSyncResponse = (response) => {
         instructions.textContent = response.instructionsText;
     }
     setDeckSyncResultLabels(response.sourceSystem, response.targetSystem);
-    renderDeckSyncConflicts(response.printingConflicts);
+    renderDeckSyncConflicts(response.printingConflicts, response.sourceSystem, response.targetSystem);
     results === null || results === void 0 ? void 0 : results.classList.remove('hidden');
     window.setTimeout(scrollResults, 100);
 };
@@ -412,20 +420,16 @@ const attachDeckSyncPersistence = () => {
         });
     });
 };
-const initializeScrollHandler = () => {
-    const deckForm = document.querySelector('form.deck-form');
-    if (deckForm) {
-        deckForm.addEventListener('submit', () => {
-            window.setTimeout(scrollResults, 2500);
-        });
-    }
-};
 window.setAllPrintingChoices = setAllPrintingChoices;
 window.hideBusyIndicator = hideBusyIndicator;
+let deckSyncBootstrapped = false;
 const bootstrapDeckSync = () => {
+    if (deckSyncBootstrapped) {
+        return;
+    }
+    deckSyncBootstrapped = true;
     initializeSyncInputModeUi();
     registerBusyIndicator();
-    initializeScrollHandler();
     attachDeckSyncPersistence();
 };
 document.addEventListener('DOMContentLoaded', bootstrapDeckSync);

@@ -62,7 +62,7 @@ curl -X POST http://localhost:5000/api/suggestions/commander \
 ## CLI usage examples
 - `dotnet run --project DeckSyncWorkbench.CLI -- compare --moxfield my.deck --archidekt other.deck --out diff.txt`
 - `dotnet run --project DeckSyncWorkbench.CLI -- archidekt-cache --minutes 10` (harvest for ten minutes)
-- `dotnet run --project DeckSyncWorkbench.CLI -- category-find --card "Guardian Project" --cache-seconds 30`
+- `dotnet run --project DeckSyncWorkbench.CLI -- category-find --card "Guardian Project" --cache-seconds 20`
 
 
 ## Architecture
