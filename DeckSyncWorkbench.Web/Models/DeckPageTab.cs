@@ -6,4 +6,5 @@ public enum DeckPageTab
     SuggestCategories = 1,
     CommanderCategories = 2,
     CardLookup = 3,
+    MechanicLookup = 4,
 }

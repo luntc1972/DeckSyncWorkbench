@@ -44,6 +44,7 @@ public sealed class DeckControllerTests
             new FakeDeckSyncService(),
             new ThrowingCardSearchService(new HttpRequestException("Scryfall search returned HTTP 503.", null, HttpStatusCode.ServiceUnavailable)),
             new FakeCardLookupService(),
+            new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             NullLogger<DeckController>.Instance)
         {
@@ -69,6 +70,7 @@ public sealed class DeckControllerTests
             new FakeDeckSyncService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new FakeCardLookupService(),
+            new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             NullLogger<DeckController>.Instance)
         {
@@ -92,6 +94,7 @@ public sealed class DeckControllerTests
             new FakeDeckSyncService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new ThrowingCardLookupService(new HttpRequestException("Scryfall search returned HTTP 503.", null, HttpStatusCode.ServiceUnavailable)),
+            new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             NullLogger<DeckController>.Instance)
         {
@@ -118,6 +121,7 @@ public sealed class DeckControllerTests
             new FakeDeckSyncService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new ThrowingCardLookupService(new InvalidOperationException("Please verify 100 non-empty lines or fewer per submission.")),
+            new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             NullLogger<DeckController>.Instance)
         {
@@ -144,6 +148,7 @@ public sealed class DeckControllerTests
             new FakeDeckSyncService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new SuccessfulCardLookupService(),
+            new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             NullLogger<DeckController>.Instance)
         {
@@ -163,6 +168,59 @@ public sealed class DeckControllerTests
         var text = System.Text.Encoding.UTF8.GetString(fileResult.FileContents);
         Assert.Contains("Verified Cards", text);
         Assert.Contains("Sol Ring", text);
+    }
+
+    [Fact]
+    public async Task MechanicLookup_ReturnsValidationError_WhenMechanicMissing()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new FakeCardLookupService(),
+            new FakeMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.MechanicLookup(new MechanicLookupRequest());
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<MechanicLookupViewModel>(view.Model);
+        Assert.Equal("A mechanic name is required.", model.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task MechanicLookup_ReturnsRules_WhenMechanicFound()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new FakeCardLookupService(),
+            new SuccessfulMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.MechanicLookup(new MechanicLookupRequest
+        {
+            MechanicName = "Prowess"
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<MechanicLookupViewModel>(view.Model);
+        Assert.Equal("Prowess", model.MechanicName);
+        Assert.Equal("702.108", model.RuleReference);
+        Assert.Contains("Prowess", model.RulesText);
     }
 
     private sealed class FakeDeckSyncService : IDeckSyncService
@@ -213,5 +271,26 @@ public sealed class DeckControllerTests
     {
         public Task<CategorySuggestionResult> SuggestAsync(CategorySuggestionRequest request, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
+    }
+
+    private sealed class FakeMechanicLookupService : IMechanicLookupService
+    {
+        public Task<MechanicLookupResult> LookupAsync(string mechanicName, CancellationToken cancellationToken = default)
+            => Task.FromResult(MechanicLookupResult.NotFound(mechanicName, "https://magic.wizards.com/en/rules", null));
+    }
+
+    private sealed class SuccessfulMechanicLookupService : IMechanicLookupService
+    {
+        public Task<MechanicLookupResult> LookupAsync(string mechanicName, CancellationToken cancellationToken = default)
+            => Task.FromResult(new MechanicLookupResult(
+                mechanicName,
+                true,
+                "Prowess",
+                "702.108",
+                "Exact rules section",
+                "702.108. Prowess",
+                "A keyword ability that causes a creature to get +1/+1 whenever its controller casts a noncreature spell.",
+                "https://magic.wizards.com/en/rules",
+                "https://media.wizards.com/2026/downloads/MagicCompRules%2020260227.txt"));
     }
 }

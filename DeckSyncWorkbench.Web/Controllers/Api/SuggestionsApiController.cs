@@ -16,15 +16,18 @@ public sealed class SuggestionsApiController : ControllerBase
 {
     private readonly ICategorySuggestionService _categorySuggestionService;
     private readonly ICommanderCategoryService _commanderCategoryService;
+    private readonly IMechanicLookupService _mechanicLookupService;
     private readonly ILogger<SuggestionsApiController> _logger;
 
     public SuggestionsApiController(
         ICategorySuggestionService categorySuggestionService,
         ICommanderCategoryService commanderCategoryService,
+        IMechanicLookupService mechanicLookupService,
         ILogger<SuggestionsApiController> logger)
     {
         _categorySuggestionService = categorySuggestionService;
         _commanderCategoryService = commanderCategoryService;
+        _mechanicLookupService = mechanicLookupService;
         _logger = logger;
     }
 
@@ -141,6 +144,52 @@ public sealed class SuggestionsApiController : ControllerBase
         {
             _logger.LogError(exception, "Failed to load commander categories for {Commander}.", request.CommanderName);
             return BadRequest(new { Message = UpstreamErrorMessageBuilder.BuildCommanderMessage(exception) });
+        }
+    }
+
+    /// <summary>
+    /// Returns official Wizards of the Coast rules text for a mechanic or related rules term.
+    /// </summary>
+    /// <param name="request">Mechanic lookup request.</param>
+    /// <param name="cancellationToken">Cancellation token for the lookup.</param>
+    /// <returns>A structured mechanic rules response for the UI and external callers.</returns>
+    [HttpPost("mechanic")]
+    [ProducesResponseType(typeof(MechanicLookupApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<MechanicLookupApiResponse>> PostMechanicLookupAsync([FromBody] MechanicLookupRequest request, CancellationToken cancellationToken)
+    {
+        if (request is null || string.IsNullOrWhiteSpace(request.MechanicName))
+        {
+            return BadRequest(new { Message = "Mechanic name is required." });
+        }
+
+        try
+        {
+            var result = await _mechanicLookupService.LookupAsync(request.MechanicName.Trim(), cancellationToken);
+            return Ok(new MechanicLookupApiResponse
+            {
+                Query = result.Query,
+                Found = result.Found,
+                MechanicName = result.MechanicName,
+                RuleReference = result.RuleReference,
+                MatchType = result.MatchType,
+                RulesText = result.RulesText,
+                SummaryText = result.SummaryText,
+                RulesPageUrl = result.RulesPageUrl,
+                RulesTextUrl = result.RulesTextUrl,
+                NotFoundMessage = result.Found
+                    ? null
+                    : $"No official rules entry was found for {request.MechanicName.Trim()} in the current Wizards Comprehensive Rules text.",
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { Message = exception.Message });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "Mechanic lookup failed.");
+            return BadRequest(new { Message = "Wizards of the Coast rules lookup is currently unavailable. Try again shortly." });
         }
     }
 

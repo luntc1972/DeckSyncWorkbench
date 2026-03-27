@@ -55,6 +55,7 @@ public class Program
         builder.Services.AddSingleton<ICommanderSearchService, ScryfallCommanderSearchService>();
         builder.Services.AddSingleton<ICardSearchService, ScryfallCardSearchService>();
         builder.Services.AddSingleton<ICardLookupService, ScryfallCardLookupService>();
+        builder.Services.AddSingleton<IMechanicLookupService, WotcMechanicLookupService>();
         builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
         builder.Services.AddScoped<ICategorySuggestionService, CategorySuggestionService>();
         builder.Services.AddScoped<ICommanderCategoryService, CommanderCategoryService>();

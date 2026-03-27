@@ -25,7 +25,7 @@
     @Model.ErrorMessage
 </div>
 
-<form method="post" action="/card-lookup" class="deck-form" data-busy-title="Looking up cards" data-busy-message="Checking submitted card names against Scryfall." data-busy-progress="Preparing card lines|Checking cards with Scryfall|Rendering results" data-busy-hold-final-step="true">
+<form method="post" action="/card-lookup" class="deck-form" data-busy-title="Looking up cards" data-busy-message="Checking submitted card names against Scryfall." data-busy-hold-final-step="true">
     @Html.AntiForgeryToken()
     <div class="field-grid">
         <label class="field">

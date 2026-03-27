@@ -18,6 +18,7 @@ public sealed class DeckController : Controller
     private readonly IDeckSyncService _deckSyncService;
     private readonly ICardSearchService _cardSearchService;
     private readonly ICardLookupService _cardLookupService;
+    private readonly IMechanicLookupService _mechanicLookupService;
     private readonly ICategorySuggestionService _categorySuggestionService;
     private readonly ILogger<DeckController> _logger;
 
@@ -25,12 +26,14 @@ public sealed class DeckController : Controller
         IDeckSyncService deckSyncService,
         ICardSearchService cardSearchService,
         ICardLookupService cardLookupService,
+        IMechanicLookupService mechanicLookupService,
         ICategorySuggestionService categorySuggestionService,
         ILogger<DeckController> logger)
     {
         _deckSyncService = deckSyncService;
         _cardSearchService = cardSearchService;
         _cardLookupService = cardLookupService;
+        _mechanicLookupService = mechanicLookupService;
         _categorySuggestionService = categorySuggestionService;
         _logger = logger;
     }
@@ -69,6 +72,18 @@ public sealed class DeckController : Controller
         return View("CardLookup", new CardLookupViewModel
         {
             ActiveTab = DeckPageTab.CardLookup,
+        });
+    }
+
+    [HttpGet("/mechanic-lookup")]
+    /// <summary>
+    /// Renders the mechanic rules lookup page.
+    /// </summary>
+    public IActionResult MechanicLookup()
+    {
+        return View("MechanicLookup", new MechanicLookupViewModel
+        {
+            ActiveTab = DeckPageTab.MechanicLookup,
         });
     }
     [HttpGet("/suggest-categories/card-search")]
@@ -124,6 +139,65 @@ public sealed class DeckController : Controller
     public async Task<IActionResult> DownloadCardLookup(CardLookupRequest request)
     {
         return await RenderCardLookupAsync(request, downloadFile: true);
+    }
+
+    [HttpPost("/mechanic-lookup")]
+    [ValidateAntiForgeryToken]
+    /// <summary>
+    /// Looks up official rules text for a mechanic or rules term.
+    /// </summary>
+    /// <param name="request">Mechanic lookup request.</param>
+    public async Task<IActionResult> MechanicLookup(MechanicLookupRequest request)
+    {
+        request ??= new MechanicLookupRequest();
+        if (string.IsNullOrWhiteSpace(request.MechanicName))
+        {
+            return View("MechanicLookup", new MechanicLookupViewModel
+            {
+                ActiveTab = DeckPageTab.MechanicLookup,
+                Request = request,
+                ErrorMessage = "A mechanic name is required.",
+            });
+        }
+
+        try
+        {
+            var result = await _mechanicLookupService.LookupAsync(request.MechanicName, HttpContext.RequestAborted);
+            return View("MechanicLookup", new MechanicLookupViewModel
+            {
+                ActiveTab = DeckPageTab.MechanicLookup,
+                Request = request,
+                MechanicName = result.MechanicName,
+                RuleReference = result.RuleReference,
+                MatchType = result.MatchType,
+                RulesText = result.RulesText,
+                SummaryText = result.SummaryText,
+                RulesTextUrl = result.RulesTextUrl,
+                NotFoundMessage = result.Found
+                    ? null
+                    : $"No official rules entry was found for {request.MechanicName.Trim()} in the current Wizards Comprehensive Rules text.",
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "Mechanic lookup request failed validation.");
+            return View("MechanicLookup", new MechanicLookupViewModel
+            {
+                ActiveTab = DeckPageTab.MechanicLookup,
+                Request = request,
+                ErrorMessage = exception.Message,
+            });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "Mechanic lookup failed.");
+            return View("MechanicLookup", new MechanicLookupViewModel
+            {
+                ActiveTab = DeckPageTab.MechanicLookup,
+                Request = request,
+                ErrorMessage = "Wizards of the Coast rules lookup is currently unavailable. Try again shortly.",
+            });
+        }
     }
 
     /// <summary>

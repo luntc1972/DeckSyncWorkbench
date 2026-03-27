@@ -68,3 +68,59 @@ public sealed class CommanderCategorySummaryDto
     public int Count { get; init; }
     public int DeckCount { get; init; }
 }
+
+/// <summary>
+/// Response payload returned from the mechanic rules lookup API.
+/// </summary>
+public sealed class MechanicLookupApiResponse
+{
+    /// <summary>
+    /// Mechanic name that was queried.
+    /// </summary>
+    public string Query { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Whether a matching mechanic entry was found.
+    /// </summary>
+    public bool Found { get; init; }
+
+    /// <summary>
+    /// Matched mechanic or rules term.
+    /// </summary>
+    public string? MechanicName { get; init; }
+
+    /// <summary>
+    /// Primary rule reference for the match.
+    /// </summary>
+    public string? RuleReference { get; init; }
+
+    /// <summary>
+    /// Explains how the mechanic was matched.
+    /// </summary>
+    public string? MatchType { get; init; }
+
+    /// <summary>
+    /// Official rules text returned from Wizards.
+    /// </summary>
+    public string? RulesText { get; init; }
+
+    /// <summary>
+    /// Optional summary text when available.
+    /// </summary>
+    public string? SummaryText { get; init; }
+
+    /// <summary>
+    /// Official Wizards rules page URL.
+    /// </summary>
+    public string RulesPageUrl { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Direct URL to the current Comprehensive Rules text file.
+    /// </summary>
+    public string? RulesTextUrl { get; init; }
+
+    /// <summary>
+    /// User-facing not found message.
+    /// </summary>
+    public string? NotFoundMessage { get; init; }
+}

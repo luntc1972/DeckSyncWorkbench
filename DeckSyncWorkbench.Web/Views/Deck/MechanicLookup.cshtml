@@ -1,0 +1,77 @@
+@model DeckSyncWorkbench.Web.Models.MechanicLookupViewModel
+@{
+    var hasResult = !string.IsNullOrWhiteSpace(Model.RulesText);
+    ViewData["Title"] = "Mechanic Rules";
+}
+
+<section class="hero">
+    <h1>Mechanic Rules</h1>
+    <p class="lede">Look up an MTG mechanic or rules term and return the current official rules text from Wizards of the Coast.</p>
+</section>
+
+@await Html.PartialAsync("_BusyIndicator")
+@await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
+
+<div class="info-banner">
+    This uses the current Wizards Comprehensive Rules text file, so returned wording stays aligned with the official rules reference.
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="error-banner" role="alert">@Model.ErrorMessage</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.NotFoundMessage))
+{
+    <div class="warning-banner" role="status">@Model.NotFoundMessage</div>
+}
+
+<form method="post" action="/mechanic-lookup" class="deck-form" data-cache-key="mechanic-lookup" data-busy-title="Looking up mechanic rules" data-busy-message="Fetching the current official rules text from Wizards of the Coast.">
+    @Html.AntiForgeryToken()
+    <div class="field-grid">
+        <label class="field">
+            <span>Mechanic or rules term</span>
+            <input type="text" name="MechanicName" value="@Model.Request.MechanicName" placeholder="Prowess" />
+        </label>
+    </div>
+    <div class="toolbar">
+        <button type="submit" class="run-button">Lookup Rules</button>
+        <button type="button" class="clear-cache-button" data-clear-cache>Clear</button>
+    </div>
+</form>
+
+@if (hasResult)
+{
+    <section class="stack">
+        <section class="result-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>@Model.MechanicName</h2>
+                    <p>@(Model.MatchType ?? "Official rules match")@(string.IsNullOrWhiteSpace(Model.RuleReference) ? string.Empty : $" · {Model.RuleReference}")</p>
+                </div>
+                <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('mechanic-rules-output').value)">Copy</button>
+            </div>
+            <textarea id="mechanic-rules-output" readonly spellcheck="false">@Model.RulesText</textarea>
+        </section>
+
+        @if (!string.IsNullOrWhiteSpace(Model.SummaryText))
+        {
+            <section class="result-panel">
+                <h2>Summary</h2>
+                <pre spellcheck="false">@Model.SummaryText</pre>
+            </section>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.RulesTextUrl))
+        {
+            <section class="result-panel">
+                <h2>Source</h2>
+                <p>Official rules text: <a href="@Model.RulesTextUrl" target="_blank" rel="noreferrer">@Model.RulesTextUrl</a></p>
+            </section>
+        }
+    </section>
+}
+
+@section Scripts {
+    <script src="~/js/deck-sync.js" asp-append-version="true"></script>
+}
