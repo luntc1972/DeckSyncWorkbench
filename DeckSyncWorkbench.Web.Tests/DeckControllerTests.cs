@@ -46,6 +46,8 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -72,6 +74,8 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -96,6 +100,8 @@ public sealed class DeckControllerTests
             new ThrowingCardLookupService(new HttpRequestException("Scryfall search returned HTTP 503.", null, HttpStatusCode.ServiceUnavailable)),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -123,6 +129,8 @@ public sealed class DeckControllerTests
             new ThrowingCardLookupService(new InvalidOperationException("Please verify 100 non-empty lines or fewer per submission.")),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -150,6 +158,8 @@ public sealed class DeckControllerTests
             new SuccessfulCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -179,6 +189,8 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -203,6 +215,8 @@ public sealed class DeckControllerTests
             new FakeCardLookupService(),
             new SuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -223,10 +237,199 @@ public sealed class DeckControllerTests
         Assert.Contains("Prowess", model.RulesText);
     }
 
+    [Fact]
+    public async Task ChatGptPackets_ReturnsValidationError_WhenBracketMissingForAnalysisStep()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new FakeCardLookupService(),
+            new FakeMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            new ThrowingChatGptDeckPacketService(new InvalidOperationException("Choose a target Commander bracket before generating the analysis packet.")),
+            new FakeScryfallSetService(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.ChatGptPackets(new ChatGptDeckRequest
+        {
+            WorkflowStep = 2,
+            DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
+            ProbeResponseJson = "{\"unknown_cards\":[]}"
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ChatGptDeckViewModel>(view.Model);
+        Assert.Equal("Choose a target Commander bracket before generating the analysis packet.", model.ErrorMessage);
+        Assert.Equal(2, model.Request.WorkflowStep);
+    }
+
+    [Fact]
+    public async Task ChatGptPackets_ReturnsValidationError_WhenQuestionsMissingForAnalysisStep()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new FakeCardLookupService(),
+            new FakeMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            new ThrowingChatGptDeckPacketService(new InvalidOperationException("Select at least one analysis question before generating the analysis packet.")),
+            new FakeScryfallSetService(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.ChatGptPackets(new ChatGptDeckRequest
+        {
+            WorkflowStep = 3,
+            DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
+            ProbeResponseJson = "{\"unknown_cards\":[]}",
+            TargetCommanderBracket = "Upgraded"
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ChatGptDeckViewModel>(view.Model);
+        Assert.Equal("Select at least one analysis question before generating the analysis packet.", model.ErrorMessage);
+        Assert.Equal(3, model.Request.WorkflowStep);
+    }
+
+    [Fact]
+    public async Task ChatGptPackets_ReturnsValidationError_WhenSetSourceMissingForUpgradeStep()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new FakeCardLookupService(),
+            new FakeMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            new ThrowingChatGptDeckPacketService(new InvalidOperationException("Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.")),
+            new FakeScryfallSetService(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.ChatGptPackets(new ChatGptDeckRequest
+        {
+            WorkflowStep = 4,
+            DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
+            ProbeResponseJson = "{\"unknown_cards\":[]}",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["consistency"],
+            DeckProfileJson = "{\"game_plan\":\"midrange\"}"
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ChatGptDeckViewModel>(view.Model);
+        Assert.Equal("Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.", model.ErrorMessage);
+        Assert.Equal(4, model.Request.WorkflowStep);
+    }
+
+    [Fact]
+    public async Task ChatGptPackets_PassesMultipleSelectedQuestionsAndSetsToService()
+    {
+        var capturingService = new CapturingChatGptDeckPacketService();
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new FakeCardLookupService(),
+            new FakeMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            capturingService,
+            new FakeScryfallSetService(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var request = new ChatGptDeckRequest
+        {
+            WorkflowStep = 4,
+            DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
+            ProbeResponseJson = "{\"unknown_cards\":[]}",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["consistency", "strengths-weaknesses"],
+            DeckProfileJson = "{\"game_plan\":\"midrange\"}",
+            SelectedSetCodes = ["dsk", "fdn"]
+        };
+
+        await controller.ChatGptPackets(request);
+
+        Assert.NotNull(capturingService.LastRequest);
+        Assert.Equal(2, capturingService.LastRequest!.SelectedAnalysisQuestions.Count);
+        Assert.Contains("consistency", capturingService.LastRequest.SelectedAnalysisQuestions);
+        Assert.Contains("strengths-weaknesses", capturingService.LastRequest.SelectedAnalysisQuestions);
+        Assert.Equal(2, capturingService.LastRequest.SelectedSetCodes.Count);
+        Assert.Contains("dsk", capturingService.LastRequest.SelectedSetCodes);
+        Assert.Contains("fdn", capturingService.LastRequest.SelectedSetCodes);
+    }
+
     private sealed class FakeDeckSyncService : IDeckSyncService
     {
         public Task<DeckSyncResult> CompareDecksAsync(DeckDiffRequest request, CancellationToken cancellationToken)
             => throw new NotImplementedException();
+    }
+
+    private sealed class FakeChatGptDeckPacketService : IChatGptDeckPacketService
+    {
+        public Task<ChatGptDeckPacketResult> BuildAsync(ChatGptDeckRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+    }
+
+    private sealed class ThrowingChatGptDeckPacketService : IChatGptDeckPacketService
+    {
+        private readonly Exception _exception;
+
+        public ThrowingChatGptDeckPacketService(Exception exception)
+        {
+            _exception = exception;
+        }
+
+        public Task<ChatGptDeckPacketResult> BuildAsync(ChatGptDeckRequest request, CancellationToken cancellationToken = default)
+            => Task.FromException<ChatGptDeckPacketResult>(_exception);
+    }
+
+    private sealed class CapturingChatGptDeckPacketService : IChatGptDeckPacketService
+    {
+        public ChatGptDeckRequest? LastRequest { get; private set; }
+
+        public Task<ChatGptDeckPacketResult> BuildAsync(ChatGptDeckRequest request, CancellationToken cancellationToken = default)
+        {
+            LastRequest = request;
+            return Task.FromResult(new ChatGptDeckPacketResult(
+                "summary",
+                "probe",
+                "{}",
+                "{}",
+                "reference",
+                "analysis",
+                "set-upgrade",
+                null));
+        }
+    }
+
+    private sealed class FakeScryfallSetService : IScryfallSetService
+    {
+        public Task<IReadOnlyList<ScryfallSetOption>> GetSetsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<ScryfallSetOption>>(Array.Empty<ScryfallSetOption>());
+
+        public Task<string> BuildSetPacketAsync(IReadOnlyList<string> setCodes, CancellationToken cancellationToken = default)
+            => Task.FromResult(string.Empty);
     }
 
     private sealed class ThrowingCardSearchService : ICardSearchService

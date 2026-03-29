@@ -20,7 +20,7 @@ public sealed class CardSearchServiceTests
     };
 
     private static ScryfallCard BasicCard(string name)
-        => new(name, string.Empty, "Creature", name == "Guard Gomazoa" ? "Sample text" : "Sample text", "1", "1");
+        => new(name, string.Empty, "Creature", name == "Guard Gomazoa" ? "Sample text" : "Sample text", "1", "1", null, null, null, null);
 
     [Fact]
     public async Task SearchAsync_ReturnsDistinctNamesFromResponse()

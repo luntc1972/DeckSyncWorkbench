@@ -56,6 +56,9 @@ public class Program
         builder.Services.AddSingleton<ICardSearchService, ScryfallCardSearchService>();
         builder.Services.AddSingleton<ICardLookupService, ScryfallCardLookupService>();
         builder.Services.AddSingleton<IMechanicLookupService, WotcMechanicLookupService>();
+        builder.Services.AddSingleton<ICommanderBanListService, CommanderBanListService>();
+        builder.Services.AddSingleton<IScryfallSetService, ScryfallSetService>();
+        builder.Services.AddScoped<IChatGptDeckPacketService, ChatGptDeckPacketService>();
         builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
         builder.Services.AddScoped<ICategorySuggestionService, CategorySuggestionService>();
         builder.Services.AddScoped<ICommanderCategoryService, CommanderCategoryService>();
@@ -73,6 +76,39 @@ public class Program
             app.UseExceptionHandler("/Deck");
             app.UseHsts();
         }
+
+        app.Use(async (context, next) =>
+        {
+            context.Response.OnStarting(() =>
+            {
+                var headers = context.Response.Headers;
+                headers["X-Content-Type-Options"] = "nosniff";
+                headers["X-Frame-Options"] = "DENY";
+                headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+                headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+
+                var path = context.Request.Path.Value ?? string.Empty;
+                var skipCsp = path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase);
+                if (!skipCsp)
+                {
+                    headers["Content-Security-Policy"] =
+                        "default-src 'self'; " +
+                        "script-src 'self'; " +
+                        "style-src 'self' 'unsafe-inline'; " +
+                        "img-src 'self' data:; " +
+                        "font-src 'self'; " +
+                        "connect-src 'self'; " +
+                        "object-src 'none'; " +
+                        "base-uri 'self'; " +
+                        "form-action 'self'; " +
+                        "frame-ancestors 'none'";
+                }
+
+                return Task.CompletedTask;
+            });
+
+            await next();
+        });
 
         app.UseHttpsRedirection();
         app.UseStaticFiles();

@@ -37,7 +37,7 @@
     <div class="toolbar">
         <label class="mode-picker">
             <span>Lookup mode</span>
-            <select name="Mode" required data-default-value="@CategorySuggestionMode.CachedData" onchange="updateSuggestionInputModeUi()">
+            <select name="Mode" required data-default-value="@CategorySuggestionMode.CachedData">
                 <option value="@CategorySuggestionMode.CachedData" selected="@(suggestionMode == CategorySuggestionMode.CachedData)">Use cached data</option>
                 <option value="@CategorySuggestionMode.ReferenceDeck" selected="@(suggestionMode == CategorySuggestionMode.ReferenceDeck)">Use reference deck</option>
             </select>
@@ -68,7 +68,7 @@
     <div class="reference-controls @(suggestionMode == CategorySuggestionMode.ReferenceDeck ? string.Empty : "hidden")">
         <label class="mode-picker">
             <span>Reference deck input</span>
-            <select name="ArchidektInputSource" required data-default-value="@DeckInputSource.PublicUrl" onchange="updateSuggestionInputModeUi()">
+            <select name="ArchidektInputSource" required data-default-value="@DeckInputSource.PublicUrl">
                 <option value="@DeckInputSource.PublicUrl" selected="@(suggestionInputSource == DeckInputSource.PublicUrl)">Use public deck URL</option>
                 <option value="@DeckInputSource.PasteText" selected="@(suggestionInputSource == DeckInputSource.PasteText)">Paste text</option>
             </select>
@@ -133,7 +133,7 @@
                 <h2>Exact Deck Match</h2>
                 <p data-api-field="exact-context">@Model.ExactSuggestionContextText</p>
             </div>
-            <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('exact-suggested-categories-output').value)">Copy</button>
+            <button type="button" class="copy-button" data-copy-target="exact-suggested-categories-output">Copy</button>
         </div>
         <textarea id="exact-suggested-categories-output" data-api-field="exact-text" readonly spellcheck="false">@Model.ExactSuggestedCategoriesText</textarea>
     </section>
@@ -146,7 +146,7 @@
                 <p data-api-field="inferred-context">@Model.InferredSuggestionContextText</p>
                 <p data-api-field="cache-info-detail">@if (Model.CardDeckTotals.TotalDeckCount > 0) { <text>@Model.CardDeckTotals.TotalDeckCount deck(s) in the cache include @Model.SuggestionRequest.CardName.</text> }</p>
             </div>
-            <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('inferred-categories-output').value)">Copy</button>
+            <button type="button" class="copy-button" data-copy-target="inferred-categories-output">Copy</button>
         </div>
         <textarea id="inferred-categories-output" data-api-field="inferred-text" readonly spellcheck="false">@Model.InferredCategoriesText</textarea>
     </section>
@@ -157,7 +157,7 @@
                 <h2>EDHREC Themes</h2>
                 <p data-api-field="edhrec-context">@Model.EdhrecSuggestionContextText</p>
             </div>
-            <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('edhrec-categories-output').value)">Copy</button>
+            <button type="button" class="copy-button" data-copy-target="edhrec-categories-output">Copy</button>
         </div>
         <textarea id="edhrec-categories-output" data-api-field="edhrec-text" readonly spellcheck="false">@Model.EdhrecCategoriesText</textarea>
     </section>

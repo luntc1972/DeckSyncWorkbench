@@ -84,6 +84,40 @@ const setAllPrintingChoices = (value) => {
         input.checked = true;
     });
 };
+const copyElementValue = async (targetId) => {
+    var _a;
+    const target = document.getElementById(targetId);
+    if (!target) {
+        return;
+    }
+    const text = target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement
+        ? target.value
+        : (_a = target.textContent) !== null && _a !== void 0 ? _a : '';
+    if (!text) {
+        return;
+    }
+    await navigator.clipboard.writeText(text);
+};
+const attachActionButtons = () => {
+    document.querySelectorAll('[data-copy-target]').forEach(button => {
+        button.addEventListener('click', async () => {
+            const targetId = button.dataset.copyTarget;
+            if (!targetId) {
+                return;
+            }
+            await copyElementValue(targetId);
+        });
+    });
+    document.querySelectorAll('[data-select-all-choice]').forEach(button => {
+        button.addEventListener('click', () => {
+            const choice = button.dataset.selectAllChoice;
+            if (!choice) {
+                return;
+            }
+            setAllPrintingChoices(choice);
+        });
+    });
+};
 let busyProgressTimer;
 let busyHideTimer;
 const formatProgressText = (steps, index) => `Step ${index + 1}/${steps.length}: ${steps[index]}`;
@@ -192,6 +226,20 @@ const storageAvailable = (() => {
         return null;
     }
 })();
+const serializePersistedFormFields = (form) => {
+    const state = {};
+    const formData = new FormData(form);
+    formData.forEach((value, key) => {
+        if (typeof value !== 'string') {
+            return;
+        }
+        if (!state[key]) {
+            state[key] = [];
+        }
+        state[key].push(value);
+    });
+    return state;
+};
 const serializeFormFields = (form) => {
     const state = {};
     form.querySelectorAll('[name]').forEach(element => {
@@ -209,15 +257,25 @@ const serializeFormFields = (form) => {
 };
 const restoreFormFields = (form, data) => {
     form.querySelectorAll('[name]').forEach(element => {
-        const value = data[element.name];
-        if (value === undefined) {
+        const values = data[element.name];
+        if (!values || values.length === 0) {
             return;
         }
-        if (element instanceof HTMLInputElement && (element.type === 'checkbox' || element.type === 'radio')) {
-            element.checked = element.value === value;
+        if (element instanceof HTMLInputElement) {
+            if (element.type === 'checkbox' || element.type === 'radio') {
+                element.checked = values.includes(element.value);
+                return;
+            }
+            element.value = values[0];
             return;
         }
-        element.value = value;
+        if (element instanceof HTMLSelectElement && element.multiple) {
+            Array.from(element.options).forEach(option => {
+                option.selected = values.includes(option.value);
+            });
+            return;
+        }
+        element.value = values[0];
     });
 };
 const persistFormState = (form) => {
@@ -225,7 +283,7 @@ const persistFormState = (form) => {
     if (!key || !storageAvailable) {
         return;
     }
-    const state = serializeFormFields(form);
+    const state = serializePersistedFormFields(form);
     storageAvailable.setItem(`${formStateStoragePrefix}${key}`, JSON.stringify(state));
 };
 const hydrateFormState = (form) => {
@@ -420,6 +478,161 @@ const attachDeckSyncPersistence = () => {
         });
     });
 };
+const parseChatGptStep = (value) => {
+    const parsedValue = parseInt(value !== null && value !== void 0 ? value : '1', 10);
+    return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 4 ? 1 : parsedValue;
+};
+const setChatGptValidationMessage = (message) => {
+    const errorNode = document.querySelector('[data-chatgpt-validation-error]');
+    if (!errorNode) {
+        return;
+    }
+    if (!message) {
+        errorNode.textContent = '';
+        errorNode.classList.add('hidden');
+        return;
+    }
+    errorNode.textContent = message;
+    errorNode.classList.remove('hidden');
+    errorNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+const scrollChatGptResults = (form) => {
+    const step = parseChatGptStep(form.dataset.chatgptCurrentStep);
+    const activePanel = form.querySelector(`[data-chatgpt-step="${step}"]`);
+    const resultAnchor = activePanel === null || activePanel === void 0 ? void 0 : activePanel.querySelector('[data-chatgpt-result-anchor]');
+    if (!resultAnchor) {
+        return;
+    }
+    window.setTimeout(() => {
+        resultAnchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 120);
+};
+const showChatGptStep = (form, step) => {
+    form.dataset.chatgptCurrentStep = step.toString();
+    const workflowInput = form.querySelector('[data-chatgpt-workflow-step]');
+    if (workflowInput) {
+        workflowInput.value = step.toString();
+    }
+    form.querySelectorAll('[data-chatgpt-step]').forEach(panel => {
+        const panelStep = parseChatGptStep(panel.dataset.chatgptStep);
+        panel.classList.toggle('hidden', panelStep !== step);
+    });
+    form.querySelectorAll('[data-chatgpt-show-step]').forEach(button => {
+        const buttonStep = parseChatGptStep(button.dataset.chatgptShowStep);
+        button.classList.toggle('is-active', buttonStep === step);
+        button.setAttribute('aria-pressed', buttonStep === step ? 'true' : 'false');
+    });
+};
+const validateChatGptPacketsStep = (form, step) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
+    const deckSource = (_b = (_a = form.querySelector('textarea[name="DeckSource"]')) === null || _a === void 0 ? void 0 : _a.value.trim()) !== null && _b !== void 0 ? _b : '';
+    const probeResponseJson = (_d = (_c = form.querySelector('textarea[name="ProbeResponseJson"]')) === null || _c === void 0 ? void 0 : _c.value.trim()) !== null && _d !== void 0 ? _d : '';
+    const deckProfileJson = (_f = (_e = form.querySelector('textarea[name="DeckProfileJson"]')) === null || _e === void 0 ? void 0 : _e.value.trim()) !== null && _f !== void 0 ? _f : '';
+    const targetCommanderBracket = (_h = (_g = form.querySelector('select[name="TargetCommanderBracket"]')) === null || _g === void 0 ? void 0 : _g.value.trim()) !== null && _h !== void 0 ? _h : '';
+    const cardSpecificQuestionCardName = (_k = (_j = form.querySelector('input[name="CardSpecificQuestionCardName"]')) === null || _j === void 0 ? void 0 : _j.value.trim()) !== null && _k !== void 0 ? _k : '';
+    const setPacketText = (_m = (_l = form.querySelector('textarea[name="SetPacketText"]')) === null || _l === void 0 ? void 0 : _l.value.trim()) !== null && _m !== void 0 ? _m : '';
+    const selectedSetCodes = Array.from(form.querySelectorAll('select[name="SelectedSetCodes"] option:checked'));
+    const selectedCardSpecificQuestions = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="card-worth-it"]:checked, input[name="SelectedAnalysisQuestions"][value="better-alternatives"]:checked').length;
+    if (!deckSource) {
+        return 'Paste a deck URL or deck export before generating ChatGPT packets.';
+    }
+    if (step >= 2 && !probeResponseJson) {
+        return 'Paste the JSON returned from ChatGPT into Probe response JSON before generating the analysis packet.';
+    }
+    if (step >= 3 && !targetCommanderBracket) {
+        return 'Choose the target Commander bracket before generating the analysis packet.';
+    }
+    if (step >= 3 && form.querySelectorAll('input[name="SelectedAnalysisQuestions"]:checked').length === 0) {
+        return 'Select at least one analysis question before generating the analysis packet.';
+    }
+    if (step >= 3 && selectedCardSpecificQuestions > 0 && !cardSpecificQuestionCardName) {
+        return 'Enter a card name for the selected card-specific analysis questions.';
+    }
+    if (step >= 4) {
+        if (!deckProfileJson) {
+            return 'Paste the deck_profile JSON returned from ChatGPT into Deck profile JSON before generating the set-upgrade packet.';
+        }
+        if (!setPacketText && selectedSetCodes.length === 0) {
+            return 'Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.';
+        }
+    }
+    return null;
+};
+const syncQuestionBucketState = (form) => {
+    form.querySelectorAll('[data-question-bucket]').forEach(bucketCheckbox => {
+        var _a;
+        const bucketId = (_a = bucketCheckbox.dataset.questionBucket) !== null && _a !== void 0 ? _a : '';
+        const questionCheckboxes = Array.from(form.querySelectorAll(`input[data-question-option="${bucketId}"]`));
+        if (questionCheckboxes.length === 0) {
+            bucketCheckbox.checked = false;
+            bucketCheckbox.indeterminate = false;
+            return;
+        }
+        const checkedCount = questionCheckboxes.filter(checkbox => checkbox.checked).length;
+        bucketCheckbox.checked = checkedCount === questionCheckboxes.length;
+        bucketCheckbox.indeterminate = checkedCount > 0 && checkedCount < questionCheckboxes.length;
+    });
+};
+const attachQuestionBucketSelection = (form) => {
+    form.querySelectorAll('[data-question-bucket]').forEach(bucketCheckbox => {
+        bucketCheckbox.addEventListener('change', () => {
+            var _a;
+            const bucketId = (_a = bucketCheckbox.dataset.questionBucket) !== null && _a !== void 0 ? _a : '';
+            form.querySelectorAll(`input[data-question-option="${bucketId}"]`).forEach(questionCheckbox => {
+                questionCheckbox.checked = bucketCheckbox.checked;
+            });
+            syncQuestionBucketState(form);
+        });
+    });
+    form.querySelectorAll('input[data-question-option]').forEach(questionCheckbox => {
+        questionCheckbox.addEventListener('change', () => {
+            syncQuestionBucketState(form);
+        });
+    });
+    syncQuestionBucketState(form);
+};
+const attachChatGptPacketsWorkflow = () => {
+    const form = document.querySelector('[data-chatgpt-packets-form]');
+    if (!form) {
+        return;
+    }
+    const currentStep = parseChatGptStep(form.dataset.chatgptCurrentStep);
+    attachQuestionBucketSelection(form);
+    showChatGptStep(form, currentStep);
+    setChatGptValidationMessage(null);
+    scrollChatGptResults(form);
+    form.querySelectorAll('[data-chatgpt-show-step]').forEach(button => {
+        button.addEventListener('click', () => {
+            const step = parseChatGptStep(button.dataset.chatgptShowStep);
+            showChatGptStep(form, step);
+            setChatGptValidationMessage(null);
+        });
+    });
+    form.querySelectorAll('[data-chatgpt-next-step]').forEach(button => {
+        button.addEventListener('click', () => {
+            var _a;
+            const step = parseChatGptStep(button.dataset.chatgptNextStep);
+            showChatGptStep(form, step);
+            setChatGptValidationMessage(null);
+            (_a = form.querySelector(`[data-chatgpt-step="${step}"]`)) === null || _a === void 0 ? void 0 : _a.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+    form.addEventListener('submit', event => {
+        var _a;
+        const submitter = event.submitter;
+        const step = parseChatGptStep((_a = submitter === null || submitter === void 0 ? void 0 : submitter.dataset.chatgptSubmitStep) !== null && _a !== void 0 ? _a : form.dataset.chatgptCurrentStep);
+        const validationMessage = validateChatGptPacketsStep(form, step);
+        if (!validationMessage) {
+            setChatGptValidationMessage(null);
+            showChatGptStep(form, step);
+            return;
+        }
+        event.preventDefault();
+        hideBusyIndicator();
+        showChatGptStep(form, step);
+        setChatGptValidationMessage(validationMessage);
+    });
+};
 window.setAllPrintingChoices = setAllPrintingChoices;
 window.hideBusyIndicator = hideBusyIndicator;
 let deckSyncBootstrapped = false;
@@ -430,7 +643,9 @@ const bootstrapDeckSync = () => {
     deckSyncBootstrapped = true;
     initializeSyncInputModeUi();
     registerBusyIndicator();
+    attachActionButtons();
     attachDeckSyncPersistence();
+    attachChatGptPacketsWorkflow();
 };
 document.addEventListener('DOMContentLoaded', bootstrapDeckSync);
 if (document.readyState !== 'loading') {

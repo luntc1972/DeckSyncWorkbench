@@ -52,7 +52,7 @@
                     <h2>Verified Cards</h2>
                     <p>@Model.FoundCount card(s) confirmed by Scryfall.</p>
                 </div>
-                <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('verified-cards-output').value)">Copy</button>
+                <button type="button" class="copy-button" data-copy-target="verified-cards-output">Copy</button>
             </div>
             <textarea id="verified-cards-output" readonly spellcheck="false">@Model.VerifiedText</textarea>
         </section>
@@ -63,7 +63,7 @@
                     <h2>Cards With Errors</h2>
                     <p>@Model.MissingCount line(s) could not be found and are marked with an error prefix.</p>
                 </div>
-                <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('missing-cards-output').value)">Copy</button>
+                <button type="button" class="copy-button" data-copy-target="missing-cards-output">Copy</button>
             </div>
             <textarea id="missing-cards-output" readonly spellcheck="false">@Model.MissingText</textarea>
         </section>

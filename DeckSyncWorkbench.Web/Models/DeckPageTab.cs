@@ -7,4 +7,5 @@ public enum DeckPageTab
     CommanderCategories = 2,
     CardLookup = 3,
     MechanicLookup = 4,
+    ChatGptPackets = 5,
 }

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DeckSyncWorkbench.Web.Services;
 using Xunit;
 
 namespace DeckSyncWorkbench.Web.Tests;
@@ -41,5 +42,23 @@ public sealed class CardLookupIntegrationTests
         Assert.Contains("{3}{U}{U}", output);
         Assert.Contains("Creature — Sphinx", output);
         Assert.Contains("When this creature enters", output);
+    }
+
+    [Fact]
+    public async Task CardLookupService_ResolvesPastorDaSelvaToAncientGreenwarden()
+    {
+        if (Environment.GetEnvironmentVariable(IntegrationFlag) != "1")
+        {
+            return;
+        }
+
+        var service = new ScryfallCardLookupService();
+
+        var result = await service.LookupAsync("Pastor da Selva");
+
+        Assert.Single(result.VerifiedOutputs);
+        Assert.Contains("Ancient Greenwarden", result.VerifiedOutputs[0]);
+        Assert.DoesNotContain("ERROR: Pastor da Selva", result.MissingLines);
+        Assert.Empty(result.MissingLines);
     }
 }

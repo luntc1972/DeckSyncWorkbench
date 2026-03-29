@@ -20,6 +20,8 @@ public sealed class DeckController : Controller
     private readonly ICardLookupService _cardLookupService;
     private readonly IMechanicLookupService _mechanicLookupService;
     private readonly ICategorySuggestionService _categorySuggestionService;
+    private readonly IChatGptDeckPacketService _chatGptDeckPacketService;
+    private readonly IScryfallSetService _scryfallSetService;
     private readonly ILogger<DeckController> _logger;
 
     public DeckController(
@@ -28,6 +30,8 @@ public sealed class DeckController : Controller
         ICardLookupService cardLookupService,
         IMechanicLookupService mechanicLookupService,
         ICategorySuggestionService categorySuggestionService,
+        IChatGptDeckPacketService chatGptDeckPacketService,
+        IScryfallSetService scryfallSetService,
         ILogger<DeckController> logger)
     {
         _deckSyncService = deckSyncService;
@@ -35,6 +39,8 @@ public sealed class DeckController : Controller
         _cardLookupService = cardLookupService;
         _mechanicLookupService = mechanicLookupService;
         _categorySuggestionService = categorySuggestionService;
+        _chatGptDeckPacketService = chatGptDeckPacketService;
+        _scryfallSetService = scryfallSetService;
         _logger = logger;
     }
 
@@ -84,6 +90,18 @@ public sealed class DeckController : Controller
         return View("MechanicLookup", new MechanicLookupViewModel
         {
             ActiveTab = DeckPageTab.MechanicLookup,
+        });
+    }
+
+    [HttpGet("/chatgpt-packets")]
+    public async Task<IActionResult> ChatGptPackets()
+    {
+        var availableSets = await TryGetSetOptionsAsync();
+        return View("ChatGptPackets", new ChatGptDeckViewModel
+        {
+            ActiveTab = DeckPageTab.ChatGptPackets,
+            Request = new ChatGptDeckRequest(),
+            AvailableSets = availableSets,
         });
     }
     [HttpGet("/suggest-categories/card-search")]
@@ -197,6 +215,75 @@ public sealed class DeckController : Controller
                 Request = request,
                 ErrorMessage = "Wizards of the Coast rules lookup is currently unavailable. Try again shortly.",
             });
+        }
+    }
+
+    [HttpPost("/chatgpt-packets")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChatGptPackets(ChatGptDeckRequest request)
+    {
+        request ??= new ChatGptDeckRequest();
+
+        try
+        {
+            var availableSets = await TryGetSetOptionsAsync();
+            var result = await _chatGptDeckPacketService.BuildAsync(request, HttpContext.RequestAborted);
+            return View("ChatGptPackets", new ChatGptDeckViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptPackets,
+                Request = request,
+                AvailableSets = availableSets,
+                InputSummary = result.InputSummary,
+                ProbePromptText = result.ProbePromptText,
+                ProbeResponseSchemaJson = result.ProbeResponseSchemaJson,
+                ReferenceText = result.ReferenceText,
+                AnalysisPromptText = result.AnalysisPromptText,
+                DeckProfileSchemaJson = result.DeckProfileSchemaJson,
+                SetUpgradePromptText = result.SetUpgradePromptText,
+                SavedArtifactsDirectory = result.SavedArtifactsDirectory,
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "ChatGPT packet generation failed validation.");
+            return View("ChatGptPackets", new ChatGptDeckViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptPackets,
+                Request = request,
+                AvailableSets = await TryGetSetOptionsAsync(),
+                ErrorMessage = exception.Message,
+                ProbeResponseSchemaJson = """
+{
+  "unknown_cards": [
+    "Card Name"
+  ]
+}
+""",
+            });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "ChatGPT packet generation hit an upstream dependency.");
+            return View("ChatGptPackets", new ChatGptDeckViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptPackets,
+                Request = request,
+                AvailableSets = await TryGetSetOptionsAsync(),
+                ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
+    }
+
+    private async Task<IReadOnlyList<ScryfallSetOption>> TryGetSetOptionsAsync()
+    {
+        try
+        {
+            return await _scryfallSetService.GetSetsAsync(HttpContext.RequestAborted);
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "Set catalog lookup failed.");
+            return Array.Empty<ScryfallSetOption>();
         }
     }
 

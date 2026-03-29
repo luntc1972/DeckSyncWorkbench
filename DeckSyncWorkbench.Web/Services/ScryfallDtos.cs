@@ -5,12 +5,32 @@ namespace DeckSyncWorkbench.Web.Services;
 /// <summary>
 /// Container for a Scryfall card search response.
 /// </summary>
-public sealed record ScryfallSearchResponse(List<ScryfallCard> Data);
+public sealed record ScryfallSearchResponse(
+    List<ScryfallCard> Data,
+    [property: JsonPropertyName("has_more")] bool HasMore = false,
+    [property: JsonPropertyName("next_page")] string? NextPage = null);
+
+/// <summary>
+/// Container for the Scryfall sets endpoint.
+/// </summary>
+public sealed record ScryfallSetListResponse(List<ScryfallSet> Data);
+
+/// <summary>
+/// Represents a Scryfall set payload.
+/// </summary>
+public sealed record ScryfallSet(
+    string Code,
+    string Name,
+    [property: JsonPropertyName("released_at")] string? ReleasedAt,
+    [property: JsonPropertyName("set_type")] string? SetType,
+    [property: JsonPropertyName("card_count")] int CardCount);
 
 /// <summary>
 /// Container for a Scryfall collection lookup response.
 /// </summary>
-public sealed record ScryfallCollectionResponse(List<ScryfallCard> Data, List<ScryfallCollectionIdentifier>? NotFound);
+public sealed record ScryfallCollectionResponse(
+    List<ScryfallCard> Data,
+    [property: JsonPropertyName("not_found")] List<ScryfallCollectionIdentifier>? NotFound);
 
 /// <summary>
 /// Represents a Scryfall card payload.
@@ -22,7 +42,11 @@ public sealed record ScryfallCard(
     [property: JsonPropertyName("type_line")] string TypeLine,
     [property: JsonPropertyName("oracle_text")] string? OracleText,
     [property: JsonPropertyName("power")] string? Power,
-    [property: JsonPropertyName("toughness")] string? Toughness);
+    [property: JsonPropertyName("toughness")] string? Toughness,
+    [property: JsonPropertyName("keywords")] IReadOnlyList<string>? Keywords,
+    [property: JsonPropertyName("set")] string? SetCode,
+    [property: JsonPropertyName("set_name")] string? SetName,
+    [property: JsonPropertyName("collector_number")] string? CollectorNumber);
 
 /// <summary>
 /// Represents an identifier Scryfall could not resolve from a collection request.

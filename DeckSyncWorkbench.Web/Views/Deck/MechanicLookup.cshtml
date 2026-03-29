@@ -49,7 +49,7 @@
                     <h2>@Model.MechanicName</h2>
                     <p>@(Model.MatchType ?? "Official rules match")@(string.IsNullOrWhiteSpace(Model.RuleReference) ? string.Empty : $" · {Model.RuleReference}")</p>
                 </div>
-                <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('mechanic-rules-output').value)">Copy</button>
+                <button type="button" class="copy-button" data-copy-target="mechanic-rules-output">Copy</button>
             </div>
             <textarea id="mechanic-rules-output" readonly spellcheck="false">@Model.RulesText</textarea>
         </section>

@@ -135,7 +135,7 @@
                 <h2>Add Missing Cards</h2>
                 <p>Paste this into <span data-sync-result="target-system">@targetName</span> to add only the cards that are missing from the target deck.</p>
             </div>
-            <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('delta-output').value)">Copy</button>
+            <button type="button" class="copy-button" data-copy-target="delta-output">Copy</button>
         </div>
         <textarea id="delta-output" readonly spellcheck="false">@Model.DeltaText</textarea>
     </section>
@@ -146,7 +146,7 @@
                 <h2>Full Deck Export</h2>
                 <p>A full export formatted for <span data-sync-result="target-system">@targetName</span>, reusing target printings and board placement where matches already exist.</p>
             </div>
-            <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('full-import-output').value)">Copy</button>
+            <button type="button" class="copy-button" data-copy-target="full-import-output">Copy</button>
         </div>
         <textarea id="full-import-output" readonly spellcheck="false">@Model.FullImportText</textarea>
     </section>
@@ -218,7 +218,7 @@
                     <h2>Add Missing Cards</h2>
                     <p>Paste this into @targetName to add only the cards that are missing from the target deck.</p>
                 </div>
-                <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('delta-output').value)">Copy</button>
+                <button type="button" class="copy-button" data-copy-target="delta-output">Copy</button>
             </div>
             <textarea id="delta-output" readonly spellcheck="false">@Model.DeltaText</textarea>
         </section>
@@ -229,7 +229,7 @@
                     <h2>Full Deck Export</h2>
                     <p>A full export formatted for @targetName, reusing target printings and board placement where matches already exist.</p>
                 </div>
-                <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('full-import-output').value)">Copy</button>
+                <button type="button" class="copy-button" data-copy-target="full-import-output">Copy</button>
             </div>
             <textarea id="full-import-output" readonly spellcheck="false">@Model.FullImportText</textarea>
         </section>
@@ -253,8 +253,8 @@
                         <p>@targetName printings stay in place unless you generate a manual checklist for swapping them afterward.</p>
                     </div>
                     <div class="conflict-actions">
-                        <button type="button" class="copy-button" onclick="setAllPrintingChoices('@PrintingChoice.KeepArchidekt')">Select All @targetName</button>
-                        <button type="button" class="copy-button" onclick="setAllPrintingChoices('@PrintingChoice.UseMoxfield')">Select All @sourceName</button>
+                        <button type="button" class="copy-button" data-select-all-choice="@PrintingChoice.KeepArchidekt">Select All @targetName</button>
+                        <button type="button" class="copy-button" data-select-all-choice="@PrintingChoice.UseMoxfield">Select All @sourceName</button>
                         <button type="submit" class="run-button">Generate Printing Swap Checklist</button>
                     </div>
                 </div>
@@ -293,7 +293,7 @@
                         <h2>Swap Checklist</h2>
                         <p>Use this as your checklist for changing printings in @targetName after import.</p>
                     </div>
-                    <button type="button" class="copy-button" onclick="navigator.clipboard.writeText(document.getElementById('swap-output').value)">Copy</button>
+                    <button type="button" class="copy-button" data-copy-target="swap-output">Copy</button>
                 </div>
                 <textarea id="swap-output" readonly spellcheck="false">@Model.SwapChecklistText</textarea>
             </section>

@@ -24,7 +24,7 @@ public sealed class ScryfallCommanderSearchServiceTests
     };
 
     private static ScryfallCard BasicCard(string name)
-        => new(name, "{1}", "Legendary Creature", "Some text", "2", "2");
+        => new(name, "{1}", "Legendary Creature", "Some text", "2", "2", null, null, null, null);
 
     [Fact]
     /// <summary>

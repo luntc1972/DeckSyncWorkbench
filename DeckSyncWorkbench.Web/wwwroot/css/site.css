@@ -154,6 +154,141 @@ body {
   margin-bottom: 1rem;
 }
 
+.chatgpt-step-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.chatgpt-step-tab {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  background: #eef3f8;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.chatgpt-step-tab.is-active {
+  border-color: var(--accent);
+  background: #edf4ff;
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.chatgpt-step-panel {
+  display: block;
+}
+
+.chatgpt-step-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.chatgpt-step-eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chatgpt-step-heading h2 {
+  margin: 0 0 0.35rem;
+}
+
+.chatgpt-step-heading p:last-child {
+  margin: 0;
+}
+
+.chatgpt-step-badge {
+  white-space: nowrap;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid #cfe0f8;
+  background: #edf4ff;
+  color: var(--accent-strong);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.chatgpt-instructions {
+  margin-bottom: 1rem;
+  padding: 0.95rem 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: #f4f8fb;
+}
+
+.chatgpt-instructions strong {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.chatgpt-instructions ol {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.chatgpt-step-actions {
+  align-items: center;
+}
+
+.chatgpt-step-note {
+  color: var(--muted);
+  max-width: 44rem;
+}
+
+.chatgpt-step-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.chatgpt-question-picker {
+  margin-bottom: 1rem;
+}
+
+.chatgpt-question-picker__header h3 {
+  margin: 0 0 0.35rem;
+}
+
+.chatgpt-question-picker__header p {
+  margin: 0 0 1rem;
+  color: var(--muted);
+}
+
+.chatgpt-question-buckets {
+  display: grid;
+  gap: 1rem;
+}
+
+.chatgpt-question-bucket__label,
+.chatgpt-question-option {
+  display: flex;
+  align-items: start;
+  gap: 0.6rem;
+}
+
+.chatgpt-question-bucket__label {
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+}
+
+.chatgpt-question-bucket__questions {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.chatgpt-question-bucket input[type="checkbox"],
+.chatgpt-question-option input[type="checkbox"] {
+  width: auto;
+  margin-top: 0.1rem;
+}
+
 .toolbar button {
   align-self: flex-end;
 }
@@ -534,6 +669,14 @@ details summary {
   .source-grid,
   .url-grid {
     grid-template-columns: 1fr;
+  }
+
+  .chatgpt-step-heading {
+    flex-direction: column;
+  }
+
+  .chatgpt-step-badge {
+    white-space: normal;
   }
 
   .toolbar,

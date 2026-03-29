@@ -17,11 +17,16 @@ public sealed class CardLookupServiceTests
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 new[]
                 {
-                    new ScryfallCard("Sol Ring", "{T}", "Artifact", "Add {W}", "—", "—"),
-                    new ScryfallCard("Arcane Signet", "{1}", "Artifact", "Add {W} or {U}", "—", "—")
+                    new ScryfallCard("Sol Ring", "{T}", "Artifact", "Add {W}", "—", "—", null, null, null, null),
+                    new ScryfallCard("Arcane Signet", "{1}", "Artifact", "Add {W} or {U}", "—", "—", null, null, null, null)
                 },
                 new[] { new ScryfallCollectionIdentifier("Made Up Card") },
-                request)));
+                request)),
+            executeSearchAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallSearchResponse([])
+            }));
 
         var result = await service.LookupAsync("1 Sol Ring\nArcane Signet\nMade Up Card");
 
@@ -42,7 +47,12 @@ public sealed class CardLookupServiceTests
                     Array.Empty<ScryfallCard>(),
                     Enumerable.Range(0, 75).Select(index => new ScryfallCollectionIdentifier($"Card {index + ((requestCount - 1) * 75)}")).ToArray(),
                     request));
-            });
+            },
+            executeSearchAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallSearchResponse([])
+            }));
 
         var lines = string.Join('\n', Enumerable.Range(0, 100).Select(index => $"Card {index}"));
         await service.LookupAsync(lines);
@@ -57,7 +67,7 @@ public sealed class CardLookupServiceTests
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 new[]
                 {
-                    new ScryfallCard("Sol Ring", "{T}", "Artifact", "Add {W}", "—", "—")
+                    new ScryfallCard("Sol Ring", "{T}", "Artifact", "Add {W}", "—", "—", null, null, null, null)
                 },
                 Array.Empty<ScryfallCollectionIdentifier>(),
                 request)));
@@ -80,6 +90,92 @@ public sealed class CardLookupServiceTests
         var exception = await Assert.ThrowsAsync<HttpRequestException>(() => service.LookupAsync("Sol Ring"));
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task LookupAsync_UsesPrintedNameFallback_WhenCollectionDoesNotResolveCard()
+    {
+        var service = new ScryfallCardLookupService(
+            executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
+                Array.Empty<ScryfallCard>(),
+                [new ScryfallCollectionIdentifier("Fblthp, Lost on the Range")],
+                request)),
+            executeSearchAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallSearchResponse(
+                    [new ScryfallCard("Fblthp, Lost on the Range", "{1}{U}", "Legendary Creature — Homunculus", "When this enters, draw a card.", "1", "1", null, "otp", "Outlaws", "7")])
+            }));
+
+        var result = await service.LookupAsync("Fblthp, Lost on the Range");
+
+        Assert.Single(result.VerifiedOutputs);
+        Assert.Contains("Fblthp, Lost on the Range", result.VerifiedOutputs[0]);
+        Assert.Empty(result.MissingLines);
+    }
+
+    [Fact]
+    public async Task LookupAsync_UsesPlainSearchFallback_ForAlternatePrintedNames()
+    {
+        var searchQueries = new List<string>();
+        var service = new ScryfallCardLookupService(
+            executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
+                Array.Empty<ScryfallCard>(),
+                [new ScryfallCollectionIdentifier("Pastor da Selva")],
+                request)),
+            executeSearchAsync: (request, _) =>
+            {
+                var query = request.Parameters.First(parameter => parameter.Name?.ToString() == "q").Value?.ToString() ?? string.Empty;
+                searchQueries.Add(query);
+
+                var cards = query == "Pastor da Selva"
+                    ? new[]
+                    {
+                        new ScryfallCard("Ancient Greenwarden", "{4}{G}{G}", "Creature — Elemental", "You may play lands from your graveyard.", "5", "7", null, "sld", "Secret Lair Drop", "2059")
+                    }
+                    : Array.Empty<ScryfallCard>();
+
+                return Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(cards.ToList())
+                });
+            });
+
+        var result = await service.LookupAsync("Pastor da Selva");
+
+        Assert.Single(result.VerifiedOutputs);
+        Assert.Contains("Ancient Greenwarden", result.VerifiedOutputs[0]);
+        Assert.Empty(result.MissingLines);
+        Assert.Equal(
+            ["(printed:\"Pastor da Selva\" OR name:\"Pastor da Selva\")", "Pastor da Selva"],
+            searchQueries);
+    }
+
+    [Fact]
+    public async Task LookupAsync_UsesNamedFuzzyFallback_WhenSearchFallbackDoesNotResolveCard()
+    {
+        var service = new ScryfallCardLookupService(
+            executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
+                Array.Empty<ScryfallCard>(),
+                [new ScryfallCollectionIdentifier("Pastor da Selva")],
+                request)),
+            executeSearchAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallSearchResponse([])
+            }),
+            executeNamedAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCard>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallCard("Ancient Greenwarden", "{4}{G}{G}", "Creature — Elemental", "You may play lands from your graveyard.", "5", "7", null, "sld", "Secret Lair Drop", "2059")
+            }));
+
+        var result = await service.LookupAsync("Pastor da Selva");
+
+        Assert.Single(result.VerifiedOutputs);
+        Assert.Contains("Ancient Greenwarden", result.VerifiedOutputs[0]);
+        Assert.Empty(result.MissingLines);
     }
 
     private static RestResponse<ScryfallCollectionResponse> CreateCollectionResponse(

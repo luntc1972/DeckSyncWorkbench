@@ -129,6 +129,47 @@ const setAllPrintingChoices = (value: string): void => {
   });
 };
 
+const copyElementValue = async (targetId: string): Promise<void> => {
+  const target = document.getElementById(targetId);
+  if (!target) {
+    return;
+  }
+
+  const text = target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement
+    ? target.value
+    : target.textContent ?? '';
+
+  if (!text) {
+    return;
+  }
+
+  await navigator.clipboard.writeText(text);
+};
+
+const attachActionButtons = (): void => {
+  document.querySelectorAll<HTMLElement>('[data-copy-target]').forEach(button => {
+    button.addEventListener('click', async () => {
+      const targetId = button.dataset.copyTarget;
+      if (!targetId) {
+        return;
+      }
+
+      await copyElementValue(targetId);
+    });
+  });
+
+  document.querySelectorAll<HTMLElement>('[data-select-all-choice]').forEach(button => {
+    button.addEventListener('click', () => {
+      const choice = button.dataset.selectAllChoice;
+      if (!choice) {
+        return;
+      }
+
+      setAllPrintingChoices(choice);
+    });
+  });
+};
+
 let busyProgressTimer: number | undefined;
 let busyHideTimer: number | undefined;
 
@@ -265,7 +306,26 @@ const storageAvailable = (() => {
   }
 })();
 
-const serializeFormFields = (form: HTMLFormElement) => {
+const serializePersistedFormFields = (form: HTMLFormElement): Record<string, string[]> => {
+  const state: Record<string, string[]> = {};
+  const formData = new FormData(form);
+
+  formData.forEach((value, key) => {
+    if (typeof value !== 'string') {
+      return;
+    }
+
+    if (!state[key]) {
+      state[key] = [];
+    }
+
+    state[key].push(value);
+  });
+
+  return state;
+};
+
+const serializeFormFields = (form: HTMLFormElement): Record<string, string> => {
   const state: Record<string, string> = {};
   form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[name]').forEach(element => {
     if (element.disabled || !element.name) {
@@ -280,22 +340,35 @@ const serializeFormFields = (form: HTMLFormElement) => {
 
     state[element.name] = element.value;
   });
+
   return state;
 };
 
-const restoreFormFields = (form: HTMLFormElement, data: Record<string, string>) => {
+const restoreFormFields = (form: HTMLFormElement, data: Record<string, string[]>) => {
   form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[name]').forEach(element => {
-    const value = data[element.name];
-    if (value === undefined) {
+    const values = data[element.name];
+    if (!values || values.length === 0) {
       return;
     }
 
-    if (element instanceof HTMLInputElement && (element.type === 'checkbox' || element.type === 'radio')) {
-      element.checked = element.value === value;
+    if (element instanceof HTMLInputElement) {
+      if (element.type === 'checkbox' || element.type === 'radio') {
+        element.checked = values.includes(element.value);
+        return;
+      }
+
+      element.value = values[0];
       return;
     }
 
-    element.value = value;
+    if (element instanceof HTMLSelectElement && element.multiple) {
+      Array.from(element.options).forEach(option => {
+        option.selected = values.includes(option.value);
+      });
+      return;
+    }
+
+    element.value = values[0];
   });
 };
 
@@ -305,7 +378,7 @@ const persistFormState = (form: HTMLFormElement): void => {
     return;
   }
 
-  const state = serializeFormFields(form);
+  const state = serializePersistedFormFields(form);
   storageAvailable.setItem(`${formStateStoragePrefix}${key}`, JSON.stringify(state));
 };
 
@@ -321,7 +394,7 @@ const hydrateFormState = (form: HTMLFormElement): void => {
   }
 
   try {
-    const state = JSON.parse(json) as Record<string, string>;
+    const state = JSON.parse(json) as Record<string, string[]>;
     restoreFormFields(form, state);
   } catch {
     storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
@@ -543,6 +616,193 @@ const attachDeckSyncPersistence = (): void => {
   });
 };
 
+const parseChatGptStep = (value: string | undefined | null): number => {
+  const parsedValue = parseInt(value ?? '1', 10);
+  return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 4 ? 1 : parsedValue;
+};
+
+const setChatGptValidationMessage = (message: string | null): void => {
+  const errorNode = document.querySelector<HTMLElement>('[data-chatgpt-validation-error]');
+  if (!errorNode) {
+    return;
+  }
+
+  if (!message) {
+    errorNode.textContent = '';
+    errorNode.classList.add('hidden');
+    return;
+  }
+
+  errorNode.textContent = message;
+  errorNode.classList.remove('hidden');
+  errorNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+const scrollChatGptResults = (form: HTMLFormElement): void => {
+  const step = parseChatGptStep(form.dataset.chatgptCurrentStep);
+  const activePanel = form.querySelector<HTMLElement>(`[data-chatgpt-step="${step}"]`);
+  const resultAnchor = activePanel?.querySelector<HTMLElement>('[data-chatgpt-result-anchor]');
+  if (!resultAnchor) {
+    return;
+  }
+
+  window.setTimeout(() => {
+    resultAnchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 120);
+};
+
+const showChatGptStep = (form: HTMLFormElement, step: number): void => {
+  form.dataset.chatgptCurrentStep = step.toString();
+  const workflowInput = form.querySelector<HTMLInputElement>('[data-chatgpt-workflow-step]');
+  if (workflowInput) {
+    workflowInput.value = step.toString();
+  }
+
+  form.querySelectorAll<HTMLElement>('[data-chatgpt-step]').forEach(panel => {
+    const panelStep = parseChatGptStep(panel.dataset.chatgptStep);
+    panel.classList.toggle('hidden', panelStep !== step);
+  });
+
+  form.querySelectorAll<HTMLElement>('[data-chatgpt-show-step]').forEach(button => {
+    const buttonStep = parseChatGptStep(button.dataset.chatgptShowStep);
+    button.classList.toggle('is-active', buttonStep === step);
+    button.setAttribute('aria-pressed', buttonStep === step ? 'true' : 'false');
+  });
+};
+
+const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string | null => {
+  const deckSource = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckSource"]')?.value.trim() ?? '';
+  const probeResponseJson = form.querySelector<HTMLTextAreaElement>('textarea[name="ProbeResponseJson"]')?.value.trim() ?? '';
+  const deckProfileJson = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckProfileJson"]')?.value.trim() ?? '';
+  const targetCommanderBracket = form.querySelector<HTMLSelectElement>('select[name="TargetCommanderBracket"]')?.value.trim() ?? '';
+  const cardSpecificQuestionCardName = form.querySelector<HTMLInputElement>('input[name="CardSpecificQuestionCardName"]')?.value.trim() ?? '';
+  const setPacketText = form.querySelector<HTMLTextAreaElement>('textarea[name="SetPacketText"]')?.value.trim() ?? '';
+  const selectedSetCodes = Array.from(
+    form.querySelectorAll<HTMLOptionElement>('select[name="SelectedSetCodes"] option:checked')
+  );
+  const selectedCardSpecificQuestions = form.querySelectorAll<HTMLInputElement>(
+    'input[name="SelectedAnalysisQuestions"][value="card-worth-it"]:checked, input[name="SelectedAnalysisQuestions"][value="better-alternatives"]:checked'
+  ).length;
+
+  if (!deckSource) {
+    return 'Paste a deck URL or deck export before generating ChatGPT packets.';
+  }
+
+  if (step >= 2 && !probeResponseJson) {
+    return 'Paste the JSON returned from ChatGPT into Probe response JSON before generating the analysis packet.';
+  }
+
+  if (step >= 3 && !targetCommanderBracket) {
+    return 'Choose the target Commander bracket before generating the analysis packet.';
+  }
+
+  if (step >= 3 && form.querySelectorAll<HTMLInputElement>('input[name="SelectedAnalysisQuestions"]:checked').length === 0) {
+    return 'Select at least one analysis question before generating the analysis packet.';
+  }
+
+  if (step >= 3 && selectedCardSpecificQuestions > 0 && !cardSpecificQuestionCardName) {
+    return 'Enter a card name for the selected card-specific analysis questions.';
+  }
+
+  if (step >= 4) {
+    if (!deckProfileJson) {
+      return 'Paste the deck_profile JSON returned from ChatGPT into Deck profile JSON before generating the set-upgrade packet.';
+    }
+
+    if (!setPacketText && selectedSetCodes.length === 0) {
+      return 'Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.';
+    }
+  }
+
+  return null;
+};
+
+const syncQuestionBucketState = (form: HTMLFormElement): void => {
+  form.querySelectorAll<HTMLInputElement>('[data-question-bucket]').forEach(bucketCheckbox => {
+    const bucketId = bucketCheckbox.dataset.questionBucket ?? '';
+    const questionCheckboxes = Array.from(
+      form.querySelectorAll<HTMLInputElement>(`input[data-question-option="${bucketId}"]`)
+    );
+
+    if (questionCheckboxes.length === 0) {
+      bucketCheckbox.checked = false;
+      bucketCheckbox.indeterminate = false;
+      return;
+    }
+
+    const checkedCount = questionCheckboxes.filter(checkbox => checkbox.checked).length;
+    bucketCheckbox.checked = checkedCount === questionCheckboxes.length;
+    bucketCheckbox.indeterminate = checkedCount > 0 && checkedCount < questionCheckboxes.length;
+  });
+};
+
+const attachQuestionBucketSelection = (form: HTMLFormElement): void => {
+  form.querySelectorAll<HTMLInputElement>('[data-question-bucket]').forEach(bucketCheckbox => {
+    bucketCheckbox.addEventListener('change', () => {
+      const bucketId = bucketCheckbox.dataset.questionBucket ?? '';
+      form.querySelectorAll<HTMLInputElement>(`input[data-question-option="${bucketId}"]`).forEach(questionCheckbox => {
+        questionCheckbox.checked = bucketCheckbox.checked;
+      });
+
+      syncQuestionBucketState(form);
+    });
+  });
+
+  form.querySelectorAll<HTMLInputElement>('input[data-question-option]').forEach(questionCheckbox => {
+    questionCheckbox.addEventListener('change', () => {
+      syncQuestionBucketState(form);
+    });
+  });
+
+  syncQuestionBucketState(form);
+};
+
+const attachChatGptPacketsWorkflow = (): void => {
+  const form = document.querySelector<HTMLFormElement>('[data-chatgpt-packets-form]');
+  if (!form) {
+    return;
+  }
+
+  const currentStep = parseChatGptStep(form.dataset.chatgptCurrentStep);
+  attachQuestionBucketSelection(form);
+  showChatGptStep(form, currentStep);
+  setChatGptValidationMessage(null);
+  scrollChatGptResults(form);
+
+  form.querySelectorAll<HTMLElement>('[data-chatgpt-show-step]').forEach(button => {
+    button.addEventListener('click', () => {
+      const step = parseChatGptStep(button.dataset.chatgptShowStep);
+      showChatGptStep(form, step);
+      setChatGptValidationMessage(null);
+    });
+  });
+
+  form.querySelectorAll<HTMLElement>('[data-chatgpt-next-step]').forEach(button => {
+    button.addEventListener('click', () => {
+      const step = parseChatGptStep(button.dataset.chatgptNextStep);
+      showChatGptStep(form, step);
+      setChatGptValidationMessage(null);
+      form.querySelector<HTMLElement>(`[data-chatgpt-step="${step}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  form.addEventListener('submit', event => {
+    const submitter = (event as SubmitEvent).submitter as HTMLElement | null;
+    const step = parseChatGptStep(submitter?.dataset.chatgptSubmitStep ?? form.dataset.chatgptCurrentStep);
+    const validationMessage = validateChatGptPacketsStep(form, step);
+    if (!validationMessage) {
+      setChatGptValidationMessage(null);
+      showChatGptStep(form, step);
+      return;
+    }
+
+    event.preventDefault();
+    hideBusyIndicator();
+    showChatGptStep(form, step);
+    setChatGptValidationMessage(validationMessage);
+  });
+};
+
 interface Window {
   setAllPrintingChoices?: (value: string) => void;
   hideBusyIndicator?: () => void;
@@ -561,7 +821,9 @@ const bootstrapDeckSync = (): void => {
   deckSyncBootstrapped = true;
   initializeSyncInputModeUi();
   registerBusyIndicator();
+  attachActionButtons();
   attachDeckSyncPersistence();
+  attachChatGptPacketsWorkflow();
 };
 
 document.addEventListener('DOMContentLoaded', bootstrapDeckSync);
