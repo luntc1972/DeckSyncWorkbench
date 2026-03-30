@@ -1,0 +1,99 @@
+#mtg-deck-studio-moxfield-exporter {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 2147483647;
+  width: 19rem;
+  border: 1px solid #1f3a5f;
+  border-radius: 12px;
+  background: #10213a;
+  color: #f5f7fa;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  font-family: Arial, sans-serif;
+}
+
+#mtg-deck-studio-moxfield-exporter * {
+  box-sizing: border-box;
+}
+
+.mtg-deck-studio-moxfield-exporter__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0.9rem 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.mtg-deck-studio-moxfield-exporter__title {
+  margin-right: 0.75rem;
+}
+
+.mtg-deck-studio-moxfield-exporter__body {
+  padding: 0 0.9rem 0.9rem;
+}
+
+#mtg-deck-studio-moxfield-exporter[data-collapsed="true"] .mtg-deck-studio-moxfield-exporter__body {
+  display: none;
+}
+
+.mtg-deck-studio-moxfield-exporter__toggle {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mtg-deck-studio-moxfield-exporter__toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.mtg-deck-studio-moxfield-exporter__status {
+  min-height: 2.8rem;
+  margin-bottom: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+.mtg-deck-studio-moxfield-exporter__actions {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.mtg-deck-studio-moxfield-exporter__button {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: 0;
+  border-radius: 8px;
+  background: #2d6cdf;
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mtg-deck-studio-moxfield-exporter__button:hover:not(:disabled) {
+  background: #2359b7;
+}
+
+.mtg-deck-studio-moxfield-exporter__button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.mtg-deck-studio-moxfield-exporter__footnote {
+  margin-top: 0.6rem;
+  font-size: 0.74rem;
+  color: #c6d4eb;
+}

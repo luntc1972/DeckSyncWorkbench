@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Moxfield Tag Exporter",
+  "version": "0.1.0",
+  "description": "Export a Moxfield deck with visible tags in Archidekt and Moxfield text formats.",
+  "permissions": [
+    "downloads",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "https://moxfield.com/*",
+    "https://api.moxfield.com/*",
+    "https://api2.moxfield.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://moxfield.com/decks/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
