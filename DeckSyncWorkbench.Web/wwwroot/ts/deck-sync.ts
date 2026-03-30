@@ -72,7 +72,7 @@ const updateSyncDirectionUi = (): void => {
     return;
   }
 
-  const moxfieldIsSource = directionSelect.value === 'DeckSyncWorkbench';
+  const moxfieldIsSource = directionSelect.value === 'MtgDeckStudio';
   const moxfieldStatus = document.querySelector<HTMLElement>('[data-sync-role="moxfield-status"]');
   const archidektStatus = document.querySelector<HTMLElement>('[data-sync-role="archidekt-status"]');
   const moxfieldHint = document.querySelector<HTMLElement>('[data-sync-role="moxfield-hint"]');

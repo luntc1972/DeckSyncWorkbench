@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "module": "none",
+    "declaration": false,
+    "outDir": "wwwroot/js",
+    "rootDir": "wwwroot/ts",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true
+  },
+  "include": ["wwwroot/ts/**/*.ts"]
+}

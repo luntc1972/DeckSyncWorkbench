@@ -1,8 +1,8 @@
 using System.Diagnostics;
-using DeckSyncWorkbench.Web.Services;
+using MtgDeckStudio.Web.Services;
 using Xunit;
 
-namespace DeckSyncWorkbench.Web.Tests;
+namespace MtgDeckStudio.Web.Tests;
 
 public sealed class CardLookupIntegrationTests
 {
@@ -24,7 +24,7 @@ public sealed class CardLookupIntegrationTests
             {
                 "run",
                 "--project",
-                "/mnt/c/users/chrislunt/source/personal/DeckSyncWorkbench/DeckSyncWorkbench.CLI/DeckSyncWorkbench.CLI.csproj",
+                "/mnt/c/users/chrislunt/source/personal/MtgDeckStudio/MtgDeckStudio.CLI/MtgDeckStudio.CLI.csproj",
                 "--",
                 "card-lookup",
                 "--name",
