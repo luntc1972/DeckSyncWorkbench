@@ -47,6 +47,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
+            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -75,6 +76,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
+            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -101,6 +103,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
+            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -130,6 +133,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
+            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -159,6 +163,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
+            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -190,6 +195,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
+            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -216,6 +222,7 @@ public sealed class DeckControllerTests
             new SuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
+            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -247,6 +254,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new ThrowingChatGptDeckPacketService(new InvalidOperationException("Choose a target Commander bracket before generating the analysis packet.")),
+            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -279,6 +287,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new ThrowingChatGptDeckPacketService(new InvalidOperationException("Select at least one analysis question before generating the analysis packet.")),
+            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -312,6 +321,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new ThrowingChatGptDeckPacketService(new InvalidOperationException("Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.")),
+            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -348,6 +358,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             capturingService,
+            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -428,8 +439,14 @@ public sealed class DeckControllerTests
         public Task<IReadOnlyList<ScryfallSetOption>> GetSetsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<ScryfallSetOption>>(Array.Empty<ScryfallSetOption>());
 
-        public Task<string> BuildSetPacketAsync(IReadOnlyList<string> setCodes, CancellationToken cancellationToken = default)
+        public Task<string> BuildSetPacketAsync(IReadOnlyList<string> setCodes, IReadOnlyList<string>? commanderColorIdentity = null, CancellationToken cancellationToken = default)
             => Task.FromResult(string.Empty);
+    }
+
+    private sealed class FakeChatGptJsonTextFormatterService : IChatGptJsonTextFormatterService
+    {
+        public string FormatAsText(string input)
+            => string.IsNullOrWhiteSpace(input) ? string.Empty : $"formatted:{input}";
     }
 
     private sealed class ThrowingCardSearchService : ICardSearchService

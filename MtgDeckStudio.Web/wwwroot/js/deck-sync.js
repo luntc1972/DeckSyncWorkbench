@@ -286,6 +286,13 @@ const persistFormState = (form) => {
     const state = serializePersistedFormFields(form);
     storageAvailable.setItem(`${formStateStoragePrefix}${key}`, JSON.stringify(state));
 };
+const clearPersistedFormState = (form) => {
+    const key = form.getAttribute('data-cache-key');
+    if (!key || !storageAvailable) {
+        return;
+    }
+    storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
+};
 const hydrateFormState = (form) => {
     const key = form.getAttribute('data-cache-key');
     if (!key || !storageAvailable) {
@@ -301,6 +308,44 @@ const hydrateFormState = (form) => {
     }
     catch (_a) {
         storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
+    }
+};
+const attachGenericPersistedForms = () => {
+    if (!storageAvailable) {
+        return;
+    }
+    const forms = Array.from(document.querySelectorAll('form[data-cache-key]'));
+    const restoredFromTabs = storageAvailable.getItem(tabNavigationKey) === '1';
+    forms.forEach(form => {
+        if (form.id === 'deck-sync-form') {
+            return;
+        }
+        if (restoredFromTabs) {
+            hydrateFormState(form);
+        }
+        const persist = () => persistFormState(form);
+        form.addEventListener('input', persist);
+        form.addEventListener('change', persist);
+        const clearButton = form.querySelector('[data-clear-cache]');
+        clearButton === null || clearButton === void 0 ? void 0 : clearButton.addEventListener('click', () => {
+            const clearHref = clearButton.getAttribute('data-clear-href');
+            if (clearHref) {
+                clearPersistedFormState(form);
+                window.location.href = clearHref;
+                return;
+            }
+            form.reset();
+            clearPersistedFormState(form);
+        });
+    });
+    document.querySelectorAll('.tab-bar .tab-link').forEach(link => {
+        link.addEventListener('click', () => {
+            forms.forEach(form => persistFormState(form));
+            storageAvailable.setItem(tabNavigationKey, '1');
+        });
+    });
+    if (restoredFromTabs) {
+        storageAvailable.removeItem(tabNavigationKey);
     }
 };
 const clearDeckSyncUi = () => {
@@ -448,10 +493,6 @@ const attachDeckSyncPersistence = () => {
     const restoredFromTabs = storageAvailable.getItem(tabNavigationKey) === '1';
     if (restoredFromTabs) {
         hydrateFormState(form);
-        storageAvailable.removeItem(tabNavigationKey);
-    }
-    else {
-        storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
     }
     updateSyncInputModeUi();
     updateSyncDirectionUi();
@@ -465,8 +506,14 @@ const attachDeckSyncPersistence = () => {
     });
     const clearButton = form.querySelector('[data-clear-cache]');
     clearButton === null || clearButton === void 0 ? void 0 : clearButton.addEventListener('click', () => {
+        const clearHref = clearButton.getAttribute('data-clear-href');
+        if (clearHref) {
+            clearPersistedFormState(form);
+            window.location.href = clearHref;
+            return;
+        }
         form.reset();
-        storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
+        clearPersistedFormState(form);
         clearDeckSyncUi();
         updateSyncInputModeUi();
         updateSyncDirectionUi();
@@ -558,6 +605,14 @@ const validateChatGptPacketsStep = (form, step) => {
     }
     return null;
 };
+const syncCardSpecificQuestionField = (form) => {
+    const field = form.querySelector('[data-card-specific-question-field]');
+    if (!field) {
+        return;
+    }
+    const hasCardSpecificQuestion = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="card-worth-it"]:checked, input[name="SelectedAnalysisQuestions"][value="better-alternatives"]:checked').length > 0;
+    field.classList.toggle('hidden', !hasCardSpecificQuestion);
+};
 const syncQuestionBucketState = (form) => {
     form.querySelectorAll('[data-question-bucket]').forEach(bucketCheckbox => {
         var _a;
@@ -582,14 +637,17 @@ const attachQuestionBucketSelection = (form) => {
                 questionCheckbox.checked = bucketCheckbox.checked;
             });
             syncQuestionBucketState(form);
+            syncCardSpecificQuestionField(form);
         });
     });
     form.querySelectorAll('input[data-question-option]').forEach(questionCheckbox => {
         questionCheckbox.addEventListener('change', () => {
             syncQuestionBucketState(form);
+            syncCardSpecificQuestionField(form);
         });
     });
     syncQuestionBucketState(form);
+    syncCardSpecificQuestionField(form);
 };
 const attachChatGptPacketsWorkflow = () => {
     const form = document.querySelector('[data-chatgpt-packets-form]');
@@ -644,6 +702,7 @@ const bootstrapDeckSync = () => {
     initializeSyncInputModeUi();
     registerBusyIndicator();
     attachActionButtons();
+    attachGenericPersistedForms();
     attachDeckSyncPersistence();
     attachChatGptPacketsWorkflow();
 };

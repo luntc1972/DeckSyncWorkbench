@@ -25,7 +25,7 @@
     @Model.ErrorMessage
 </div>
 
-<form method="post" action="/card-lookup" class="deck-form" data-busy-title="Looking up cards" data-busy-message="Checking submitted card names against Scryfall." data-busy-hold-final-step="true">
+<form method="post" action="/card-lookup" class="deck-form" data-cache-key="card-lookup" data-busy-title="Looking up cards" data-busy-message="Checking submitted card names against Scryfall." data-busy-hold-final-step="true">
     @Html.AntiForgeryToken()
     <div class="field-grid">
         <label class="field">
@@ -39,6 +39,7 @@
     <div class="error-banner hidden" role="alert" data-verify-lines-error></div>
     <div class="toolbar">
         <button type="submit" class="run-button">Lookup Cards</button>
+        <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="/card-lookup">Clear</button>
         <button type="submit" class="clear-cache-button" formaction="/card-lookup/download">Download .txt</button>
     </div>
 </form>

@@ -382,6 +382,15 @@ const persistFormState = (form: HTMLFormElement): void => {
   storageAvailable.setItem(`${formStateStoragePrefix}${key}`, JSON.stringify(state));
 };
 
+const clearPersistedFormState = (form: HTMLFormElement): void => {
+  const key = form.getAttribute('data-cache-key');
+  if (!key || !storageAvailable) {
+    return;
+  }
+
+  storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
+};
+
 const hydrateFormState = (form: HTMLFormElement): void => {
   const key = form.getAttribute('data-cache-key');
   if (!key || !storageAvailable) {
@@ -398,6 +407,53 @@ const hydrateFormState = (form: HTMLFormElement): void => {
     restoreFormFields(form, state);
   } catch {
     storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
+  }
+};
+
+const attachGenericPersistedForms = (): void => {
+  if (!storageAvailable) {
+    return;
+  }
+
+  const forms = Array.from(document.querySelectorAll<HTMLFormElement>('form[data-cache-key]'));
+  const restoredFromTabs = storageAvailable.getItem(tabNavigationKey) === '1';
+
+  forms.forEach(form => {
+    if (form.id === 'deck-sync-form') {
+      return;
+    }
+
+    if (restoredFromTabs) {
+      hydrateFormState(form);
+    }
+
+    const persist = () => persistFormState(form);
+    form.addEventListener('input', persist);
+    form.addEventListener('change', persist);
+
+        const clearButton = form.querySelector<HTMLElement>('[data-clear-cache]');
+        clearButton?.addEventListener('click', () => {
+      const clearHref = clearButton.getAttribute('data-clear-href');
+      if (clearHref) {
+        clearPersistedFormState(form);
+        window.location.href = clearHref;
+        return;
+      }
+
+      form.reset();
+      clearPersistedFormState(form);
+    });
+  });
+
+  document.querySelectorAll<HTMLAnchorElement>('.tab-bar .tab-link').forEach(link => {
+    link.addEventListener('click', () => {
+      forms.forEach(form => persistFormState(form));
+      storageAvailable.setItem(tabNavigationKey, '1');
+    });
+  });
+
+  if (restoredFromTabs) {
+    storageAvailable.removeItem(tabNavigationKey);
   }
 };
 
@@ -582,9 +638,6 @@ const attachDeckSyncPersistence = (): void => {
   const restoredFromTabs = storageAvailable.getItem(tabNavigationKey) === '1';
   if (restoredFromTabs) {
     hydrateFormState(form);
-    storageAvailable.removeItem(tabNavigationKey);
-  } else {
-    storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
   }
 
   updateSyncInputModeUi();
@@ -601,8 +654,15 @@ const attachDeckSyncPersistence = (): void => {
 
   const clearButton = form.querySelector<HTMLElement>('[data-clear-cache]');
   clearButton?.addEventListener('click', () => {
+    const clearHref = clearButton.getAttribute('data-clear-href');
+    if (clearHref) {
+      clearPersistedFormState(form);
+      window.location.href = clearHref;
+      return;
+    }
+
     form.reset();
-    storageAvailable.removeItem(`${formStateStoragePrefix}${key}`);
+    clearPersistedFormState(form);
     clearDeckSyncUi();
     updateSyncInputModeUi();
     updateSyncDirectionUi();
@@ -717,6 +777,19 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
   return null;
 };
 
+const syncCardSpecificQuestionField = (form: HTMLFormElement): void => {
+  const field = form.querySelector<HTMLElement>('[data-card-specific-question-field]');
+  if (!field) {
+    return;
+  }
+
+  const hasCardSpecificQuestion = form.querySelectorAll<HTMLInputElement>(
+    'input[name="SelectedAnalysisQuestions"][value="card-worth-it"]:checked, input[name="SelectedAnalysisQuestions"][value="better-alternatives"]:checked'
+  ).length > 0;
+
+  field.classList.toggle('hidden', !hasCardSpecificQuestion);
+};
+
 const syncQuestionBucketState = (form: HTMLFormElement): void => {
   form.querySelectorAll<HTMLInputElement>('[data-question-bucket]').forEach(bucketCheckbox => {
     const bucketId = bucketCheckbox.dataset.questionBucket ?? '';
@@ -745,16 +818,19 @@ const attachQuestionBucketSelection = (form: HTMLFormElement): void => {
       });
 
       syncQuestionBucketState(form);
+      syncCardSpecificQuestionField(form);
     });
   });
 
   form.querySelectorAll<HTMLInputElement>('input[data-question-option]').forEach(questionCheckbox => {
     questionCheckbox.addEventListener('change', () => {
       syncQuestionBucketState(form);
+      syncCardSpecificQuestionField(form);
     });
   });
 
   syncQuestionBucketState(form);
+  syncCardSpecificQuestionField(form);
 };
 
 const attachChatGptPacketsWorkflow = (): void => {
@@ -822,6 +898,7 @@ const bootstrapDeckSync = (): void => {
   initializeSyncInputModeUi();
   registerBusyIndicator();
   attachActionButtons();
+  attachGenericPersistedForms();
   attachDeckSyncPersistence();
   attachChatGptPacketsWorkflow();
 };

@@ -53,14 +53,15 @@ public sealed class ParserTests
             2 Snow-Covered Mountain
             """);
 
-        Assert.Equal(2, entries.Count);
+        Assert.Equal(3, entries.Count);
         Assert.Equal("commander", entries[0].Board);
         Assert.True(entries[0].IsFoil);
         Assert.Equal("mainboard", entries[1].Board);
+        Assert.Equal("sideboard", entries[2].Board);
     }
 
     [Fact]
-    public void MoxfieldParser_IgnoresSideboardAndEverythingBelowIt()
+    public void MoxfieldParser_ParsesSideboardEntries()
     {
         var entries = new MoxfieldParser().ParseText("""
             1 Bello, Bard of the Brambles
@@ -69,13 +70,18 @@ public sealed class ParserTests
             1 Negate
             """);
 
-        var entry = Assert.Single(entries);
-        Assert.Equal("mainboard", entry.Board);
-        Assert.Equal("Bello, Bard of the Brambles", entry.Name);
+        Assert.Equal(3, entries.Count);
+        Assert.Equal("mainboard", entries[0].Board);
+        Assert.Equal("Bello, Bard of the Brambles", entries[0].Name);
+        Assert.Equal("sideboard", entries[1].Board);
+        Assert.Equal("Counterspell", entries[1].Name);
+        Assert.Equal("Sideboard", entries[1].Category);
+        Assert.Equal("sideboard", entries[2].Board);
+        Assert.Equal("Negate", entries[2].Name);
     }
 
     [Fact]
-    public void MoxfieldParser_IgnoresSideboardHeaderWithColon()
+    public void MoxfieldParser_ParsesSideboardHeaderWithColon()
     {
         var entries = new MoxfieldParser().ParseText("""
             1 Bello, Bard of the Brambles
@@ -83,8 +89,11 @@ public sealed class ParserTests
             1 Counterspell
             """);
 
-        var entry = Assert.Single(entries);
-        Assert.Equal("Bello, Bard of the Brambles", entry.Name);
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("mainboard", entries[0].Board);
+        Assert.Equal("Bello, Bard of the Brambles", entries[0].Name);
+        Assert.Equal("sideboard", entries[1].Board);
+        Assert.Equal("Counterspell", entries[1].Name);
     }
 
     [Fact]

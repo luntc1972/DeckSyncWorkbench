@@ -252,6 +252,28 @@ body {
   margin-bottom: 1rem;
 }
 
+.chatgpt-context-note {
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #d9e1ee;
+  border-radius: 10px;
+  background: #f7f9fc;
+  color: var(--muted);
+}
+
+.chatgpt-context-note p {
+  margin: 0 0 0.75rem;
+}
+
+.chatgpt-context-note ul {
+  margin: 0 0 0.75rem 1.2rem;
+  padding: 0;
+}
+
+.chatgpt-context-note li + li {
+  margin-top: 0.4rem;
+}
+
 .chatgpt-question-picker__header h3 {
   margin: 0 0 0.35rem;
 }
@@ -264,6 +286,14 @@ body {
 .chatgpt-question-buckets {
   display: grid;
   gap: 1rem;
+}
+
+.chatgpt-card-specific-field {
+  margin: 0 0 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #d9e1ee;
+  border-radius: 10px;
+  background: #f7f9fc;
 }
 
 .chatgpt-question-bucket__label,

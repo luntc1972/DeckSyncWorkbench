@@ -32,6 +32,10 @@
 
 <div class="error-banner hidden" data-chatgpt-validation-error role="alert"></div>
 
+<div class="toolbar">
+    <a class="clear-cache-button" href="/chatgpt-json-to-text">Open ChatGPT JSON to Text</a>
+</div>
+
 <form method="post" class="deck-form chatgpt-packets-form" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-busy-title="Building ChatGPT Packets" data-busy-message="Resolving the deck and generating prompt files.">
     @Html.AntiForgeryToken()
     <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-workflow-step />
@@ -73,6 +77,16 @@
         </label>
         <details class="result-panel nested-panel">
             <summary>Additional context</summary>
+            <div class="chatgpt-context-note">
+                <p>These fields do not change the deck parser. They are extra instructions that get inserted into the ChatGPT prompts.</p>
+                <ul>
+                    <li><strong>Format</strong> is included in the probe, analysis, and set-upgrade prompts so ChatGPT evaluates the deck in the right rules context.</li>
+                    <li><strong>Deck name</strong> gives the prompts a stable label and is also saved with the packet artifacts.</li>
+                    <li><strong>Strategy notes</strong> tell ChatGPT what the deck is trying to do so it weighs the list against your intended game plan.</li>
+                    <li><strong>Meta notes</strong> tell ChatGPT what kinds of tables or threats you expect, which changes how it judges weaknesses and upgrades.</li>
+                </ul>
+                <p>If you leave these blank, the prompts still work. ChatGPT will just infer more from the decklist alone.</p>
+            </div>
             <div class="sync-columns">
                 <label class="field">
                     <span>Format</span>
@@ -93,6 +107,7 @@
             </label>
         </details>
         <div class="toolbar chatgpt-step-actions">
+            <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="/chatgpt-packets">Clear</button>
             <div class="chatgpt-step-note">This builds the deck summary, <code>probe.txt</code>, and the expected probe JSON schema.</div>
             <button type="submit" class="run-button" data-chatgpt-submit-step="1">Generate Probe Prompt</button>
         </div>
@@ -211,11 +226,6 @@
                 <h3>Analysis questions</h3>
                 <p>Select a whole bucket to check all questions under it, or choose individual questions manually.</p>
             </div>
-            <label class="field">
-                <span>Card name for card-specific questions</span>
-                <input type="text" name="CardSpecificQuestionCardName" value="@Model.Request.CardSpecificQuestionCardName" />
-                <small class="sync-column__hint">Used for “Is [card] worth including?” and “What are better alternatives to [card]?”</small>
-            </label>
             <div class="chatgpt-question-buckets">
                 @foreach (var bucket in questionBuckets)
                 {
@@ -238,6 +248,14 @@
                                     <span>@question.Text</span>
                                 </label>
                             }
+                            @if (string.Equals(bucket.Id, "card-level", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <label class="field chatgpt-card-specific-field hidden" data-card-specific-question-field>
+                                    <span>Card name for card-specific questions</span>
+                                    <input type="text" name="CardSpecificQuestionCardName" value="@Model.Request.CardSpecificQuestionCardName" />
+                                    <small class="sync-column__hint">This is used when you select “Is [card] worth including?” or “What are better alternatives to [card]?”</small>
+                                </label>
+                            }
                         </div>
                     </section>
                 }
@@ -247,20 +265,6 @@
             <button type="button" class="clear-cache-button" data-chatgpt-show-step="2">Back to Step 2</button>
             <button type="submit" class="run-button" data-chatgpt-submit-step="3">Generate Analysis Packet</button>
         </div>
-
-        @if (!string.IsNullOrWhiteSpace(Model.ReferenceText))
-        {
-            <section class="result-panel nested-panel">
-                <div class="panel-heading">
-                    <div>
-                        <h3>reference.txt</h3>
-                        <p>Authoritative card and mechanic context for the probe-flagged deck pieces.</p>
-                    </div>
-                    <button type="button" class="copy-button" data-copy-target="reference-output">Copy</button>
-                </div>
-                <textarea id="reference-output" readonly spellcheck="false">@Model.ReferenceText</textarea>
-            </section>
-        }
 
         @if (!string.IsNullOrWhiteSpace(Model.AnalysisPromptText))
         {
@@ -273,6 +277,20 @@
                     <button type="button" class="copy-button" data-copy-target="analysis-output">Copy</button>
                 </div>
                 <textarea id="analysis-output" readonly spellcheck="false" data-chatgpt-result-anchor>@Model.AnalysisPromptText</textarea>
+            </section>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.ReferenceText))
+        {
+            <section class="result-panel nested-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h3>reference.txt</h3>
+                        <p>Support context for the analysis prompt. It contains the authoritative card and mechanic references already embedded into <code>analysis.txt</code>, so you usually do not need to paste it into ChatGPT separately.</p>
+                    </div>
+                    <button type="button" class="copy-button" data-copy-target="reference-output">Copy</button>
+                </div>
+                <textarea id="reference-output" readonly spellcheck="false">@Model.ReferenceText</textarea>
             </section>
         }
 
@@ -320,12 +338,6 @@
             <span>Deck profile JSON</span>
             <textarea name="DeckProfileJson" spellcheck="false">@Model.Request.DeckProfileJson</textarea>
         </label>
-        <div class="sync-columns">
-            <label class="field">
-                <span>Target set name</span>
-                <input type="text" name="SetName" value="@Model.Request.SetName" />
-            </label>
-        </div>
         <label class="field">
             <span>Select sets to generate a set packet</span>
             <select name="SelectedSetCodes" multiple size="12">
@@ -340,11 +352,14 @@
                 <small class="sync-column__hint">The Scryfall set catalog could not be loaded right now. You can still paste a condensed set packet manually below.</small>
             }
         </label>
-        <label class="field">
-            <span>Condensed set packet override</span>
-            <textarea name="SetPacketText" spellcheck="false">@Model.Request.SetPacketText</textarea>
-            <small class="sync-column__hint">Optional. Leave this blank to use the generated set packet from the selected sets.</small>
-        </label>
+        <details class="result-panel nested-panel">
+            <summary>Show condensed set packet override</summary>
+            <label class="field">
+                <span>Condensed set packet override</span>
+                <textarea name="SetPacketText" spellcheck="false">@Model.Request.SetPacketText</textarea>
+                <small class="sync-column__hint">Optional. Leave this blank to use the generated set packet from the selected sets.</small>
+            </label>
+        </details>
         <div class="toolbar chatgpt-step-actions">
             <button type="button" class="clear-cache-button" data-chatgpt-show-step="3">Back to Step 3</button>
             <button type="submit" class="run-button" data-chatgpt-submit-step="4">Generate Set Upgrade Packet</button>

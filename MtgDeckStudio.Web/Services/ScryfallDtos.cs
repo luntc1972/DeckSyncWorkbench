@@ -44,6 +44,7 @@ public sealed record ScryfallCard(
     [property: JsonPropertyName("power")] string? Power,
     [property: JsonPropertyName("toughness")] string? Toughness,
     [property: JsonPropertyName("keywords")] IReadOnlyList<string>? Keywords,
+    [property: JsonPropertyName("color_identity")] IReadOnlyList<string>? ColorIdentity,
     [property: JsonPropertyName("set")] string? SetCode,
     [property: JsonPropertyName("set_name")] string? SetName,
     [property: JsonPropertyName("collector_number")] string? CollectorNumber);

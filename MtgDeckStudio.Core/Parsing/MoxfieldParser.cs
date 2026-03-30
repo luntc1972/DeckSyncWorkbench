@@ -39,11 +39,6 @@ public sealed partial class MoxfieldParser : IParser
                 continue;
             }
 
-            if (IsSectionHeader(line, "Sideboard"))
-            {
-                break;
-            }
-
             if (IsStoppingLine(line) && foundEntries)
             {
                 break;
@@ -148,7 +143,12 @@ public sealed partial class MoxfieldParser : IParser
             SetCode = setCode,
             CollectorNumber = collectorNumber,
             IsFoil = isFoil,
-            Category = board == "maybeboard" ? "Maybeboard" : null,
+            Category = board switch
+            {
+                "maybeboard" => "Maybeboard",
+                "sideboard" => "Sideboard",
+                _ => null
+            },
         };
         return true;
     }
@@ -164,6 +164,12 @@ public sealed partial class MoxfieldParser : IParser
         if (IsSectionHeader(line, "Maybeboard"))
         {
             board = "maybeboard";
+            return true;
+        }
+
+        if (IsSectionHeader(line, "Sideboard"))
+        {
+            board = "sideboard";
             return true;
         }
 

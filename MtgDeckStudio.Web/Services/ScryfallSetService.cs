@@ -10,7 +10,10 @@ public interface IScryfallSetService
 {
     Task<IReadOnlyList<ScryfallSetOption>> GetSetsAsync(CancellationToken cancellationToken = default);
 
-    Task<string> BuildSetPacketAsync(IReadOnlyList<string> setCodes, CancellationToken cancellationToken = default);
+    Task<string> BuildSetPacketAsync(
+        IReadOnlyList<string> setCodes,
+        IReadOnlyList<string>? commanderColorIdentity = null,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed partial class ScryfallSetService : IScryfallSetService
@@ -68,13 +71,21 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         return sets;
     }
 
-    public async Task<string> BuildSetPacketAsync(IReadOnlyList<string> setCodes, CancellationToken cancellationToken = default)
+    public async Task<string> BuildSetPacketAsync(
+        IReadOnlyList<string> setCodes,
+        IReadOnlyList<string>? commanderColorIdentity = null,
+        CancellationToken cancellationToken = default)
     {
         var normalizedCodes = setCodes
             .Where(code => !string.IsNullOrWhiteSpace(code))
             .Select(code => code.Trim().ToLowerInvariant())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+        var normalizedCommanderIdentity = (commanderColorIdentity ?? Array.Empty<string>())
+            .Where(color => !string.IsNullOrWhiteSpace(color))
+            .Select(color => color.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (normalizedCodes.Count == 0)
         {
             return string.Empty;
@@ -89,6 +100,13 @@ public sealed partial class ScryfallSetService : IScryfallSetService
             var set = knownSets.FirstOrDefault(option => string.Equals(option.Code, setCode, StringComparison.OrdinalIgnoreCase))
                 ?? new ScryfallSetOption(setCode, setCode.ToUpperInvariant(), null, null, 0);
             var cards = await FetchCardsForSetAsync(setCode, cancellationToken).ConfigureAwait(false);
+            if (normalizedCommanderIdentity.Count > 0)
+            {
+                cards = cards
+                    .Where(card => IsPlayableInCommanderIdentity(card, normalizedCommanderIdentity))
+                    .ToList();
+            }
+
             cardsBySet.Add((set, cards));
 
             foreach (var card in cards)
@@ -230,6 +248,23 @@ public sealed partial class ScryfallSetService : IScryfallSetService
 
     private static string CollapseWhitespace(string value)
         => string.Join(" ", value.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+    private static bool IsPlayableInCommanderIdentity(ScryfallCard card, IReadOnlySet<string> commanderIdentity)
+    {
+        var cardIdentity = (card.ColorIdentity ?? Array.Empty<string>())
+            .Where(color => !string.IsNullOrWhiteSpace(color))
+            .Select(color => color.Trim().ToUpperInvariant());
+
+        foreach (var color in cardIdentity)
+        {
+            if (!commanderIdentity.Contains(color))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     private static DateOnly ParseReleasedAt(string? releasedAt)
         => DateOnly.TryParse(releasedAt, out var date) ? date : DateOnly.MinValue;

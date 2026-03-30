@@ -17,8 +17,8 @@ public sealed class CardLookupServiceTests
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 new[]
                 {
-                    new ScryfallCard("Sol Ring", "{T}", "Artifact", "Add {W}", "—", "—", null, null, null, null),
-                    new ScryfallCard("Arcane Signet", "{1}", "Artifact", "Add {W} or {U}", "—", "—", null, null, null, null)
+                    new ScryfallCard("Sol Ring", "{T}", "Artifact", "Add {W}", "—", "—", null, null, null, null, null),
+                    new ScryfallCard("Arcane Signet", "{1}", "Artifact", "Add {W} or {U}", "—", "—", null, null, null, null, null)
                 },
                 new[] { new ScryfallCollectionIdentifier("Made Up Card") },
                 request)),
@@ -67,7 +67,7 @@ public sealed class CardLookupServiceTests
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 new[]
                 {
-                    new ScryfallCard("Sol Ring", "{T}", "Artifact", "Add {W}", "—", "—", null, null, null, null)
+                    new ScryfallCard("Sol Ring", "{T}", "Artifact", "Add {W}", "—", "—", null, null, null, null, null)
                 },
                 Array.Empty<ScryfallCollectionIdentifier>(),
                 request)));
@@ -104,7 +104,7 @@ public sealed class CardLookupServiceTests
             {
                 StatusCode = HttpStatusCode.OK,
                 Data = new ScryfallSearchResponse(
-                    [new ScryfallCard("Fblthp, Lost on the Range", "{1}{U}", "Legendary Creature — Homunculus", "When this enters, draw a card.", "1", "1", null, "otp", "Outlaws", "7")])
+                    [new ScryfallCard("Fblthp, Lost on the Range", "{1}{U}", "Legendary Creature — Homunculus", "When this enters, draw a card.", "1", "1", null, null, "otp", "Outlaws", "7")])
             }));
 
         var result = await service.LookupAsync("Fblthp, Lost on the Range");
@@ -131,7 +131,7 @@ public sealed class CardLookupServiceTests
                 var cards = query == "Pastor da Selva"
                     ? new[]
                     {
-                        new ScryfallCard("Ancient Greenwarden", "{4}{G}{G}", "Creature — Elemental", "You may play lands from your graveyard.", "5", "7", null, "sld", "Secret Lair Drop", "2059")
+                        new ScryfallCard("Ancient Greenwarden", "{4}{G}{G}", "Creature — Elemental", "You may play lands from your graveyard.", "5", "7", null, null, "sld", "Secret Lair Drop", "2059")
                     }
                     : Array.Empty<ScryfallCard>();
 
@@ -168,7 +168,7 @@ public sealed class CardLookupServiceTests
             executeNamedAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCard>(request)
             {
                 StatusCode = HttpStatusCode.OK,
-                Data = new ScryfallCard("Ancient Greenwarden", "{4}{G}{G}", "Creature — Elemental", "You may play lands from your graveyard.", "5", "7", null, "sld", "Secret Lair Drop", "2059")
+                Data = new ScryfallCard("Ancient Greenwarden", "{4}{G}{G}", "Creature — Elemental", "You may play lands from your graveyard.", "5", "7", null, null, "sld", "Secret Lair Drop", "2059")
             }));
 
         var result = await service.LookupAsync("Pastor da Selva");

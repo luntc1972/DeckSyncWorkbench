@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 using MtgDeckStudio.Core.Diffing;
 using MtgDeckStudio.Core.Exporting;
@@ -21,6 +22,7 @@ public sealed class DeckController : Controller
     private readonly IMechanicLookupService _mechanicLookupService;
     private readonly ICategorySuggestionService _categorySuggestionService;
     private readonly IChatGptDeckPacketService _chatGptDeckPacketService;
+    private readonly IChatGptJsonTextFormatterService _chatGptJsonTextFormatterService;
     private readonly IScryfallSetService _scryfallSetService;
     private readonly ILogger<DeckController> _logger;
 
@@ -31,6 +33,7 @@ public sealed class DeckController : Controller
         IMechanicLookupService mechanicLookupService,
         ICategorySuggestionService categorySuggestionService,
         IChatGptDeckPacketService chatGptDeckPacketService,
+        IChatGptJsonTextFormatterService chatGptJsonTextFormatterService,
         IScryfallSetService scryfallSetService,
         ILogger<DeckController> logger)
     {
@@ -40,6 +43,7 @@ public sealed class DeckController : Controller
         _mechanicLookupService = mechanicLookupService;
         _categorySuggestionService = categorySuggestionService;
         _chatGptDeckPacketService = chatGptDeckPacketService;
+        _chatGptJsonTextFormatterService = chatGptJsonTextFormatterService;
         _scryfallSetService = scryfallSetService;
         _logger = logger;
     }
@@ -102,6 +106,16 @@ public sealed class DeckController : Controller
             ActiveTab = DeckPageTab.ChatGptPackets,
             Request = new ChatGptDeckRequest(),
             AvailableSets = availableSets,
+        });
+    }
+
+    [HttpGet("/chatgpt-json-to-text")]
+    public IActionResult ChatGptJsonToText()
+    {
+        return View("ChatGptJsonToText", new ChatGptJsonTextViewModel
+        {
+            ActiveTab = DeckPageTab.ChatGptJsonToText,
+            Request = new ChatGptJsonTextRequest(),
         });
     }
     [HttpGet("/suggest-categories/card-search")]
@@ -270,6 +284,56 @@ public sealed class DeckController : Controller
                 Request = request,
                 AvailableSets = await TryGetSetOptionsAsync(),
                 ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
+    }
+
+    [HttpPost("/chatgpt-json-to-text")]
+    [ValidateAntiForgeryToken]
+    public IActionResult ChatGptJsonToText(ChatGptJsonTextRequest request)
+    {
+        request ??= new ChatGptJsonTextRequest();
+
+        if (string.IsNullOrWhiteSpace(request.JsonInput))
+        {
+            return View("ChatGptJsonToText", new ChatGptJsonTextViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptJsonToText,
+                Request = request,
+                ErrorMessage = "Paste ChatGPT JSON before converting it to text."
+            });
+        }
+
+        try
+        {
+            var prettyJson = ChatGptJsonTextFormatterService.ExtractJsonPayload(request.JsonInput);
+            var formattedText = _chatGptJsonTextFormatterService.FormatAsText(request.JsonInput);
+            return View("ChatGptJsonToText", new ChatGptJsonTextViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptJsonToText,
+                Request = request,
+                PrettyJson = prettyJson,
+                FormattedText = formattedText
+            });
+        }
+        catch (JsonException exception)
+        {
+            _logger.LogInformation(exception, "ChatGPT JSON-to-text conversion failed due to invalid JSON.");
+            return View("ChatGptJsonToText", new ChatGptJsonTextViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptJsonToText,
+                Request = request,
+                ErrorMessage = "The submitted ChatGPT response did not contain valid JSON."
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "ChatGPT JSON-to-text conversion failed validation.");
+            return View("ChatGptJsonToText", new ChatGptJsonTextViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptJsonToText,
+                Request = request,
+                ErrorMessage = exception.Message
             });
         }
     }

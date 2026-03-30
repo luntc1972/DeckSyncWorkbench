@@ -2,6 +2,7 @@ using MtgDeckStudio.Web.Services;
 using Microsoft.Extensions.Caching.Memory;
 using RestSharp;
 using Xunit;
+using System.Net;
 
 namespace MtgDeckStudio.Web.Tests;
 
@@ -33,6 +34,43 @@ public sealed class ScryfallSetServiceTests
             set => Assert.Equal("new", set.Code),
             set => Assert.Equal("mid", set.Code),
             set => Assert.Equal("old", set.Code));
+    }
+
+    [Fact]
+    public async Task BuildSetPacketAsync_FiltersCardsByCommanderColorIdentity()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = new ScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("tst", "Test Set", "2025-01-01", "expansion", 3)
+                    ])
+                }),
+            executeSearchAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSearchResponse>(new RestRequest("cards/search"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(
+                    [
+                        new ScryfallCard("Azorius Card", "{W}{U}", "Creature", "Flying", "2", "2", [], ["W", "U"], "tst", "Test Set", "1"),
+                        new ScryfallCard("Colorless Card", "{3}", "Artifact", "{T}: Add {C}.", null, null, [], [], "tst", "Test Set", "2"),
+                        new ScryfallCard("Rakdos Card", "{B}{R}", "Creature", "Menace", "3", "2", [], ["B", "R"], "tst", "Test Set", "3")
+                    ],
+                    false,
+                    null)
+                }));
+
+        var packet = await service.BuildSetPacketAsync(["tst"], ["W", "U"]);
+
+        Assert.Contains("Azorius Card", packet);
+        Assert.Contains("Colorless Card", packet);
+        Assert.DoesNotContain("Rakdos Card", packet);
     }
 
     private sealed class FakeMechanicLookupService : IMechanicLookupService

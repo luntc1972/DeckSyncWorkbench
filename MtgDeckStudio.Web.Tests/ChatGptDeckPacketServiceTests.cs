@@ -39,6 +39,42 @@ Commander
     }
 
     [Fact]
+    public async Task BuildAsync_SeparatesCommanderDecklistAndPossibleIncludesInInitialProbePrompt()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Sol Ring
+1 Arcane Signet
+
+Sideboard
+1 Swords to Plowshares
+
+Maybeboard
+1 Smothering Tithe
+"""
+        });
+
+        var probeText = result.ProbePromptText.Replace("\r\n", "\n", StringComparison.Ordinal);
+        Assert.Contains("Commander\n1 Atraxa, Praetors' Voice", probeText);
+        Assert.Contains("Decklist\n1 Arcane Signet\n1 Sol Ring", probeText);
+        Assert.Contains("Sideboard\n1 Swords to Plowshares", probeText);
+        Assert.Contains("Maybeboard\n1 Smothering Tithe", probeText);
+        Assert.Contains("Treat the Commander and Decklist sections as the actual deck being evaluated.", probeText);
+        Assert.Contains("Treat the Sideboard and Maybeboard sections only as candidate additions, not part of the current deck.", probeText);
+        Assert.Contains("Main deck cards: 2", result.InputSummary);
+        Assert.Contains("Commander cards: 1", result.InputSummary);
+        Assert.Contains("Sideboard cards: 1", result.InputSummary);
+        Assert.Contains("Maybeboard cards: 1", result.InputSummary);
+    }
+
+    [Fact]
     public async Task BuildAsync_GeneratesReferenceAndAnalysis_WhenProbeJsonProvided()
     {
         var service = CreateService();
@@ -72,6 +108,9 @@ Commander
         Assert.Contains("What are the strengths and weaknesses of this deck?", result.AnalysisPromptText);
         Assert.Contains("How consistent is this deck?", result.AnalysisPromptText);
         Assert.Contains("Is Sol Ring worth including in this deck?", result.AnalysisPromptText);
+        Assert.Contains("1. top adds", result.AnalysisPromptText);
+        Assert.Contains("2. top cuts", result.AnalysisPromptText);
+        Assert.Contains("For every recommended add and cut, explain the reasoning briefly", result.AnalysisPromptText);
         Assert.Contains("Bracket 3: Upgraded", result.AnalysisPromptText);
         Assert.Contains("Expect to play at least six turns before you win or lose.", result.AnalysisPromptText);
         Assert.Contains("```json", result.AnalysisPromptText);
@@ -180,7 +219,6 @@ Commander
   "synergy_tags": []
 }
 """,
-            SetName = "Test Set",
             SetPacketText = "SET: Test Set\nCARDS:\nTest Card | 2G | Creature | Example text."
         });
 
@@ -188,6 +226,7 @@ Commander
         Assert.Contains("Do not recommend cards from the official Commander banned list.", result.SetUpgradePromptText);
         Assert.Contains("Dockside Extortionist", result.SetUpgradePromptText);
         Assert.Contains("real upgrades", result.SetUpgradePromptText);
+        Assert.Contains("For every recommended add or cut, explain the reasoning briefly", result.SetUpgradePromptText);
         Assert.Contains("SET: Test Set", result.SetUpgradePromptText);
         Assert.Contains("\"game_plan\": \"Midrange value\"", result.SetUpgradePromptText);
     }
@@ -227,6 +266,7 @@ Commander
         Assert.Contains("set_packet:", result.SetUpgradePromptText);
         Assert.Contains("Test Set (DSK)", result.SetUpgradePromptText);
         Assert.Contains("Survival", result.SetUpgradePromptText);
+        Assert.DoesNotContain("Off Color Test Card", result.SetUpgradePromptText);
         Assert.DoesNotContain("Paste the condensed set packet", result.SetUpgradePromptText);
     }
 
@@ -279,6 +319,46 @@ Commander
         Assert.Contains("card_specific_question_card_name: Sol Ring", requestContext);
     }
 
+    [Fact]
+    public async Task BuildAsync_AllowsNullOptionalRequestFields_AndOmitsEmptyContextBlocks()
+    {
+        var artifactsRoot = Path.Combine(Path.GetTempPath(), "MtgDeckStudioTests", Guid.NewGuid().ToString("N"));
+        var service = CreateService(artifactsRoot);
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            ProbeResponseJson = """
+{
+  "unknown_cards": ["Sol Ring"]
+}
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["consistency"],
+            SelectedSetCodes = null!,
+            StrategyNotes = null!,
+            MetaNotes = null!,
+            CardSpecificQuestionCardName = null!,
+            SaveArtifactsToDisk = true
+        });
+
+        Assert.NotNull(result.ReferenceText);
+        Assert.NotNull(result.AnalysisPromptText);
+
+        var requestContext = await File.ReadAllTextAsync(Path.Combine(result.SavedArtifactsDirectory!, "01-request-context.txt"));
+        Assert.DoesNotContain("strategy_notes:", requestContext);
+        Assert.DoesNotContain("meta_notes:", requestContext);
+        Assert.DoesNotContain("set_name:", requestContext);
+        Assert.Contains("selected_set_codes:", requestContext);
+        Assert.DoesNotContain("selected_set_codes:\n-", requestContext.Replace("\r\n", "\n", StringComparison.Ordinal));
+    }
+
     private static ChatGptDeckPacketService CreateService(string? contentRootPath = null)
     {
         var rootPath = contentRootPath ?? Path.Combine(Path.GetTempPath(), "MtgDeckStudioTests", Guid.NewGuid().ToString("N"));
@@ -303,8 +383,8 @@ Commander
             Data = new ScryfallCollectionResponse(
                 new List<ScryfallCard>
                 {
-                    new("Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", null, null, null, null, null, null),
-                    new("Atraxa, Praetors' Voice", "{G}{W}{U}{B}", "Legendary Creature — Phyrexian Angel Horror", "Flying, vigilance, deathtouch, lifelink. At the beginning of your end step, proliferate.", "4", "4", ["Flying", "Vigilance", "Deathtouch", "Lifelink", "Proliferate"], null, null, null)
+                    new("Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", null, null, null, [], null, null, null),
+                    new("Atraxa, Praetors' Voice", "{G}{W}{U}{B}", "Legendary Creature — Phyrexian Angel Horror", "Flying, vigilance, deathtouch, lifelink. At the beginning of your end step, proliferate.", "4", "4", ["Flying", "Vigilance", "Deathtouch", "Lifelink", "Proliferate"], ["G", "W", "U", "B"], null, null, null)
                 },
                 [])
         };
@@ -343,8 +423,12 @@ Commander
             => Task.FromResult<IReadOnlyList<ScryfallSetOption>>(
                 [new ScryfallSetOption("dsk", "Test Set", "2026-01-01", "expansion", 2)]);
 
-        public Task<string> BuildSetPacketAsync(IReadOnlyList<string> setCodes, CancellationToken cancellationToken = default)
-            => Task.FromResult("""
+        public Task<string> BuildSetPacketAsync(IReadOnlyList<string> setCodes, IReadOnlyList<string>? commanderColorIdentity = null, CancellationToken cancellationToken = default)
+        {
+            var allowRed = (commanderColorIdentity ?? Array.Empty<string>())
+                .Any(color => string.Equals(color, "R", StringComparison.OrdinalIgnoreCase));
+
+            var packet = """
 set_packet:
 generated_at_utc: 2026-03-26T00:00:00Z
 sets:
@@ -356,7 +440,15 @@ Survival: A test mechanic summary.
 set: Test Set (DSK)
 cards:
 Test Card | 1W | Creature | Survival — Test text.
-""");
+""";
+
+            if (allowRed)
+            {
+                packet += "Off Color Test Card | 1R | Creature | Haste.\n";
+            }
+
+            return Task.FromResult(packet);
+        }
     }
 
     private sealed class FakeCommanderBanListService : ICommanderBanListService
