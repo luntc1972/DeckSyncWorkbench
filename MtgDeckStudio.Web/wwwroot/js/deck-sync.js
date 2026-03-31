@@ -733,14 +733,35 @@ const syncQuestionBucketState = (form) => {
         bucketCheckbox.indeterminate = checkedCount > 0 && checkedCount < questionCheckboxes.length;
     });
 };
+const attachBucketToggles = (form) => {
+    form.querySelectorAll('[data-bucket-toggle]').forEach(toggleBtn => {
+        toggleBtn.addEventListener('click', () => {
+            var _a;
+            const bucketId = (_a = toggleBtn.dataset.bucketToggle) !== null && _a !== void 0 ? _a : '';
+            const questionsDiv = form.querySelector(`[data-bucket-questions="${bucketId}"]`);
+            if (!questionsDiv) {
+                return;
+            }
+            const nowHidden = questionsDiv.classList.toggle('hidden');
+            toggleBtn.setAttribute('aria-expanded', nowHidden ? 'false' : 'true');
+        });
+    });
+};
 const attachQuestionBucketSelection = (form) => {
     form.querySelectorAll('[data-question-bucket]').forEach(bucketCheckbox => {
         bucketCheckbox.addEventListener('change', () => {
             var _a;
             const bucketId = (_a = bucketCheckbox.dataset.questionBucket) !== null && _a !== void 0 ? _a : '';
+            const questionsDiv = form.querySelector(`[data-bucket-questions="${bucketId}"]`);
             form.querySelectorAll(`input[data-question-option="${bucketId}"]`).forEach(questionCheckbox => {
                 questionCheckbox.checked = bucketCheckbox.checked;
             });
+            // Auto-expand the bucket when the select-all checkbox is checked
+            if (bucketCheckbox.checked && (questionsDiv === null || questionsDiv === void 0 ? void 0 : questionsDiv.classList.contains('hidden'))) {
+                questionsDiv.classList.remove('hidden');
+                const toggleBtn = form.querySelector(`[data-bucket-toggle="${bucketId}"]`);
+                toggleBtn === null || toggleBtn === void 0 ? void 0 : toggleBtn.setAttribute('aria-expanded', 'true');
+            }
             syncQuestionBucketState(form);
             syncCardSpecificQuestionField(form);
             syncBudgetQuestionField(form);
@@ -765,6 +786,7 @@ const attachChatGptPacketsWorkflow = () => {
     const currentStep = parseChatGptStep(form.dataset.chatgptCurrentStep);
     const initialUiMode = parseChatGptUiMode(storageAvailable === null || storageAvailable === void 0 ? void 0 : storageAvailable.getItem(chatGptUiModeStorageKey));
     attachQuestionBucketSelection(form);
+    attachBucketToggles(form);
     applyChatGptUiMode(form, initialUiMode);
     showChatGptStep(form, currentStep);
     setChatGptValidationMessage(null);

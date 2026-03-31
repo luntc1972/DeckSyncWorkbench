@@ -4,6 +4,12 @@
     var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 4);
     var commanderBrackets = MtgDeckStudio.Web.Models.CommanderBracketCatalog.Options;
     var questionBuckets = MtgDeckStudio.Web.Models.AnalysisQuestionCatalog.Buckets;
+    var selectedQuestionSet = new HashSet<string>(Model.Request.SelectedAnalysisQuestions, StringComparer.OrdinalIgnoreCase);
+    var openBuckets = new HashSet<string>(
+        MtgDeckStudio.Web.Models.AnalysisQuestionCatalog.Buckets
+            .Where(b => b.Questions.Any(q => selectedQuestionSet.Contains(q.Id)))
+            .Select(b => b.Id),
+        StringComparer.OrdinalIgnoreCase);
 }
 
 <section class="hero">
@@ -243,12 +249,18 @@
                 @foreach (var bucket in questionBuckets)
                 {
                     var bucketId = $"bucket-{bucket.Id}";
+                    var bucketOpen = openBuckets.Contains(bucket.Id);
+                    var bucketAriaExpanded = bucketOpen ? "true" : "false";
+                    var bucketQuestionsClass = bucketOpen ? "chatgpt-question-bucket__questions" : "chatgpt-question-bucket__questions hidden";
                     <section class="result-panel nested-panel chatgpt-question-bucket">
-                        <label class="chatgpt-question-bucket__label">
-                            <input type="checkbox" data-question-bucket="@bucket.Id" id="@bucketId" />
-                            <span>@bucket.Label</span>
-                        </label>
-                        <div class="chatgpt-question-bucket__questions">
+                        <div class="chatgpt-question-bucket__header">
+                            <label class="chatgpt-question-bucket__label">
+                                <input type="checkbox" data-question-bucket="@bucket.Id" id="@bucketId" />
+                                <span>@bucket.Label</span>
+                            </label>
+                            <button type="button" class="chatgpt-question-bucket__toggle" data-bucket-toggle="@bucket.Id" aria-expanded="@bucketAriaExpanded"></button>
+                        </div>
+                        <div class="@bucketQuestionsClass" data-bucket-questions="@bucket.Id">
                             @foreach (var question in bucket.Questions)
                             {
                                 <label class="chatgpt-question-option">
@@ -261,20 +273,37 @@
                                     <span>@question.Text</span>
                                 </label>
                             }
-                            @if (string.Equals(bucket.Id, "optimization-upgrades", StringComparison.OrdinalIgnoreCase))
+                            @if (bucket.Id == "optimization-upgrades")
                             {
                                 <label class="field chatgpt-budget-field hidden" data-budget-question-field>
                                     <span>Budget amount for budget upgrade question</span>
                                     <input type="text" name="BudgetUpgradeAmount" value="@Model.Request.BudgetUpgradeAmount" inputmode="decimal" />
-                                    <small class="sync-column__hint">Used when you select “What are the best upgrades under $X budget?” Enter just the amount, for example <code>50</code>.</small>
+                                    <small class="sync-column__hint">Used when you select "What are the best upgrades under $X budget?" Enter just the amount, for example <code>50</code>.</small>
                                 </label>
                             }
-                            @if (string.Equals(bucket.Id, "card-level", StringComparison.OrdinalIgnoreCase))
+                            @if (bucket.Id == "card-level")
                             {
                                 <label class="field chatgpt-card-specific-field hidden" data-card-specific-question-field>
                                     <span>Card name for card-specific questions</span>
                                     <input type="text" name="CardSpecificQuestionCardName" value="@Model.Request.CardSpecificQuestionCardName" />
-                                    <small class="sync-column__hint">This is used when you select “Is [card] worth including?” or “What are better alternatives to [card]?”</small>
+                                    <small class="sync-column__hint">This is used when you select "Is [card] worth including?" or "What are better alternatives to [card]?"</small>
+                                </label>
+                            }
+                            @if (bucket.Id == "deck-versioning")
+                            {
+                                <label class="field">
+                                    <span>Decklist export format</span>
+                                    <select name="DecklistExportFormat">
+                                        <option value="" selected="@(string.IsNullOrEmpty(Model.Request.DecklistExportFormat))">Plain text (no preference)</option>
+                                        <option value="moxfield" selected="@(string.Equals(Model.Request.DecklistExportFormat, "moxfield", StringComparison.OrdinalIgnoreCase))">Moxfield</option>
+                                        <option value="archidekt" selected="@(string.Equals(Model.Request.DecklistExportFormat, "archidekt", StringComparison.OrdinalIgnoreCase))">Archidekt</option>
+                                    </select>
+                                    <small class="sync-column__hint">Choose which deck builder you will paste the generated lists into. This controls the exact line format ChatGPT outputs so it can be pasted directly into the bulk-edit field.</small>
+                                </label>
+                                <label class="field">
+                                    <span>Protected cards (optional)</span>
+                                    <textarea name="ProtectedCards" rows="4" spellcheck="false">@Model.Request.ProtectedCards</textarea>
+                                    <small class="sync-column__hint">One card name per line. These cards will always be kept in every generated deck version or upgrade path. They may still appear as suggested cuts in the general analysis.</small>
                                 </label>
                             }
                         </div>

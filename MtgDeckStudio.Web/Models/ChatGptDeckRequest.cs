@@ -15,6 +15,8 @@ public sealed class ChatGptDeckRequest
     private string _budgetUpgradeAmount = string.Empty;
     private List<string> _selectedSetCodes = [];
     private string _setPacketText = string.Empty;
+    private string _protectedCards = string.Empty;
+    private string _decklistExportFormat = string.Empty;
 
     public string DeckSource
     {
@@ -96,5 +98,17 @@ public sealed class ChatGptDeckRequest
     {
         get => _setPacketText;
         set => _setPacketText = value ?? string.Empty;
+    }
+
+    public string ProtectedCards
+    {
+        get => _protectedCards;
+        set => _protectedCards = value ?? string.Empty;
+    }
+
+    public string DecklistExportFormat
+    {
+        get => _decklistExportFormat;
+        set => _decklistExportFormat = value ?? string.Empty;
     }
 }

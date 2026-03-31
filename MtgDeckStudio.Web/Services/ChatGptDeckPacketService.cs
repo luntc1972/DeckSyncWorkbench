@@ -135,6 +135,34 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             .FirstOrDefault(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             ?.Name;
 
+        // Fallback for Moxfield exports without a Commander section header.
+        // By convention the commander (or partner pair) appears first in the list.
+        if (commanderName is null && entries.Count > 0)
+        {
+            var leadingOneOfs = entries
+                .TakeWhile(entry => entry.Quantity == 1
+                    && !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+                .Take(2)
+                .ToList();
+
+            if (leadingOneOfs.Count > 0)
+            {
+                var commanderNames = leadingOneOfs.Select(e => e.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                entries = entries
+                    .Select(entry => commanderNames.Contains(entry.Name)
+                        ? entry with { Board = "commander" }
+                        : entry)
+                    .ToList();
+                deckEntries = deckEntries
+                    .Select(entry => commanderNames.Contains(entry.Name)
+                        ? entry with { Board = "commander" }
+                        : entry)
+                    .ToList();
+                commanderName = leadingOneOfs[0].Name;
+            }
+        }
+
         var inputSummary = BuildInputSummary(request, deckEntries, possibleIncludeEntries, commanderName);
         var probeDecklistText = BuildProbeDecklistText(entries);
         var decklistText = BuildDecklistText(deckEntries, possibleIncludeEntries);
@@ -392,28 +420,30 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
     /// <summary>
     /// Builds the probe-step deck text with commander, decklist, sideboard, and maybeboard sections.
+    /// Preserves set code and collector number from the original input, normalizes double-faced card
+    /// names to the front face, and annotates commander lines with [Commander].
     /// </summary>
     private static string BuildProbeDecklistText(IReadOnlyList<DeckEntry> entries)
     {
         var commanderLines = entries
             .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => $"{entry.Quantity} {entry.Name}")
+            .Select(entry => FormatProbeCardLine(entry, isCommander: true))
             .ToList();
         var deckLines = entries
             .Where(entry => string.Equals(entry.Board, "mainboard", StringComparison.OrdinalIgnoreCase))
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => $"{entry.Quantity} {entry.Name}")
+            .Select(entry => FormatProbeCardLine(entry, isCommander: false))
             .ToList();
         var sideboardLines = entries
             .Where(entry => string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => $"{entry.Quantity} {entry.Name}")
+            .Select(entry => FormatProbeCardLine(entry, isCommander: false))
             .ToList();
         var maybeboardLines = entries
             .Where(entry => string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase))
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => $"{entry.Quantity} {entry.Name}")
+            .Select(entry => FormatProbeCardLine(entry, isCommander: false))
             .ToList();
 
         var builder = new StringBuilder();
@@ -422,6 +452,43 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         AppendSection(builder, "Sideboard", sideboardLines);
         AppendSection(builder, "Maybeboard", maybeboardLines);
         return builder.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Formats a single card line for the probe prompt.
+    /// Uses the front-face name for double-faced cards, appends (SET) collectorNumber when present,
+    /// and tags commander lines with [Commander].
+    /// </summary>
+    private static string FormatProbeCardLine(DeckEntry entry, bool isCommander)
+    {
+        var name = entry.Name;
+        var slashIndex = name.IndexOf(" // ", StringComparison.Ordinal);
+        if (slashIndex >= 0)
+        {
+            name = name[..slashIndex].TrimEnd();
+        }
+
+        var sb = new StringBuilder();
+        sb.Append(entry.Quantity);
+        sb.Append(' ');
+        sb.Append(name);
+
+        if (!string.IsNullOrWhiteSpace(entry.SetCode))
+        {
+            sb.Append($" ({entry.SetCode.ToUpperInvariant()})");
+            if (!string.IsNullOrWhiteSpace(entry.CollectorNumber))
+            {
+                sb.Append(' ');
+                sb.Append(entry.CollectorNumber);
+            }
+        }
+
+        if (isCommander)
+        {
+            sb.Append(" [Commander]");
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>
@@ -550,6 +617,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         var builder = new StringBuilder();
         builder.AppendLine("Analyze this Magic: The Gathering deck.");
         builder.AppendLine();
+        builder.AppendLine($"Suggested chat title: {BuildSuggestedChatTitle(request, commanderName)}");
+        builder.AppendLine("Use that title for this ChatGPT conversation before you start the analysis.");
+        builder.AppendLine();
         builder.AppendLine("Use the mechanic definitions as authoritative.");
         builder.AppendLine("Use the card reference as authoritative for listed cards.");
         builder.AppendLine("Before you begin the analysis, read the supplied card reference entries for any cards you did not already know, including any newly supplied keywords or mechanics, and use that supplied text when evaluating the deck.");
@@ -577,9 +647,33 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine("For every recommended add and cut, explain the reasoning briefly and tie it back to the deck's plan, bracket target, or weaknesses.");
         if (requiresFullDecklists)
         {
-            builder.AppendLine("For every requested deck-version or upgrade-path question, return a complete 100-card Commander list as part of the answer.");
-            builder.AppendLine("Each list must contain exactly 1 commander and 99 other cards.");
-            builder.AppendLine("Do not return partial swap notes only. Return the full final list for each requested version in its own clearly labeled ```text fenced code block.");
+            builder.AppendLine("IMPORTANT: For every requested deck-version or upgrade-path question, you must output the full, complete 100-card Commander decklist.");
+            builder.AppendLine("Do NOT summarize, truncate, abbreviate, or say 'and X more cards', 'remaining lands', 'fill with basics', or anything similar.");
+            builder.AppendLine("Every single card must be listed explicitly, one per line, with no omissions.");
+            builder.AppendLine("Each list must contain exactly 1 commander and 99 other cards — count them before responding to confirm the total reaches 100.");
+            builder.AppendLine("When a question asks for 3 upgrade paths, produce 3 separate full decklists — one per path.");
+            var exportFormat = request.DecklistExportFormat.Trim();
+            if (string.Equals(exportFormat, "moxfield", StringComparison.OrdinalIgnoreCase))
+            {
+                builder.AppendLine("Format each decklist for Moxfield bulk edit: one card per line as 'quantity CardName' (e.g. '1 Sol Ring'). List all 100 cards together with no section headers. The commander is just another line.");
+            }
+            else if (string.Equals(exportFormat, "archidekt", StringComparison.OrdinalIgnoreCase))
+            {
+                builder.AppendLine("Format each decklist for Archidekt bulk edit: start with a '// Commander' section header, then the commander line as '1 CommanderName [Commander]', then a '// Mainboard' section header, then the remaining 99 cards as 'quantity CardName' (one per line).");
+            }
+            else
+            {
+                builder.AppendLine("Format each decklist as plain text: quantity CardName (one card per line, e.g. '1 Sol Ring'). Start with the commander line.");
+            }
+            builder.AppendLine("Return each full list in its own clearly labeled ```text fenced code block with the version or path name as the label (e.g. ```text Budget Efficiency).");
+            builder.AppendLine("The goal is a list that can be pasted directly into the deck builder's bulk-edit field. It must be complete and machine-readable.");
+        }
+        var protectedCards = ParseCardNameList(request.ProtectedCards);
+        if (protectedCards.Count > 0 && requiresFullDecklists)
+        {
+            builder.AppendLine($"Protected cards: {string.Join(", ", protectedCards)}");
+            builder.AppendLine("Keep every protected card in all requested deck versions and upgrade paths.");
+            builder.AppendLine("You may still mention them as potential cuts in the general top-cuts analysis if warranted by the deck evaluation.");
         }
         builder.AppendLine();
         builder.AppendLine("After the analysis, return a JSON object named deck_profile that matches this schema.");
@@ -1252,6 +1346,24 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
     private static string FormatBannedCardsLine(IReadOnlyList<string> bannedCards)
         => bannedCards.Count == 0 ? "(unavailable)" : string.Join(", ", bannedCards);
+
+    /// <summary>
+    /// Parses a newline- or comma-separated list of card names into a deduplicated, trimmed list.
+    /// </summary>
+    private static IReadOnlyList<string> ParseCardNameList(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return [];
+        }
+
+        return input
+            .Split(['\n', '\r', ','], StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 
     private static IEnumerable<string> ExtractMechanicNames(ScryfallCard card)
     {

@@ -387,14 +387,45 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   gap: 0.6rem;
 }
 
+.chatgpt-question-bucket__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .chatgpt-question-bucket__label {
   font-weight: 600;
-  margin-bottom: 0.8rem;
+  margin-bottom: 0;
+}
+
+.chatgpt-question-bucket__toggle {
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.65rem;
+  color: var(--muted);
+  padding: 0.2rem 0.45rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.chatgpt-question-bucket__toggle[aria-expanded="false"]::after {
+  content: '▶';
+}
+
+.chatgpt-question-bucket__toggle[aria-expanded="true"]::after {
+  content: '▼';
 }
 
 .chatgpt-question-bucket__questions {
+  margin-top: 0.8rem;
   display: grid;
   gap: 0.7rem;
+}
+
+.chatgpt-question-bucket__questions.hidden {
+  display: none;
 }
 
 .chatgpt-question-bucket input[type="checkbox"],

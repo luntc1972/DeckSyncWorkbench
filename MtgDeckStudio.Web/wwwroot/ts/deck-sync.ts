@@ -940,13 +940,34 @@ const syncQuestionBucketState = (form: HTMLFormElement): void => {
   });
 };
 
+const attachBucketToggles = (form: HTMLFormElement): void => {
+  form.querySelectorAll<HTMLButtonElement>('[data-bucket-toggle]').forEach(toggleBtn => {
+    toggleBtn.addEventListener('click', () => {
+      const bucketId = toggleBtn.dataset.bucketToggle ?? '';
+      const questionsDiv = form.querySelector<HTMLElement>(`[data-bucket-questions="${bucketId}"]`);
+      if (!questionsDiv) {
+        return;
+      }
+      const nowHidden = questionsDiv.classList.toggle('hidden');
+      toggleBtn.setAttribute('aria-expanded', nowHidden ? 'false' : 'true');
+    });
+  });
+};
+
 const attachQuestionBucketSelection = (form: HTMLFormElement): void => {
   form.querySelectorAll<HTMLInputElement>('[data-question-bucket]').forEach(bucketCheckbox => {
     bucketCheckbox.addEventListener('change', () => {
       const bucketId = bucketCheckbox.dataset.questionBucket ?? '';
+      const questionsDiv = form.querySelector<HTMLElement>(`[data-bucket-questions="${bucketId}"]`);
       form.querySelectorAll<HTMLInputElement>(`input[data-question-option="${bucketId}"]`).forEach(questionCheckbox => {
         questionCheckbox.checked = bucketCheckbox.checked;
       });
+      // Auto-expand the bucket when the select-all checkbox is checked
+      if (bucketCheckbox.checked && questionsDiv?.classList.contains('hidden')) {
+        questionsDiv.classList.remove('hidden');
+        const toggleBtn = form.querySelector<HTMLButtonElement>(`[data-bucket-toggle="${bucketId}"]`);
+        toggleBtn?.setAttribute('aria-expanded', 'true');
+      }
 
       syncQuestionBucketState(form);
       syncCardSpecificQuestionField(form);
@@ -976,6 +997,7 @@ const attachChatGptPacketsWorkflow = (): void => {
   const currentStep = parseChatGptStep(form.dataset.chatgptCurrentStep);
   const initialUiMode = parseChatGptUiMode(storageAvailable?.getItem(chatGptUiModeStorageKey));
   attachQuestionBucketSelection(form);
+  attachBucketToggles(form);
   applyChatGptUiMode(form, initialUiMode);
   showChatGptStep(form, currentStep);
   setChatGptValidationMessage(null);

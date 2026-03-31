@@ -106,16 +106,18 @@ public static class AnalysisQuestionCatalog
             "deck-versioning",
             "Deck Versioning & Upgrade Paths",
             [
+                new("bracket-2-version", "Create a Bracket 2 version of this deck."),
                 new("bracket-3-version", "Create a Bracket 3 version of this deck."),
                 new("bracket-4-version", "Create a Bracket 4 version of this deck."),
                 new("bracket-5-version", "Create a Bracket 5 version of this deck."),
-                new("three-upgrade-paths", "Create 3 different versions of this deck with different upgrade paths.")
+                new("three-upgrade-paths", "Create 3 different upgrade-path versions of this deck. Give each path a descriptive name (e.g. Budget Efficiency, Synergy Focus, Power Spike). For each path, provide a complete 100-card Commander decklist.")
             ])
     ];
 
     public static IReadOnlySet<string> FullDecklistQuestionIds { get; } =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
+            "bracket-2-version",
             "bracket-3-version",
             "bracket-4-version",
             "bracket-5-version",

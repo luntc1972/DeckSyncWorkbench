@@ -5,3 +5,6 @@ artifacts/
 *.user
 *.suo
 *.log
+node_modules/
+package.json
+package-lock.json

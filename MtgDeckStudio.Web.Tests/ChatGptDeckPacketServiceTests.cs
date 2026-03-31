@@ -72,7 +72,7 @@ Maybeboard
         });
 
         var probeText = result.ProbePromptText.Replace("\r\n", "\n", StringComparison.Ordinal);
-        Assert.Contains("Commander\n1 Atraxa, Praetors' Voice", probeText);
+        Assert.Contains("Commander\n1 Atraxa, Praetors' Voice [Commander]", probeText);
         Assert.Contains("Decklist\n1 Arcane Signet\n1 Sol Ring", probeText);
         Assert.Contains("Sideboard\n1 Swords to Plowshares", probeText);
         Assert.Contains("Maybeboard\n1 Smothering Tithe", probeText);
@@ -82,6 +82,36 @@ Maybeboard
         Assert.Contains("Commander cards: 1", result.InputSummary);
         Assert.Contains("Sideboard cards: 1", result.InputSummary);
         Assert.Contains("Maybeboard cards: 1", result.InputSummary);
+    }
+
+    /// <summary>
+    /// Preserves set code and collector number in probe card lines, normalizes DFC names to the
+    /// front face, and annotates the commander line with [Commander].
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_PreservesSetInfoAndNormalizesDfcNamesInProbePrompt()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice (ONE) 196
+
+1 Sol Ring (2ED) 271
+1 Delver of Secrets // Insectile Aberration (ISD) 51
+"""
+        });
+
+        var probeText = result.ProbePromptText.Replace("\r\n", "\n", StringComparison.Ordinal);
+        // Commander line: set code preserved and [Commander] annotation added
+        Assert.Contains("1 Atraxa, Praetors' Voice (ONE) 196 [Commander]", probeText);
+        // Mainboard line: set code preserved
+        Assert.Contains("1 Sol Ring (2ED) 271", probeText);
+        // DFC: only front-face name used, set code preserved, no back-face name
+        Assert.Contains("1 Delver of Secrets (ISD) 51", probeText);
+        Assert.DoesNotContain("Insectile Aberration", probeText);
     }
 
     /// <summary>
@@ -300,6 +330,150 @@ Commander
         Assert.Contains("return a complete 100-card Commander list as part of the answer", result.AnalysisPromptText);
         Assert.Contains("exactly 1 commander and 99 other cards", result.AnalysisPromptText);
         Assert.Contains("clearly labeled ```text fenced code block", result.AnalysisPromptText);
+    }
+
+    /// <summary>
+    /// Bracket 2 version question triggers the full 100-card list instruction, same as bracket 3/4/5.
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_RequiresFullDecklists_WhenBracket2VersionQuestionSelected()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            ProbeResponseJson = """
+{
+ "unknown_cards": []
+}
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["bracket-2-version"]
+        });
+
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.Contains("Create a Bracket 2 version of this deck.", result.AnalysisPromptText);
+        Assert.Contains("return a complete 100-card Commander list as part of the answer", result.AnalysisPromptText);
+    }
+
+    /// <summary>
+    /// Protected cards list is injected into the analysis prompt when versioning questions are selected.
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_InjectsProtectedCards_WhenVersioningQuestionsAndProtectedCardsSet()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            ProbeResponseJson = """
+{
+ "unknown_cards": []
+}
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["bracket-3-version"],
+            ProtectedCards = "Sol Ring\nArcane Signet"
+        });
+
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.Contains("Protected cards:", result.AnalysisPromptText);
+        Assert.Contains("Sol Ring", result.AnalysisPromptText);
+        Assert.Contains("Arcane Signet", result.AnalysisPromptText);
+        Assert.Contains("Keep every protected card in all requested deck versions", result.AnalysisPromptText);
+    }
+
+    /// <summary>
+    /// Protected cards are NOT injected when no versioning questions are selected.
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_DoesNotInjectProtectedCards_WhenNoVersioningQuestionsSelected()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            ProbeResponseJson = """
+{
+ "unknown_cards": []
+}
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"],
+            ProtectedCards = "Sol Ring"
+        });
+
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.DoesNotContain("Protected cards:", result.AnalysisPromptText);
+        Assert.DoesNotContain("Keep every protected card", result.AnalysisPromptText);
+    }
+
+    /// <summary>
+    /// When a Moxfield export has no Commander section header, the first 1-of entry is treated
+    /// as the commander so the probe prompt's suggested title and deck_context are populated.
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_DetectsCommanderFromLeadingEntries_WhenNoCommanderSectionHeader()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+1 Atraxa, Praetors' Voice
+1 Sol Ring
+1 Arcane Signet
+"""
+        });
+
+        Assert.Contains("Atraxa, Praetors' Voice", result.ProbePromptText);
+        Assert.Contains("Suggested chat title: Atraxa, Praetors' Voice | AI Deck Analysis", result.ProbePromptText);
+        var probeText = result.ProbePromptText.Replace("\r\n", "\n", StringComparison.Ordinal);
+        Assert.Contains("Commander\n1 Atraxa, Praetors' Voice [Commander]", probeText);
+    }
+
+    /// <summary>
+    /// When the first two leading entries are both 1-of, both are treated as partner commanders.
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_DetectsPartnerCommandersFromLeadingEntries_WhenNoCommanderSectionHeader()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+1 Tymna the Weaver
+1 Thrasios, Triton Hero
+1 Sol Ring
+1 Arcane Signet
+"""
+        });
+
+        var probeText = result.ProbePromptText.Replace("\r\n", "\n", StringComparison.Ordinal);
+        Assert.Contains("Tymna the Weaver [Commander]", probeText);
+        Assert.Contains("Thrasios, Triton Hero [Commander]", probeText);
     }
 
     [Fact]
