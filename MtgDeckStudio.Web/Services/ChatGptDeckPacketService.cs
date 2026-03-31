@@ -42,6 +42,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     private readonly string _chatGptArtifactsPath;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
+    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
     private readonly ILogger<ChatGptDeckPacketService> _logger;
 
     public ChatGptDeckPacketService(
@@ -56,7 +57,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         ILogger<ChatGptDeckPacketService>? logger = null,
         RestClient? scryfallRestClient = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null,
+        string? chatGptArtifactsPath = null)
     {
         _moxfieldDeckImporter = moxfieldDeckImporter;
         _archidektDeckImporter = archidektDeckImporter;
@@ -66,10 +69,16 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         _commanderBanListService = commanderBanListService;
         _scryfallSetService = scryfallSetService;
         _logger = logger ?? NullLogger<ChatGptDeckPacketService>.Instance;
-        _chatGptArtifactsPath = Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", "artifacts", "chatgpt-packets"));
+        _chatGptArtifactsPath = string.IsNullOrWhiteSpace(chatGptArtifactsPath)
+            ? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "MTG Deck Studio",
+                "ChatGPT Packets")
+            : Path.GetFullPath(chatGptArtifactsPath);
         var client = scryfallRestClient ?? ScryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallCollectionResponse>(request, cancellationToken));
         _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallSearchResponse>(request, cancellationToken));
+        _executeNamedAsync = executeNamedAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallCard>(request, cancellationToken));
     }
 
     public async Task<ChatGptDeckPacketResult> BuildAsync(ChatGptDeckRequest request, CancellationToken cancellationToken = default)
@@ -563,6 +572,48 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine("- speculative tests from that set");
         builder.AppendLine("2. final cross-set ranked shortlist with must-test, optional, and skip");
         builder.AppendLine("For every recommended add or cut, explain the reasoning briefly and connect it to the deck profile.");
+        builder.AppendLine("3. after the prose analysis, return a complete set_upgrade_report JSON object in a fenced ```json code block");
+        builder.AppendLine("The JSON should capture the same per-set adds, suggested removals, traps, speculative tests, and final shortlist.");
+        builder.AppendLine("Use this shape:");
+        builder.AppendLine("```json");
+        builder.AppendLine("{");
+        builder.AppendLine("  \"set_upgrade_report\": {");
+        builder.AppendLine("    \"sets\": [");
+        builder.AppendLine("      {");
+        builder.AppendLine("        \"set_code\": \"\",");
+        builder.AppendLine("        \"set_name\": \"\",");
+        builder.AppendLine("        \"top_adds\": [");
+        builder.AppendLine("          {");
+        builder.AppendLine("            \"card\": \"\",");
+        builder.AppendLine("            \"reason\": \"\",");
+        builder.AppendLine("            \"suggested_cut\": \"\",");
+        builder.AppendLine("            \"cut_reason\": \"\"");
+        builder.AppendLine("          }");
+        builder.AppendLine("        ],");
+        builder.AppendLine("        \"traps\": [");
+        builder.AppendLine("          {");
+        builder.AppendLine("            \"card\": \"\",");
+        builder.AppendLine("            \"reason\": \"\"");
+        builder.AppendLine("          }");
+        builder.AppendLine("        ],");
+        builder.AppendLine("        \"speculative_tests\": [");
+        builder.AppendLine("          {");
+        builder.AppendLine("            \"card\": \"\",");
+        builder.AppendLine("            \"reason\": \"\"");
+        builder.AppendLine("          }");
+        builder.AppendLine("        ]");
+        builder.AppendLine("      }");
+        builder.AppendLine("    ],");
+        builder.AppendLine("    \"final_shortlist\": {");
+        builder.AppendLine("      \"must_test\": [\"\"],");
+        builder.AppendLine("      \"optional\": [\"\"],");
+        builder.AppendLine("      \"skip\": [\"\"]");
+        builder.AppendLine("    }");
+        builder.AppendLine("  }");
+        builder.AppendLine("}");
+        builder.AppendLine("```");
+        builder.AppendLine("4. after the JSON block, return a second fenced code block tagged as ```text named discussion_summary.txt");
+        builder.AppendLine("That text block should include the per-set analysis in condensed form, the final recommendations, the reasoning behind the key adds and cuts, and direct answers to the questions discussed in this analysis so it can be copied as a standalone notes document.");
         builder.AppendLine();
         builder.AppendLine("deck_context:");
         builder.AppendLine($"format: {NormalizeSingleLine(request.Format, "Commander")}");
@@ -774,8 +825,12 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                     continue;
                 }
 
+                var displayName = NormalizeLookupName(unresolvedName) == NormalizeLookupName(fallbackCard.Name)
+                    ? fallbackCard.Name
+                    : $"submitted_name: {unresolvedName} | resolved_card: {fallbackCard.Name}";
+
                 resolvedCards[unresolvedName] = new CardReference(
-                    fallbackCard.Name,
+                    displayName,
                     fallbackCard.ManaCost ?? string.Empty,
                     fallbackCard.TypeLine,
                     NormalizeOracleText(fallbackCard));
@@ -804,19 +859,55 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             return null;
         }
 
-        var request = new RestRequest("cards/search", Method.Get);
-        request.AddQueryParameter("q", $"(printed:\"{cardName}\" OR name:\"{cardName}\")");
-        request.AddQueryParameter("unique", "prints");
-        request.AddQueryParameter("include_multilingual", "true");
-
-        var response = await _executeSearchAsync(request, cancellationToken).ConfigureAwait(false);
-        if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
+        var normalizedCardName = NormalizeLookupName(cardName);
+        foreach (var query in new[]
         {
-            return null;
+            $"(printed:\"{cardName}\" OR name:\"{cardName}\")",
+            cardName
+        })
+        {
+            var request = new RestRequest("cards/search", Method.Get);
+            request.AddQueryParameter("q", query);
+            request.AddQueryParameter("unique", "prints");
+            request.AddQueryParameter("include_multilingual", "true");
+
+            var response = await _executeSearchAsync(request, cancellationToken).ConfigureAwait(false);
+            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
+            {
+                continue;
+            }
+
+            var match = response.Data.Data
+                .FirstOrDefault(card => NormalizeLookupName(card.Name) == normalizedCardName)
+                ?? response.Data.Data.FirstOrDefault();
+            if (match is not null)
+            {
+                return match;
+            }
         }
 
-        return response.Data.Data.FirstOrDefault();
+        var namedRequest = new RestRequest("cards/named", Method.Get);
+        namedRequest.AddQueryParameter("fuzzy", cardName);
+        var namedResponse = await _executeNamedAsync(namedRequest, cancellationToken).ConfigureAwait(false);
+        if ((int)namedResponse.StatusCode >= 200 && (int)namedResponse.StatusCode < 300 && namedResponse.Data is not null)
+        {
+            return namedResponse.Data;
+        }
+
+        return null;
     }
+
+    private static string NormalizeLookupName(string cardName)
+        => cardName
+            .Trim()
+            .Replace('\u2019', '\'')
+            .Replace('\u2018', '\'')
+            .Replace('\u02BC', '\'')
+            .Replace('\u201C', '"')
+            .Replace('\u201D', '"')
+            .Replace('\u2013', '-')
+            .Replace('\u2014', '-')
+            .ToLowerInvariant();
 
     private async Task<IReadOnlyList<MechanicReference>> LookupMechanicReferencesAsync(IReadOnlyList<string> mechanicNames, CancellationToken cancellationToken)
     {

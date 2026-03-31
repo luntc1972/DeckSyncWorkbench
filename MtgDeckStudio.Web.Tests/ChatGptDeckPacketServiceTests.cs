@@ -279,6 +279,85 @@ Commander
     }
 
     [Fact]
+    public async Task BuildAsync_UsesAlternatePrintedNameFallback_ForUnknownCardsInReferenceText()
+    {
+        var service = CreateService(
+            executeCollectionAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallCollectionResponse([], [new ScryfallCollectionIdentifier("Ya viene el coco")])
+            }),
+            executeSearchAsync: (request, _) =>
+            {
+                var query = request.Parameters.First(parameter => parameter.Name?.ToString() == "q").Value?.ToString() ?? string.Empty;
+                var cards = query == "Ya viene el coco"
+                    ? new[]
+                    {
+                        new ScryfallCard(
+                            "Perfect Defense // Denting Blows",
+                            null,
+                            "Instant // Sorcery",
+                            null,
+                            null,
+                            null,
+                            [],
+                            ["W", "R"],
+                            "who",
+                            "Doctor Who",
+                            "200",
+                            [
+                                new ScryfallCardFace(
+                                    "Perfect Defense",
+                                    "{1}{W}",
+                                    "Instant",
+                                    "Prevent all combat damage that would be dealt this turn.",
+                                    null,
+                                    null),
+                                new ScryfallCardFace(
+                                    "Denting Blows",
+                                    "{2}{R}",
+                                    "Sorcery",
+                                    "Denting Blows deals 4 damage to target creature.",
+                                    null,
+                                    null)
+                            ])
+                    }
+                    : Array.Empty<ScryfallCard>();
+
+                return Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(cards.ToList())
+                });
+            });
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            ProbeResponseJson = """
+{
+ "unknown_cards": ["Ya viene el coco"]
+}
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["consistency"]
+        });
+
+        Assert.NotNull(result.ReferenceText);
+        Assert.Contains("submitted_name: Ya viene el coco | resolved_card: Perfect Defense // Denting Blows", result.ReferenceText);
+        Assert.Contains("Perfect Defense", result.ReferenceText);
+        Assert.Contains("Denting Blows", result.ReferenceText);
+        Assert.Contains("Prevent all combat damage", result.ReferenceText);
+        Assert.Contains("deals 4 damage to target creature", result.ReferenceText);
+    }
+
+    [Fact]
     public async Task BuildAsync_GeneratesSetUpgradePrompt_WhenDeckProfileAndSetPacketProvided()
     {
         var service = CreateService();
@@ -316,6 +395,12 @@ Commander
         Assert.Contains("top adds from that set", result.SetUpgradePromptText);
         Assert.Contains("suggested removals for each add from that set", result.SetUpgradePromptText);
         Assert.Contains("For every recommended add or cut, explain the reasoning briefly", result.SetUpgradePromptText);
+        Assert.Contains("set_upgrade_report", result.SetUpgradePromptText);
+        Assert.Contains("```json", result.SetUpgradePromptText);
+        Assert.Contains("\"final_shortlist\"", result.SetUpgradePromptText);
+        Assert.Contains("discussion_summary.txt", result.SetUpgradePromptText);
+        Assert.Contains("```text", result.SetUpgradePromptText);
+        Assert.Contains("per-set analysis in condensed form", result.SetUpgradePromptText);
         Assert.Contains("SET: Test Set", result.SetUpgradePromptText);
         Assert.Contains("\"game_plan\": \"Midrange value\"", result.SetUpgradePromptText);
     }
@@ -356,6 +441,10 @@ Commander
         Assert.Contains("Test Set (DSK)", result.SetUpgradePromptText);
         Assert.Contains("Survival", result.SetUpgradePromptText);
         Assert.Contains("final cross-set ranked shortlist", result.SetUpgradePromptText);
+        Assert.Contains("set_upgrade_report", result.SetUpgradePromptText);
+        Assert.Contains("\"sets\": [", result.SetUpgradePromptText);
+        Assert.Contains("discussion_summary.txt", result.SetUpgradePromptText);
+        Assert.Contains("per-set analysis in condensed form", result.SetUpgradePromptText);
         Assert.DoesNotContain("Off Color Test Card", result.SetUpgradePromptText);
         Assert.DoesNotContain("Paste the condensed set packet", result.SetUpgradePromptText);
     }
@@ -449,7 +538,11 @@ Commander
         Assert.DoesNotContain("selected_set_codes:\n-", requestContext.Replace("\r\n", "\n", StringComparison.Ordinal));
     }
 
-    private static ChatGptDeckPacketService CreateService(string? contentRootPath = null)
+    private static ChatGptDeckPacketService CreateService(
+        string? contentRootPath = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
     {
         var rootPath = contentRootPath ?? Path.Combine(Path.GetTempPath(), "MtgDeckStudioTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(rootPath);
@@ -462,7 +555,10 @@ Commander
             new FakeCommanderBanListService(),
             new FakeScryfallSetService(),
             new FakeWebHostEnvironment(rootPath),
-            executeCollectionAsync: (request, _) => Task.FromResult(CreateCollectionResponse(request)));
+            executeCollectionAsync: executeCollectionAsync ?? ((request, _) => Task.FromResult(CreateCollectionResponse(request))),
+            executeSearchAsync: executeSearchAsync,
+            executeNamedAsync: executeNamedAsync,
+            chatGptArtifactsPath: rootPath);
     }
 
     private static RestResponse<ScryfallCollectionResponse> CreateCollectionResponse(RestRequest request)

@@ -33,7 +33,10 @@ public static class FullImportExporter
             .ToDictionary(conflict => BuildLooseKey(conflict.MoxfieldVersion), StringComparer.Ordinal);
 
         var resolvedEntries = new List<DeckEntry>();
-        foreach (var entry in sourceEntries.OrderBy(entry => BoardOrder(entry.Board)).ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase))
+        foreach (var entry in sourceEntries
+            .Where(entry => !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(entry => BoardOrder(entry.Board))
+            .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase))
         {
             var key = BuildLooseKey(entry);
             var effectiveEntry = entry;

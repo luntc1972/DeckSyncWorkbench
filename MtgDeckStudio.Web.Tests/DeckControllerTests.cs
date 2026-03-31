@@ -383,9 +383,10 @@ public sealed class DeckControllerTests
         await controller.ChatGptPackets(request);
 
         Assert.NotNull(capturingService.LastRequest);
-        Assert.Equal(2, capturingService.LastRequest!.SelectedAnalysisQuestions.Count);
+        Assert.Equal(3, capturingService.LastRequest!.SelectedAnalysisQuestions.Count);
         Assert.Contains("consistency", capturingService.LastRequest.SelectedAnalysisQuestions);
         Assert.Contains("strengths-weaknesses", capturingService.LastRequest.SelectedAnalysisQuestions);
+        Assert.Contains("budget-upgrades", capturingService.LastRequest.SelectedAnalysisQuestions);
         Assert.Equal(2, capturingService.LastRequest.SelectedSetCodes.Count);
         Assert.Contains("dsk", capturingService.LastRequest.SelectedSetCodes);
         Assert.Contains("fdn", capturingService.LastRequest.SelectedSetCodes);
