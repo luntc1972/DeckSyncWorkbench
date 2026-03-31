@@ -13,6 +13,9 @@ using MtgDeckStudio.Web.Services;
 
 namespace MtgDeckStudio.Web.Controllers;
 
+/// <summary>
+/// Serves the MVC pages for deck compare, category suggestion, lookup, and ChatGPT-assisted workflows.
+/// </summary>
 public sealed class DeckController : Controller
 {
     private static readonly TimeSpan SuggestionTimeout = TimeSpan.FromSeconds(20);
@@ -26,6 +29,9 @@ public sealed class DeckController : Controller
     private readonly IScryfallSetService _scryfallSetService;
     private readonly ILogger<DeckController> _logger;
 
+    /// <summary>
+    /// Creates the main deck-tools controller.
+    /// </summary>
     public DeckController(
         IDeckSyncService deckSyncService,
         ICardSearchService cardSearchService,
@@ -98,6 +104,9 @@ public sealed class DeckController : Controller
     }
 
     [HttpGet("/chatgpt-packets")]
+    /// <summary>
+    /// Renders the staged ChatGPT packet workflow with the latest available set options.
+    /// </summary>
     public async Task<IActionResult> ChatGptPackets()
     {
         var availableSets = await TryGetSetOptionsAsync();
@@ -110,6 +119,9 @@ public sealed class DeckController : Controller
     }
 
     [HttpGet("/chatgpt-json-to-text")]
+    /// <summary>
+    /// Renders the helper page that converts ChatGPT JSON output into readable text.
+    /// </summary>
     public IActionResult ChatGptJsonToText()
     {
         return View("ChatGptJsonToText", new ChatGptJsonTextViewModel
@@ -234,6 +246,10 @@ public sealed class DeckController : Controller
 
     [HttpPost("/chatgpt-packets")]
     [ValidateAntiForgeryToken]
+    /// <summary>
+    /// Processes a ChatGPT workflow postback and regenerates the next packet outputs.
+    /// </summary>
+    /// <param name="request">Current workflow request.</param>
     public async Task<IActionResult> ChatGptPackets(ChatGptDeckRequest request)
     {
         request ??= new ChatGptDeckRequest();
@@ -290,6 +306,10 @@ public sealed class DeckController : Controller
 
     [HttpPost("/chatgpt-json-to-text")]
     [ValidateAntiForgeryToken]
+    /// <summary>
+    /// Converts a JSON payload or fenced JSON response into plain text for copying.
+    /// </summary>
+    /// <param name="request">JSON formatting request.</param>
     public IActionResult ChatGptJsonToText(ChatGptJsonTextRequest request)
     {
         request ??= new ChatGptJsonTextRequest();
@@ -338,6 +358,9 @@ public sealed class DeckController : Controller
         }
     }
 
+    /// <summary>
+    /// Attempts to load set options without surfacing catalog failures as page-breaking errors.
+    /// </summary>
     private async Task<IReadOnlyList<ScryfallSetOption>> TryGetSetOptionsAsync()
     {
         try
@@ -555,25 +578,27 @@ public sealed class DeckController : Controller
         request ??= new DeckDiffRequest();
         if (!HasMoxfieldInput(request))
         {
+            var leftSystem = DeckSyncSupport.GetLeftPanelSystem(request.Direction);
             return View("DeckSync", new DeckDiffViewModel
             {
                 ActiveTab = DeckPageTab.Sync,
                 Request = request,
                 ErrorMessage = request.MoxfieldInputSource == DeckInputSource.PublicUrl
-                    ? "A Moxfield deck URL is required."
-                    : "Moxfield text is required.",
+                    ? $"A {leftSystem} deck URL is required."
+                    : $"{leftSystem} text is required.",
             });
         }
 
         if (!HasArchidektInput(request))
         {
+            var rightSystem = DeckSyncSupport.GetRightPanelSystem(request.Direction);
             return View("DeckSync", new DeckDiffViewModel
             {
                 ActiveTab = DeckPageTab.Sync,
                 Request = request,
                 ErrorMessage = request.ArchidektInputSource == DeckInputSource.PublicUrl
-                    ? "An Archidekt deck URL is required."
-                    : "Archidekt text is required.",
+                    ? $"A {rightSystem} deck URL is required."
+                    : $"{rightSystem} text is required.",
             });
         }
 

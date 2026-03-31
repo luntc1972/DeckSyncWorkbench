@@ -13,11 +13,22 @@ using MtgDeckStudio.Web.Models;
 
 namespace MtgDeckStudio.Web.Services;
 
+/// <summary>
+/// Defines the staged prompt-building workflow used by the ChatGPT deck-analysis page.
+/// </summary>
 public interface IChatGptDeckPacketService
 {
+    /// <summary>
+    /// Builds the next packet outputs for the supplied workflow state.
+    /// </summary>
+    /// <param name="request">Current workflow request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<ChatGptDeckPacketResult> BuildAsync(ChatGptDeckRequest request, CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Contains the generated packet outputs and saved-artifact location for a workflow run.
+/// </summary>
 public sealed record ChatGptDeckPacketResult(
     string InputSummary,
     string ProbePromptText,
@@ -28,6 +39,9 @@ public sealed record ChatGptDeckPacketResult(
     string? SetUpgradePromptText,
     string? SavedArtifactsDirectory);
 
+/// <summary>
+/// Builds probe, analysis, and set-upgrade prompts plus supporting reference data for ChatGPT.
+/// </summary>
 public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 {
     private const int ScryfallBatchSize = 75;
@@ -45,6 +59,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
     private readonly ILogger<ChatGptDeckPacketService> _logger;
 
+    /// <summary>
+    /// Creates the ChatGPT packet service with the importers, lookup services, and persistence settings it needs.
+    /// </summary>
     public ChatGptDeckPacketService(
         IMoxfieldDeckImporter moxfieldDeckImporter,
         IArchidektDeckImporter archidektDeckImporter,
@@ -81,6 +98,11 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         _executeNamedAsync = executeNamedAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallCard>(request, cancellationToken));
     }
 
+    /// <summary>
+    /// Builds the requested prompt outputs for the current workflow state.
+    /// </summary>
+    /// <param name="request">Current workflow request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<ChatGptDeckPacketResult> BuildAsync(ChatGptDeckRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -222,6 +244,11 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             savedArtifactsDirectory);
     }
 
+    /// <summary>
+    /// Loads deck entries from a public URL or pasted export text.
+    /// </summary>
+    /// <param name="deckSource">Deck URL or pasted export text.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     private async Task<List<DeckEntry>> LoadDeckEntriesAsync(string deckSource, CancellationToken cancellationToken)
     {
         if (Uri.TryCreate(deckSource.Trim(), UriKind.Absolute, out var uri))
@@ -256,6 +283,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         throw new InvalidOperationException("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, Moxfield export, or Archidekt export.");
     }
 
+    /// <summary>
+    /// Builds the short deck summary shown above the generated ChatGPT packets.
+    /// </summary>
     private static string BuildInputSummary(ChatGptDeckRequest request, IReadOnlyList<DeckEntry> entries, IReadOnlyList<DeckEntry> possibleIncludeEntries, string? commanderName)
     {
         var mainDeckCards = entries
@@ -311,6 +341,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         return builder.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Builds the analysis deck text, keeping possible includes separate from the playable list.
+    /// </summary>
     private static string BuildDecklistText(IReadOnlyList<DeckEntry> entries, IReadOnlyList<DeckEntry> possibleIncludeEntries)
     {
         var commanderLines = entries
@@ -357,6 +390,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         return builder.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Builds the probe-step deck text with commander, decklist, sideboard, and maybeboard sections.
+    /// </summary>
     private static string BuildProbeDecklistText(IReadOnlyList<DeckEntry> entries)
     {
         var commanderLines = entries
@@ -388,11 +424,17 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         return builder.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Builds the first prompt that asks ChatGPT to identify unknown cards.
+    /// </summary>
     private static string BuildProbePrompt(ChatGptDeckRequest request, string decklistText, string? commanderName)
     {
         var builder = new StringBuilder();
         builder.AppendLine("Task: Before analyzing this Magic: The Gathering deck, identify any card names you are uncertain about.");
         builder.AppendLine("Only list card names you are not confident you can explain accurately from memory.");
+        builder.AppendLine();
+        builder.AppendLine($"Suggested chat title: {BuildSuggestedChatTitle(request, commanderName)}");
+        builder.AppendLine("Use that title for this ChatGPT conversation before you start the workflow.");
         builder.AppendLine();
         builder.AppendLine("Rules:");
         builder.AppendLine("- Do not guess card text.");
@@ -435,6 +477,23 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         return builder.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Suggests a conversation title derived from the commander or deck name.
+    /// </summary>
+    private static string BuildSuggestedChatTitle(ChatGptDeckRequest request, string? commanderName)
+    {
+        var primaryName = !string.IsNullOrWhiteSpace(commanderName)
+            ? commanderName.Trim()
+            : !string.IsNullOrWhiteSpace(request.DeckName)
+                ? request.DeckName.Trim()
+                : "Commander Deck";
+
+        return $"{primaryName} | AI Deck Analysis";
+    }
+
+    /// <summary>
+    /// Builds the authoritative card, mechanic, and banned-list reference bundle used during analysis.
+    /// </summary>
     private static string BuildReferenceText(
         ChatGptDeckRequest request,
         IReadOnlyList<MechanicReference> mechanicReferences,
@@ -480,10 +539,14 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         return builder.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Builds the main analysis prompt from the deck text, references, bracket guidance, and selected questions.
+    /// </summary>
     private static string BuildAnalysisPrompt(ChatGptDeckRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards)
     {
         var bracket = CommanderBracketCatalog.Find(request.TargetCommanderBracket);
         var selectedQuestions = AnalysisQuestionCatalog.ResolveTexts(selectedQuestionIds, request.CardSpecificQuestionCardName, request.BudgetUpgradeAmount);
+        var requiresFullDecklists = AnalysisQuestionCatalog.RequiresFullDecklistOutput(selectedQuestionIds);
         var builder = new StringBuilder();
         builder.AppendLine("Analyze this Magic: The Gathering deck.");
         builder.AppendLine();
@@ -512,6 +575,12 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine("1. top adds");
         builder.AppendLine("2. top cuts");
         builder.AppendLine("For every recommended add and cut, explain the reasoning briefly and tie it back to the deck's plan, bracket target, or weaknesses.");
+        if (requiresFullDecklists)
+        {
+            builder.AppendLine("For every requested deck-version or upgrade-path question, return a complete 100-card Commander list as part of the answer.");
+            builder.AppendLine("Each list must contain exactly 1 commander and 99 other cards.");
+            builder.AppendLine("Do not return partial swap notes only. Return the full final list for each requested version in its own clearly labeled ```text fenced code block.");
+        }
         builder.AppendLine();
         builder.AppendLine("After the analysis, return a JSON object named deck_profile that matches this schema.");
         builder.AppendLine("Return the deck_profile JSON inside a ```json fenced code block so it can be copied cleanly.");
@@ -551,6 +620,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         return builder.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Builds the optional set-upgrade prompt used after the deck profile has been generated.
+    /// </summary>
     private static string BuildSetUpgradePrompt(ChatGptDeckRequest request, string decklistText, string deckProfileJson, string? commanderName, string? generatedSetPacket, IReadOnlyList<string> bannedCards)
     {
         var builder = new StringBuilder();
@@ -645,6 +717,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         return builder.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Builds a condensed set packet from Scryfall for the selected set codes.
+    /// </summary>
     private async Task<string?> BuildGeneratedSetPacketAsync(ChatGptDeckRequest request, CancellationToken cancellationToken)
     {
         if (request.SelectedSetCodes.Count == 0)
@@ -659,6 +734,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         return string.IsNullOrWhiteSpace(generatedPacket) ? null : generatedPacket;
     }
 
+    /// <summary>
+    /// Looks up the commander's color identity so generated set packets can filter to legal cards.
+    /// </summary>
     private async Task<IReadOnlyList<string>> LookupCommanderColorIdentityAsync(string deckSource, CancellationToken cancellationToken)
     {
         var entries = await LoadDeckEntriesAsync(deckSource, cancellationToken).ConfigureAwait(false);
@@ -692,6 +770,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             .ToList();
     }
 
+    /// <summary>
+    /// Returns the strict JSON schema expected from the probe-response step.
+    /// </summary>
     private static string BuildProbeResponseSchemaJson()
     {
         return """
@@ -703,6 +784,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 """;
     }
 
+    /// <summary>
+    /// Returns the deck-profile schema that ChatGPT should follow during analysis.
+    /// </summary>
     private static string BuildDeckProfileSchemaJson(string? commanderName, string format)
     {
         var payload = new

@@ -4,22 +4,36 @@
     var direction = Model.Request.Direction;
     var moxfieldInputSource = Model.Request.MoxfieldInputSource;
     var archidektInputSource = Model.Request.ArchidektInputSource;
-    var sourceName = direction == SyncDirection.MoxfieldToArchidekt ? "Moxfield" : "Archidekt";
-    var targetName = direction == SyncDirection.MoxfieldToArchidekt ? "Archidekt" : "Moxfield";
+    var leftSystem = direction switch
+    {
+        SyncDirection.ArchidektToArchidekt => "Archidekt",
+        _ => "Moxfield",
+    };
+    var rightSystem = direction switch
+    {
+        SyncDirection.MoxfieldToMoxfield => "Moxfield",
+        _ => "Archidekt",
+    };
+    var leftIsSource = direction is SyncDirection.MoxfieldToArchidekt or SyncDirection.MoxfieldToMoxfield;
+    var sourceName = leftIsSource ? leftSystem : rightSystem;
+    var targetName = leftIsSource ? rightSystem : leftSystem;
     var targetUsesArchidektVersion = direction == SyncDirection.MoxfieldToArchidekt;
+    targetUsesArchidektVersion = string.Equals(targetName, "Archidekt", StringComparison.OrdinalIgnoreCase);
+    var sourceLabelKind = string.Equals(sourceName, "Archidekt", StringComparison.OrdinalIgnoreCase) ? "categories" : "tags";
+    var targetLabelKind = string.Equals(targetName, "Archidekt", StringComparison.OrdinalIgnoreCase) ? "categories" : "tags";
     ViewData["Title"] = "Deck Sync";
 }
 
 <section class="hero">
     <h1>Deck Sync</h1>
-    <p class="lede">Generate delta imports, full exports, and manual printing swap checklists without mixing that workflow with category suggestion tools.</p>
+    <p class="lede">Compare or merge two deck exports, including same-platform Moxfield-to-Moxfield and Archidekt-to-Archidekt workflows.</p>
 </section>
 
 @await Html.PartialAsync("_BusyIndicator")
 @await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
 
 <div class="warning-banner">
-    Existing target cards stay in place. Moxfield maybeboard and sideboard entries are excluded from comparison and export.
+    Existing target cards stay in place. Sideboard and maybeboard entries are excluded from the comparison and export flow.
 </div>
 
 @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
@@ -36,6 +50,8 @@
                 <select name="Direction">
                     <option value="@SyncDirection.MoxfieldToArchidekt" selected="@(direction == SyncDirection.MoxfieldToArchidekt)">Moxfield to Archidekt</option>
                     <option value="@SyncDirection.ArchidektToMoxfield" selected="@(direction == SyncDirection.ArchidektToMoxfield)">Archidekt to Moxfield</option>
+                    <option value="@SyncDirection.MoxfieldToMoxfield" selected="@(direction == SyncDirection.MoxfieldToMoxfield)">Moxfield to Moxfield</option>
+                    <option value="@SyncDirection.ArchidektToArchidekt" selected="@(direction == SyncDirection.ArchidektToArchidekt)">Archidekt to Archidekt</option>
                 </select>
             </label>
         </div>
@@ -49,12 +65,12 @@
         <label class="mode-picker">
             <span>Category sync</span>
             <select name="CategorySyncMode">
-                <option value="@CategorySyncMode.TargetCategories" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.TargetCategories)">Use @targetName categories</option>
-                <option value="@CategorySyncMode.SourceTags" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.SourceTags)">Use @sourceName tags</option>
+                <option value="@CategorySyncMode.TargetCategories" data-sync-role="category-mode-target" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.TargetCategories)">Use target @targetLabelKind</option>
+                <option value="@CategorySyncMode.SourceTags" data-sync-role="category-mode-source" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.SourceTags)">Use source @sourceLabelKind</option>
                 <option value="@CategorySyncMode.Combined" selected="@(Model.Request.CategorySyncMode == CategorySyncMode.Combined)">Combine both</option>
             </select>
         </label>
-        <button type="submit" class="run-button" data-enable-on-ready>Run Diff</button>
+        <button type="submit" class="run-button" data-enable-on-ready>Run Compare</button>
         <button type="button" class="clear-cache-button" data-clear-cache>Clear</button>
     </div>
 
@@ -65,12 +81,12 @@
     <div class="sync-columns">
         <section class="sync-column sync-column--moxfield" aria-labelledby="moxfield-panel-title">
             <div class="sync-column__header">
-                <p id="moxfield-panel-title">Moxfield</p>
+                <p id="moxfield-panel-title" data-sync-role="moxfield-title">@leftSystem</p>
                 <span class="sync-column__status" data-sync-role="moxfield-status">
-                    @(direction == SyncDirection.MoxfieldToArchidekt ? "Source deck" : "Target deck")
+                    @(leftIsSource ? "Source deck" : "Target deck")
                 </span>
             </div>
-            <p class="sync-column__description" data-sync-role="moxfield-description">Provide the Moxfield export or public URL you want to sync from or to.</p>
+            <p class="sync-column__description" data-sync-role="moxfield-description">Provide the @leftSystem export or public URL for this deck.</p>
             <label class="field">
                 <span>Input method</span>
                 <select name="MoxfieldInputSource">
@@ -80,24 +96,24 @@
             </label>
             <div class="sync-column__body">
                 <label class="field sync-column__input-field @(moxfieldInputSource == DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="moxfield-url">
-                    <span>Moxfield public deck URL</span>
-                    <input type="url" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" placeholder="https://moxfield.com/decks/..." />
+                    <span data-sync-role="moxfield-url-label">@leftSystem public deck URL</span>
+                    <input type="url" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" placeholder="@(string.Equals(leftSystem, "Archidekt", StringComparison.OrdinalIgnoreCase) ? "https://archidekt.com/decks/..." : "https://moxfield.com/decks/...")" />
                 </label>
                 <label class="field sync-column__input-field @(moxfieldInputSource == DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="moxfield-text">
-                    <span>Moxfield export text</span>
+                    <span data-sync-role="moxfield-text-label">@leftSystem export text</span>
                     <textarea name="MoxfieldText" spellcheck="false">@Model.Request.MoxfieldText</textarea>
-                    <small class="sync-column__hint" data-sync-role="moxfield-hint">Use this when the Moxfield deck is @(direction == SyncDirection.MoxfieldToArchidekt ? "the source" : "the target").</small>
+                    <small class="sync-column__hint" data-sync-role="moxfield-hint">Use this when the @leftSystem deck is @(leftIsSource ? "the source" : "the target").</small>
                 </label>
             </div>
         </section>
         <section class="sync-column sync-column--archidekt" aria-labelledby="archidekt-panel-title">
             <div class="sync-column__header">
-                <p id="archidekt-panel-title">Archidekt</p>
+                <p id="archidekt-panel-title" data-sync-role="archidekt-title">@rightSystem</p>
                 <span class="sync-column__status" data-sync-role="archidekt-status">
-                    @(direction == SyncDirection.MoxfieldToArchidekt ? "Target deck" : "Source deck")
+                    @(leftIsSource ? "Target deck" : "Source deck")
                 </span>
             </div>
-            <p class="sync-column__description" data-sync-role="archidekt-description">Provide the Archidekt export or public URL for syncing.</p>
+            <p class="sync-column__description" data-sync-role="archidekt-description">Provide the @rightSystem export or public URL for this deck.</p>
             <label class="field">
                 <span>Input method</span>
                 <select name="ArchidektInputSource">
@@ -107,13 +123,13 @@
             </label>
             <div class="sync-column__body">
                 <label class="field sync-column__input-field @(archidektInputSource == DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="archidekt-url">
-                    <span>Archidekt public deck URL</span>
-                    <input type="url" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" placeholder="https://archidekt.com/decks/..." />
+                    <span data-sync-role="archidekt-url-label">@rightSystem public deck URL</span>
+                    <input type="url" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" placeholder="@(string.Equals(rightSystem, "Moxfield", StringComparison.OrdinalIgnoreCase) ? "https://moxfield.com/decks/..." : "https://archidekt.com/decks/...")" />
                 </label>
                 <label class="field sync-column__input-field @(archidektInputSource == DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="archidekt-text">
-                    <span>Archidekt export text</span>
+                    <span data-sync-role="archidekt-text-label">@rightSystem export text</span>
                     <textarea name="ArchidektText" spellcheck="false">@Model.Request.ArchidektText</textarea>
-                    <small class="sync-column__hint" data-sync-role="archidekt-hint">Use this when the Archidekt deck is @(direction == SyncDirection.MoxfieldToArchidekt ? "the target" : "the source").</small>
+                    <small class="sync-column__hint" data-sync-role="archidekt-hint">Use this when the @rightSystem deck is @(leftIsSource ? "the target" : "the source").</small>
                 </label>
             </div>
         </section>

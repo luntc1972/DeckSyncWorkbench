@@ -8,7 +8,7 @@
 
 <section class="hero">
     <h1>ChatGPT Packets</h1>
-    <p class="lede">Work through the prompt flow one stage at a time: build the probe prompt, paste ChatGPT's JSON back in, then use the returned deck profile to generate the set-upgrade packet.</p>
+    <p class="lede">Work through the prompt flow one stage at a time: build the probe prompt, paste ChatGPT's JSON back in, and stop after the analysis packet if that is all you need. The set-upgrade step is optional.</p>
 </section>
 
 @await Html.PartialAsync("_BusyIndicator")
@@ -54,7 +54,7 @@
         <button type="button" class="chatgpt-step-tab" data-chatgpt-show-step="1">Step 1: Probe</button>
         <button type="button" class="chatgpt-step-tab" data-chatgpt-show-step="2">Step 2: Probe JSON</button>
         <button type="button" class="chatgpt-step-tab" data-chatgpt-show-step="3">Step 3: Analysis Questions</button>
-        <button type="button" class="chatgpt-step-tab" data-chatgpt-show-step="4">Step 4: Set Upgrades</button>
+        <button type="button" class="chatgpt-step-tab" data-chatgpt-show-step="4">Optional Step 4: Set Upgrades</button>
     </div>
 
     <section class="result-panel chatgpt-step-panel" data-chatgpt-step="1">
@@ -210,7 +210,8 @@
                 <li>Select one or more question buckets, individual questions, or both.</li>
                 <li>Click <code>Generate Analysis Packet</code>.</li>
                 <li>Copy <code>analysis.txt</code> and paste it into ChatGPT.</li>
-                <li>Ask ChatGPT to return the <code>deck_profile</code> JSON inside a fenced <code>```json</code> code block, then copy only that JSON block and move to Step 4.</li>
+                <li>Ask ChatGPT to return the <code>deck_profile</code> JSON inside a fenced <code>```json</code> code block.</li>
+                <li>You can stop here if you only want the analysis. Move to Step 4 only if you want set-specific upgrade suggestions.</li>
             </ol>
         </div>
 
@@ -330,7 +331,7 @@
         }
 
         <div class="chatgpt-step-footer">
-            <button type="button" class="run-button" data-chatgpt-next-step="4">Next: Paste deck profile JSON</button>
+            <button type="button" class="clear-cache-button" data-chatgpt-next-step="4">Optional: Go to Set Upgrades</button>
         </div>
     </section>
 
@@ -338,10 +339,10 @@
         <div class="chatgpt-step-heading">
             <div>
                 <p class="chatgpt-step-eyebrow">Step 4</p>
-                <h2>Paste the deck profile and build the set-upgrade packet</h2>
-                <p>Paste the <code>deck_profile</code> JSON returned from ChatGPT, then choose target sets or paste a manual set packet to build the final upgrade-analysis prompt.</p>
+                <h2>Optional: Paste the deck profile and build the set-upgrade packet</h2>
+                <p>This step is optional. Use it only when you want set-specific upgrade analysis after the main deck analysis is complete.</p>
             </div>
-            <span class="chatgpt-step-badge">Final step</span>
+            <span class="chatgpt-step-badge">Optional final step</span>
         </div>
 
         <div class="chatgpt-instructions">

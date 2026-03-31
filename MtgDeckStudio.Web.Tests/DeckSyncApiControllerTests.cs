@@ -14,8 +14,14 @@ using Xunit;
 
 namespace MtgDeckStudio.Web.Tests;
 
+/// <summary>
+/// Verifies the JSON deck-sync controller's validation, labeling, and error handling.
+/// </summary>
 public sealed class DeckSyncApiControllerTests
 {
+    /// <summary>
+    /// Rejects requests that omit the left-side deck input.
+    /// </summary>
     [Fact]
     public async Task PostDiffAsync_ReturnsBadRequest_WhenMoxfieldInputMissing()
     {
@@ -32,6 +38,9 @@ public sealed class DeckSyncApiControllerTests
         Assert.Equal(400, badRequest.StatusCode);
     }
 
+    /// <summary>
+    /// Returns a structured response when the compare service succeeds.
+    /// </summary>
     [Fact]
     public async Task PostDiffAsync_ReturnsStructuredResponse()
     {
@@ -59,6 +68,9 @@ public sealed class DeckSyncApiControllerTests
         Assert.Single(payload.PrintingConflicts);
     }
 
+    /// <summary>
+    /// Converts upstream HTTP failures into a user-facing site-specific message.
+    /// </summary>
     [Fact]
     public async Task PostDiffAsync_ReturnsSiteSpecificMessage_WhenUpstreamRequestFails()
     {
@@ -78,6 +90,29 @@ public sealed class DeckSyncApiControllerTests
         var badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
         var message = badRequest.Value?.GetType().GetProperty("Message")?.GetValue(badRequest.Value) as string;
         Assert.Equal("Archidekt returned HTTP 503. Try again shortly.", message);
+    }
+
+    /// <summary>
+    /// Preserves same-system labels when both the source and target decks come from Moxfield.
+    /// </summary>
+    [Fact]
+    public async Task PostDiffAsync_ReturnsSameSystemLabels_ForMoxfieldToMoxfield()
+    {
+        var controller = new DeckSyncApiController(new FakeDeckSyncService(), NullLogger<DeckSyncApiController>.Instance);
+
+        var response = await controller.PostDiffAsync(new DeckSyncApiRequest
+        {
+            Direction = SyncDirection.MoxfieldToMoxfield,
+            MoxfieldInputSource = DeckInputSource.PasteText,
+            MoxfieldText = "1 Sol Ring",
+            ArchidektInputSource = DeckInputSource.PasteText,
+            ArchidektText = "1 Arcane Signet"
+        }, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var payload = Assert.IsType<DeckSyncApiResponse>(ok.Value);
+        Assert.Equal("Moxfield", payload.SourceSystem);
+        Assert.Equal("Moxfield", payload.TargetSystem);
     }
 
     private sealed class FakeDeckSyncService : IDeckSyncService

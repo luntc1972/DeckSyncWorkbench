@@ -43,8 +43,7 @@
         </label>
         <label class="mode-picker flex-grow">
             <span>Card name</span>
-            <input type="text" name="CardName" list="card-suggestions" value="@Model.SuggestionRequest.CardName" placeholder="Guardian Project" autocomplete="off" required />
-            <datalist id="card-suggestions"></datalist>
+            <input type="text" name="CardName" value="@Model.SuggestionRequest.CardName" placeholder="Guardian Project" autocomplete="off" required />
         </label>
         <button type="submit" class="run-button" data-enable-on-ready>Suggest</button>
         <button type="button" class="clear-cache-button" data-clear-cache>Clear</button>

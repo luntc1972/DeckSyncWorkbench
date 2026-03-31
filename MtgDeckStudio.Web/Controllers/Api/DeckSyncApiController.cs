@@ -13,11 +13,19 @@ namespace MtgDeckStudio.Web.Controllers.Api;
 
 [ApiController]
 [Route("api/deck")]
+/// <summary>
+/// Exposes deck compare and merge operations through the JSON API.
+/// </summary>
 public sealed class DeckSyncApiController : ControllerBase
 {
     private readonly IDeckSyncService _deckSyncService;
     private readonly ILogger<DeckSyncApiController> _logger;
 
+    /// <summary>
+    /// Creates the deck-sync API controller.
+    /// </summary>
+    /// <param name="deckSyncService">Service that loads deck data and builds diffs.</param>
+    /// <param name="logger">Logger used for API warnings.</param>
     public DeckSyncApiController(IDeckSyncService deckSyncService, ILogger<DeckSyncApiController> logger)
     {
         _deckSyncService = deckSyncService;
@@ -42,12 +50,14 @@ public sealed class DeckSyncApiController : ControllerBase
 
         if (!HasMoxfieldInput(request))
         {
-            return BadRequest(new { Message = request.MoxfieldInputSource == MtgDeckStudio.Web.Models.DeckInputSource.PublicUrl ? "A Moxfield deck URL is required." : "Moxfield text is required." });
+            var leftSystem = DeckSyncSupport.GetLeftPanelSystem(request.Direction);
+            return BadRequest(new { Message = request.MoxfieldInputSource == MtgDeckStudio.Web.Models.DeckInputSource.PublicUrl ? $"A {leftSystem} deck URL is required." : $"{leftSystem} text is required." });
         }
 
         if (!HasArchidektInput(request))
         {
-            return BadRequest(new { Message = request.ArchidektInputSource == MtgDeckStudio.Web.Models.DeckInputSource.PublicUrl ? "An Archidekt deck URL is required." : "Archidekt text is required." });
+            var rightSystem = DeckSyncSupport.GetRightPanelSystem(request.Direction);
+            return BadRequest(new { Message = request.ArchidektInputSource == MtgDeckStudio.Web.Models.DeckInputSource.PublicUrl ? $"A {rightSystem} deck URL is required." : $"{rightSystem} text is required." });
         }
 
         try
@@ -90,16 +100,29 @@ public sealed class DeckSyncApiController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Determines whether the request contains enough left-side input to load the compare.
+    /// </summary>
+    /// <param name="request">Incoming deck-sync API request.</param>
     private static bool HasMoxfieldInput(DeckSyncApiRequest request)
         => request.MoxfieldInputSource == MtgDeckStudio.Web.Models.DeckInputSource.PublicUrl
             ? !string.IsNullOrWhiteSpace(request.MoxfieldUrl)
             : !string.IsNullOrWhiteSpace(request.MoxfieldText);
 
+    /// <summary>
+    /// Determines whether the request contains enough right-side input to load the compare.
+    /// </summary>
+    /// <param name="request">Incoming deck-sync API request.</param>
     private static bool HasArchidektInput(DeckSyncApiRequest request)
         => request.ArchidektInputSource == MtgDeckStudio.Web.Models.DeckInputSource.PublicUrl
             ? !string.IsNullOrWhiteSpace(request.ArchidektUrl)
             : !string.IsNullOrWhiteSpace(request.ArchidektText);
 
+    /// <summary>
+    /// Builds a user-facing error message from deck-sync validation or upstream failures.
+    /// </summary>
+    /// <param name="request">Incoming deck-sync API request.</param>
+    /// <param name="exception">Exception thrown while processing the request.</param>
     private static string BuildUserFacingErrorMessage(DeckSyncApiRequest request, Exception exception)
     {
         if (request.MoxfieldInputSource == MtgDeckStudio.Web.Models.DeckInputSource.PublicUrl

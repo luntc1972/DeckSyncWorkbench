@@ -39,22 +39,83 @@ const updateSyncDirectionUi = () => {
     if (!directionSelect) {
         return;
     }
-    const moxfieldIsSource = directionSelect.value === 'MoxfieldToArchidekt';
+    const direction = directionSelect.value;
+    const leftSystem = direction === 'ArchidektToArchidekt' ? 'Archidekt' : 'Moxfield';
+    const rightSystem = direction === 'MoxfieldToMoxfield' ? 'Moxfield' : 'Archidekt';
+    const leftIsSource = direction === 'MoxfieldToArchidekt' || direction === 'MoxfieldToMoxfield';
     const moxfieldStatus = document.querySelector('[data-sync-role="moxfield-status"]');
     const archidektStatus = document.querySelector('[data-sync-role="archidekt-status"]');
+    const moxfieldTitle = document.querySelector('[data-sync-role="moxfield-title"]');
+    const archidektTitle = document.querySelector('[data-sync-role="archidekt-title"]');
+    const moxfieldDescription = document.querySelector('[data-sync-role="moxfield-description"]');
+    const archidektDescription = document.querySelector('[data-sync-role="archidekt-description"]');
+    const moxfieldUrlLabel = document.querySelector('[data-sync-role="moxfield-url-label"]');
+    const archidektUrlLabel = document.querySelector('[data-sync-role="archidekt-url-label"]');
+    const moxfieldTextLabel = document.querySelector('[data-sync-role="moxfield-text-label"]');
+    const archidektTextLabel = document.querySelector('[data-sync-role="archidekt-text-label"]');
     const moxfieldHint = document.querySelector('[data-sync-role="moxfield-hint"]');
     const archidektHint = document.querySelector('[data-sync-role="archidekt-hint"]');
+    const targetCategoryOption = document.querySelector('[data-sync-role="category-mode-target"]');
+    const sourceCategoryOption = document.querySelector('[data-sync-role="category-mode-source"]');
+    const moxfieldUrlInput = document.querySelector('input[name="MoxfieldUrl"]');
+    const archidektUrlInput = document.querySelector('input[name="ArchidektUrl"]');
+    const sourceLabelKind = leftIsSource
+        ? (leftSystem === 'Archidekt' ? 'categories' : 'tags')
+        : (rightSystem === 'Archidekt' ? 'categories' : 'tags');
+    const targetLabelKind = leftIsSource
+        ? (rightSystem === 'Archidekt' ? 'categories' : 'tags')
+        : (leftSystem === 'Archidekt' ? 'categories' : 'tags');
     if (moxfieldStatus) {
-        moxfieldStatus.textContent = moxfieldIsSource ? 'Source deck' : 'Target deck';
+        moxfieldStatus.textContent = leftIsSource ? 'Source deck' : 'Target deck';
     }
     if (archidektStatus) {
-        archidektStatus.textContent = moxfieldIsSource ? 'Target deck' : 'Source deck';
+        archidektStatus.textContent = leftIsSource ? 'Target deck' : 'Source deck';
+    }
+    if (moxfieldTitle) {
+        moxfieldTitle.textContent = leftSystem;
+    }
+    if (archidektTitle) {
+        archidektTitle.textContent = rightSystem;
+    }
+    if (moxfieldDescription) {
+        moxfieldDescription.textContent = `Provide the ${leftSystem} export or public URL for this deck.`;
+    }
+    if (archidektDescription) {
+        archidektDescription.textContent = `Provide the ${rightSystem} export or public URL for this deck.`;
+    }
+    if (moxfieldUrlLabel) {
+        moxfieldUrlLabel.textContent = `${leftSystem} public deck URL`;
+    }
+    if (archidektUrlLabel) {
+        archidektUrlLabel.textContent = `${rightSystem} public deck URL`;
+    }
+    if (moxfieldTextLabel) {
+        moxfieldTextLabel.textContent = `${leftSystem} export text`;
+    }
+    if (archidektTextLabel) {
+        archidektTextLabel.textContent = `${rightSystem} export text`;
     }
     if (moxfieldHint) {
-        moxfieldHint.textContent = `Use this when the Moxfield deck is ${moxfieldIsSource ? 'the source' : 'the target'}.`;
+        moxfieldHint.textContent = `Use this when the ${leftSystem} deck is ${leftIsSource ? 'the source' : 'the target'}.`;
     }
     if (archidektHint) {
-        archidektHint.textContent = `Use this when the Archidekt deck is ${moxfieldIsSource ? 'the target' : 'the source'}.`;
+        archidektHint.textContent = `Use this when the ${rightSystem} deck is ${leftIsSource ? 'the target' : 'the source'}.`;
+    }
+    if (targetCategoryOption) {
+        targetCategoryOption.textContent = `Use target ${targetLabelKind}`;
+    }
+    if (sourceCategoryOption) {
+        sourceCategoryOption.textContent = `Use source ${sourceLabelKind}`;
+    }
+    if (moxfieldUrlInput) {
+        moxfieldUrlInput.placeholder = leftSystem === 'Archidekt'
+            ? 'https://archidekt.com/decks/...'
+            : 'https://moxfield.com/decks/...';
+    }
+    if (archidektUrlInput) {
+        archidektUrlInput.placeholder = rightSystem === 'Moxfield'
+            ? 'https://moxfield.com/decks/...'
+            : 'https://archidekt.com/decks/...';
     }
 };
 let syncInputModeInitialized = false;

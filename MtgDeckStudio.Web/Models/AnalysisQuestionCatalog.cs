@@ -1,16 +1,28 @@
 namespace MtgDeckStudio.Web.Models;
 
+/// <summary>
+/// Represents a single selectable analysis question in the ChatGPT workflow.
+/// </summary>
 public sealed record AnalysisQuestionOption(
     string Id,
     string Text);
 
+/// <summary>
+/// Groups related analysis questions under a shared heading.
+/// </summary>
 public sealed record AnalysisQuestionBucket(
     string Id,
     string Label,
     IReadOnlyList<AnalysisQuestionOption> Questions);
 
+/// <summary>
+/// Provides the available analysis questions and helper methods for normalizing selections.
+/// </summary>
 public static class AnalysisQuestionCatalog
 {
+    /// <summary>
+    /// Gets the ordered analysis buckets shown on the ChatGPT workflow page.
+    /// </summary>
     public static IReadOnlyList<AnalysisQuestionBucket> Buckets { get; } =
     [
         new(
@@ -89,13 +101,35 @@ public static class AnalysisQuestionCatalog
                 new("keepable-hands", "What percentage of hands are keepable?"),
                 new("redundancy", "What is the deck’s redundancy for key effects?"),
                 new("mana-base-optimization", "How optimized is the mana base?")
+            ]),
+        new(
+            "deck-versioning",
+            "Deck Versioning & Upgrade Paths",
+            [
+                new("bracket-3-version", "Create a Bracket 3 version of this deck."),
+                new("bracket-4-version", "Create a Bracket 4 version of this deck."),
+                new("bracket-5-version", "Create a Bracket 5 version of this deck."),
+                new("three-upgrade-paths", "Create 3 different versions of this deck with different upgrade paths.")
             ])
     ];
+
+    public static IReadOnlySet<string> FullDecklistQuestionIds { get; } =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "bracket-3-version",
+            "bracket-4-version",
+            "bracket-5-version",
+            "three-upgrade-paths"
+        };
 
     public static IReadOnlyList<AnalysisQuestionOption> AllQuestions { get; } = Buckets
         .SelectMany(bucket => bucket.Questions)
         .ToList();
 
+    /// <summary>
+    /// Normalizes raw selected IDs by trimming, validating, deduplicating, and ordering them.
+    /// </summary>
+    /// <param name="selections">Raw selected question IDs.</param>
     public static IReadOnlyList<string> NormalizeSelections(IEnumerable<string>? selections)
     {
         var allowed = AllQuestions
@@ -111,16 +145,31 @@ public static class AnalysisQuestionCatalog
             .ToList();
     }
 
+    /// <summary>
+    /// Resolves selected IDs to their question text using default placeholders.
+    /// </summary>
+    /// <param name="selections">Selected question IDs.</param>
     public static IReadOnlyList<string> ResolveTexts(IEnumerable<string>? selections)
     {
         return ResolveTexts(selections, null, null);
     }
 
+    /// <summary>
+    /// Resolves selected IDs to their question text using a specific card name where needed.
+    /// </summary>
+    /// <param name="selections">Selected question IDs.</param>
+    /// <param name="cardName">Card name for card-specific questions.</param>
     public static IReadOnlyList<string> ResolveTexts(IEnumerable<string>? selections, string? cardName)
     {
         return ResolveTexts(selections, cardName, null);
     }
 
+    /// <summary>
+    /// Resolves selected IDs to their question text using card-name and budget placeholders.
+    /// </summary>
+    /// <param name="selections">Selected question IDs.</param>
+    /// <param name="cardName">Card name for card-specific questions.</param>
+    /// <param name="budgetAmount">Budget amount for budget-upgrade questions.</param>
     public static IReadOnlyList<string> ResolveTexts(IEnumerable<string>? selections, string? cardName, string? budgetAmount)
     {
         var selectedSet = NormalizeSelections(selections)
@@ -135,4 +184,11 @@ public static class AnalysisQuestionCatalog
                 .Replace("$X", normalizedBudgetAmount, StringComparison.Ordinal))
             .ToList();
     }
+
+    /// <summary>
+    /// Determines whether the selected questions require ChatGPT to return full 100-card decklists.
+    /// </summary>
+    /// <param name="selections">Selected question IDs.</param>
+    public static bool RequiresFullDecklistOutput(IEnumerable<string>? selections) =>
+        NormalizeSelections(selections).Any(selection => FullDecklistQuestionIds.Contains(selection));
 }

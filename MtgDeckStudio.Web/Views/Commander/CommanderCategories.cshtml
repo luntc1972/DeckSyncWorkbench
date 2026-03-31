@@ -32,8 +32,7 @@
     <div class="toolbar">
             <label class="mode-picker flex-grow">
                 <span>Commander</span>
-                <input id="commander-search-input" list="commander-suggestions" name="CommanderName" value="@Model.Request.CommanderName" placeholder="Bello, Bard of the Bramble" autocomplete="off" required />
-            <datalist id="commander-suggestions"></datalist>
+                <input id="commander-search-input" name="CommanderName" value="@Model.Request.CommanderName" placeholder="Bello, Bard of the Bramble" autocomplete="off" required />
         </label>
         <button type="submit" class="run-button" data-enable-on-ready>Show Categories</button>
         <button type="button" class="clear-cache-button" data-clear-cache>Clear</button>

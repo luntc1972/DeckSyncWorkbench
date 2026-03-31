@@ -12,8 +12,14 @@ using Xunit;
 
 namespace MtgDeckStudio.Web.Tests;
 
+/// <summary>
+/// Covers staged prompt generation, validation, and artifact output for the ChatGPT workflow.
+/// </summary>
 public sealed class ChatGptDeckPacketServiceTests
 {
+    /// <summary>
+    /// Builds the initial probe prompt and schema from pasted deck text.
+    /// </summary>
     [Fact]
     public async Task BuildAsync_GeneratesProbePrompt_ForPastedDeckText()
     {
@@ -35,9 +41,13 @@ Commander
         Assert.Contains("```json", result.ProbePromptText);
         Assert.Contains("Atraxa, Praetors' Voice", result.ProbePromptText);
         Assert.Contains("Sol Ring", result.ProbePromptText);
+        Assert.Contains("Suggested chat title: Atraxa, Praetors' Voice | AI Deck Analysis", result.ProbePromptText);
         Assert.Contains("\"game_plan\"", result.DeckProfileSchemaJson);
     }
 
+    /// <summary>
+    /// Keeps commander, decklist, sideboard, and maybeboard sections distinct in the first prompt.
+    /// </summary>
     [Fact]
     public async Task BuildAsync_SeparatesCommanderDecklistAndPossibleIncludesInInitialProbePrompt()
     {
@@ -74,6 +84,9 @@ Maybeboard
         Assert.Contains("Maybeboard cards: 1", result.InputSummary);
     }
 
+    /// <summary>
+    /// Builds the reference and analysis packets after probe JSON is supplied.
+    /// </summary>
     [Fact]
     public async Task BuildAsync_GeneratesReferenceAndAnalysis_WhenProbeJsonProvided()
     {
@@ -117,6 +130,9 @@ Commander
         Assert.Contains("```json", result.AnalysisPromptText);
     }
 
+    /// <summary>
+    /// Requires a target Commander bracket before the analysis packet can be generated.
+    /// </summary>
     [Fact]
     public async Task BuildAsync_ThrowsValidationError_WhenProbeJsonProvidedWithoutTargetBracket()
     {
@@ -141,6 +157,9 @@ Commander
         Assert.Equal("Choose a target Commander bracket before generating the analysis packet.", exception.Message);
     }
 
+    /// <summary>
+    /// Requires at least one selected analysis question before the analysis packet can be generated.
+    /// </summary>
     [Fact]
     public async Task BuildAsync_ThrowsValidationError_WhenQuestionsMissingForAnalysisStep()
     {
@@ -166,6 +185,9 @@ Commander
         Assert.Equal("Select at least one analysis question before generating the analysis packet.", exception.Message);
     }
 
+    /// <summary>
+    /// Requires a card name when the selected questions are card-specific.
+    /// </summary>
     [Fact]
     public async Task BuildAsync_ThrowsValidationError_WhenCardSpecificQuestionMissingCardName()
     {
@@ -192,6 +214,9 @@ Commander
         Assert.Equal("Enter a card name for the selected card-specific analysis questions.", exception.Message);
     }
 
+    /// <summary>
+    /// Requires a budget amount when the selected questions include budget upgrades.
+    /// </summary>
     [Fact]
     public async Task BuildAsync_ThrowsValidationError_WhenBudgetQuestionMissingBudgetAmount()
     {
@@ -244,6 +269,37 @@ Commander
 
         Assert.NotNull(result.AnalysisPromptText);
         Assert.Contains("What are the best upgrades under $50 budget?", result.AnalysisPromptText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_RequiresFullDecklists_WhenDeckVersionQuestionsSelected()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            ProbeResponseJson = """
+{
+ "unknown_cards": ["Sol Ring"]
+}
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["bracket-3-version", "three-upgrade-paths"]
+        });
+
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.Contains("Create a Bracket 3 version of this deck.", result.AnalysisPromptText);
+        Assert.Contains("Create 3 different versions of this deck with different upgrade paths.", result.AnalysisPromptText);
+        Assert.Contains("return a complete 100-card Commander list as part of the answer", result.AnalysisPromptText);
+        Assert.Contains("exactly 1 commander and 99 other cards", result.AnalysisPromptText);
+        Assert.Contains("clearly labeled ```text fenced code block", result.AnalysisPromptText);
     }
 
     [Fact]

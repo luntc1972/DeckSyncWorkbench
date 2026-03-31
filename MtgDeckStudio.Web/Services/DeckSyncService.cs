@@ -20,8 +20,14 @@ public interface IDeckSyncService
     Task<DeckSyncResult> CompareDecksAsync(DeckDiffRequest request, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Carries the loaded deck entries alongside the generated diff.
+/// </summary>
 public sealed record DeckSyncResult(DeckDiff Diff, LoadedDecks LoadedDecks);
 
+/// <summary>
+/// Loads deck inputs from either site, validates Commander deck size, and produces compare results.
+/// </summary>
 public sealed class DeckSyncService : IDeckSyncService
 {
     private const int RequiredDeckSize = 100;
@@ -55,11 +61,11 @@ public sealed class DeckSyncService : IDeckSyncService
         ArgumentNullException.ThrowIfNull(request);
 
         var loadedDecks = new LoadedDecks(
-            await LoadMoxfieldEntriesAsync(request, cancellationToken).ConfigureAwait(false),
-            await LoadArchidektEntriesAsync(request, cancellationToken).ConfigureAwait(false));
+            await LoadLeftEntriesAsync(request, cancellationToken).ConfigureAwait(false),
+            await LoadRightEntriesAsync(request, cancellationToken).ConfigureAwait(false));
 
-        ValidateDeckSize("Moxfield", loadedDecks.MoxfieldEntries);
-        ValidateDeckSize("Archidekt", loadedDecks.ArchidektEntries);
+        ValidateDeckSize(DeckSyncSupport.GetLeftPanelSystem(request.Direction), loadedDecks.MoxfieldEntries);
+        ValidateDeckSize(DeckSyncSupport.GetRightPanelSystem(request.Direction), loadedDecks.ArchidektEntries);
 
         var diff = new DiffEngine(request.Mode).Compare(
             DeckSyncSupport.GetSourceEntries(request.Direction, loadedDecks),
@@ -73,13 +79,14 @@ public sealed class DeckSyncService : IDeckSyncService
     /// </summary>
     /// <param name="request">Request containing inputs.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task<List<DeckEntry>> LoadMoxfieldEntriesAsync(DeckDiffRequest request, CancellationToken cancellationToken)
+    private Task<List<DeckEntry>> LoadLeftEntriesAsync(DeckDiffRequest request, CancellationToken cancellationToken)
     {
-        var entries = request.MoxfieldInputSource == DeckInputSource.PublicUrl
-            ? await _moxfieldDeckImporter.ImportAsync(request.MoxfieldUrl ?? string.Empty, cancellationToken).ConfigureAwait(false)
-            : _moxfieldParser.ParseText(request.MoxfieldText ?? string.Empty);
-
-        return DeckEntryFilter.ExcludeMaybeboard(entries);
+        return LoadEntriesAsync(
+            DeckSyncSupport.GetLeftPanelSystem(request.Direction),
+            request.MoxfieldInputSource,
+            request.MoxfieldUrl ?? string.Empty,
+            request.MoxfieldText ?? string.Empty,
+            cancellationToken);
     }
 
     /// <summary>
@@ -87,13 +94,38 @@ public sealed class DeckSyncService : IDeckSyncService
     /// </summary>
     /// <param name="request">Request containing inputs.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task<List<DeckEntry>> LoadArchidektEntriesAsync(DeckDiffRequest request, CancellationToken cancellationToken)
+    private Task<List<DeckEntry>> LoadRightEntriesAsync(DeckDiffRequest request, CancellationToken cancellationToken)
     {
-        var entries = request.ArchidektInputSource == DeckInputSource.PublicUrl
-            ? await _archidektDeckImporter.ImportAsync(request.ArchidektUrl ?? string.Empty, cancellationToken).ConfigureAwait(false)
-            : _archidektParser.ParseText(request.ArchidektText ?? string.Empty);
+        return LoadEntriesAsync(
+            DeckSyncSupport.GetRightPanelSystem(request.Direction),
+            request.ArchidektInputSource,
+            request.ArchidektUrl ?? string.Empty,
+            request.ArchidektText ?? string.Empty,
+            cancellationToken);
+    }
 
-        return entries;
+    /// <summary>
+    /// Loads entries from either supported deck system by URL import or pasted-text parsing.
+    /// </summary>
+    /// <param name="systemName">Deck system being loaded.</param>
+    /// <param name="inputSource">Whether the input is a public URL or pasted text.</param>
+    /// <param name="url">URL to import when the input source is public URL.</param>
+    /// <param name="text">Pasted deck text when the input source is text.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task<List<DeckEntry>> LoadEntriesAsync(string systemName, DeckInputSource inputSource, string url, string text, CancellationToken cancellationToken)
+    {
+        var isMoxfield = string.Equals(systemName, "Moxfield", StringComparison.OrdinalIgnoreCase);
+        var entries = inputSource == DeckInputSource.PublicUrl
+            ? isMoxfield
+                ? await _moxfieldDeckImporter.ImportAsync(url, cancellationToken).ConfigureAwait(false)
+                : await _archidektDeckImporter.ImportAsync(url, cancellationToken).ConfigureAwait(false)
+            : isMoxfield
+                ? _moxfieldParser.ParseText(text)
+                : _archidektParser.ParseText(text);
+
+        return isMoxfield
+            ? DeckEntryFilter.ExcludeMaybeboard(entries)
+            : entries;
     }
 
     /// <summary>

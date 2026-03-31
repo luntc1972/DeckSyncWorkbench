@@ -20,26 +20,78 @@ const setCardSearchError = (message?: string): void => {
   panel.classList.toggle('hidden', !message);
 };
 
-const renderCardSuggestions = (list: string[], datalist: HTMLDataListElement): void => {
-  datalist.innerHTML = '';
+const ensureAutocompleteAnchor = (input: HTMLInputElement): HTMLDivElement => {
+  const parent = input.parentElement;
+  if (!parent) {
+    throw new Error('Autocomplete input is missing a parent element.');
+  }
+
+  if (parent.classList.contains('autocomplete-anchor')) {
+    return parent as HTMLDivElement;
+  }
+
+  const anchor = document.createElement('div');
+  anchor.className = 'autocomplete-anchor';
+  input.insertAdjacentElement('beforebegin', anchor);
+  anchor.appendChild(input);
+  return anchor;
+};
+
+const getOrCreateSuggestionPanel = (input: HTMLInputElement): HTMLDivElement => {
+  const anchor = ensureAutocompleteAnchor(input);
+  const existingPanel = anchor.querySelector<HTMLDivElement>('.autocomplete-panel');
+  if (existingPanel) {
+    return existingPanel;
+  }
+
+  const panel = document.createElement('div');
+  panel.className = 'autocomplete-panel hidden';
+  panel.setAttribute('role', 'listbox');
+  anchor.appendChild(panel);
+  return panel;
+};
+
+const hideSuggestionPanel = (panel: HTMLElement): void => {
+  panel.classList.add('hidden');
+  panel.replaceChildren();
+};
+
+const renderCardSuggestions = (list: string[], input: HTMLInputElement, panel: HTMLDivElement): void => {
+  panel.replaceChildren();
+
+  if (list.length === 0) {
+    hideSuggestionPanel(panel);
+    return;
+  }
+
   list.forEach(name => {
-    const option = document.createElement('option');
-    option.value = name;
-    datalist.appendChild(option);
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'autocomplete-option';
+    option.textContent = name;
+    option.addEventListener('mousedown', event => {
+      event.preventDefault();
+      input.value = name;
+      hideSuggestionPanel(panel);
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    panel.appendChild(option);
   });
+
+  panel.classList.remove('hidden');
 };
 
 const attachCardSearch = (): void => {
   const input = document.querySelector<HTMLInputElement>('input[name="CardName"]');
-  const datalist = document.getElementById('card-suggestions') as HTMLDataListElement | null;
-  if (!input || !datalist) {
+  if (!input) {
     return;
   }
+  const panel = getOrCreateSuggestionPanel(input);
 
   const fetchSuggestions = async (): Promise<void> => {
     const query = input.value.trim();
     if (query.length < 2) {
-      datalist.innerHTML = '';
+      hideSuggestionPanel(panel);
       setCardSearchError();
       return;
     }
@@ -54,16 +106,16 @@ const attachCardSearch = (): void => {
           payload = null;
         }
 
-        datalist.innerHTML = '';
+        hideSuggestionPanel(panel);
         setCardSearchError(payload?.message ?? payload?.Message ?? 'Scryfall could not be reached right now. Try again shortly.');
         return;
       }
 
       const names: string[] = await response.json();
-      renderCardSuggestions(names, datalist);
+      renderCardSuggestions(names, input, panel);
       setCardSearchError();
     } catch (error) {
-      datalist.innerHTML = '';
+      hideSuggestionPanel(panel);
       setCardSearchError(error instanceof Error ? error.message : 'Scryfall could not be reached right now. Try again shortly.');
       console.error('Failed to fetch card suggestions', error);
     }
@@ -71,6 +123,14 @@ const attachCardSearch = (): void => {
 
   const debounced = debounceCardSearch(fetchSuggestions, 250);
   input.addEventListener('input', debounced);
+  input.addEventListener('focus', debounced);
+  document.addEventListener('click', event => {
+    if (!(event.target instanceof Node) || panel.contains(event.target) || input.contains(event.target)) {
+      return;
+    }
+
+    hideSuggestionPanel(panel);
+  });
 };
 
 document.addEventListener('DOMContentLoaded', attachCardSearch);
