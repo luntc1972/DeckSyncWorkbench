@@ -21,9 +21,9 @@ public sealed class ScryfallSetServiceTests
                     StatusCode = System.Net.HttpStatusCode.OK,
                     Data = new ScryfallSetListResponse(
                     [
-                        new ScryfallSet("old", "Old Set", "2024-01-01", "expansion", 250),
-                        new ScryfallSet("new", "New Set", "2025-01-01", "expansion", 275),
-                        new ScryfallSet("mid", "Mid Set", "2024-06-01", "expansion", 260)
+                        new ScryfallSet("old", "Old Set", "2024-01-01", "expansion", 250, Digital: false),
+                        new ScryfallSet("new", "New Set", "2025-01-01", "expansion", 275, Digital: false),
+                        new ScryfallSet("mid", "Mid Set", "2024-06-01", "expansion", 260, Digital: false)
                     ])
                 }));
 
@@ -34,6 +34,30 @@ public sealed class ScryfallSetServiceTests
             set => Assert.Equal("new", set.Code),
             set => Assert.Equal("mid", set.Code),
             set => Assert.Equal("old", set.Code));
+    }
+
+    [Fact]
+    public async Task GetSetsAsync_ExcludesDigitalSets()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = new ScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("ppr", "Paper Set", "2025-01-01", "expansion", 250, Digital: false),
+                        new ScryfallSet("vow", "Digital Only Set", "2025-01-01", "expansion", 100, Digital: true)
+                    ])
+                }));
+
+        var sets = await service.GetSetsAsync();
+
+        Assert.Single(sets);
+        Assert.Equal("ppr", sets[0].Code);
     }
 
     [Fact]
@@ -49,7 +73,7 @@ public sealed class ScryfallSetServiceTests
                     StatusCode = HttpStatusCode.OK,
                     Data = new ScryfallSetListResponse(
                     [
-                        new ScryfallSet("tst", "Test Set", "2025-01-01", "expansion", 3)
+                        new ScryfallSet("tst", "Test Set", "2025-01-01", "expansion", 3, Digital: false)
                     ])
                 }),
             executeSearchAsync: (_, _) => Task.FromResult(

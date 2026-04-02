@@ -326,8 +326,8 @@ Commander
 
         Assert.NotNull(result.AnalysisPromptText);
         Assert.Contains("Create a Bracket 3 version of this deck.", result.AnalysisPromptText);
-        Assert.Contains("Create 3 different versions of this deck with different upgrade paths.", result.AnalysisPromptText);
-        Assert.Contains("return a complete 100-card Commander list as part of the answer", result.AnalysisPromptText);
+        Assert.Contains("Create 3 different upgrade-path versions of this deck.", result.AnalysisPromptText);
+        Assert.Contains("you must output the full, complete 100-card Commander decklist", result.AnalysisPromptText);
         Assert.Contains("exactly 1 commander and 99 other cards", result.AnalysisPromptText);
         Assert.Contains("clearly labeled ```text fenced code block", result.AnalysisPromptText);
     }
@@ -360,7 +360,7 @@ Commander
 
         Assert.NotNull(result.AnalysisPromptText);
         Assert.Contains("Create a Bracket 2 version of this deck.", result.AnalysisPromptText);
-        Assert.Contains("return a complete 100-card Commander list as part of the answer", result.AnalysisPromptText);
+        Assert.Contains("you must output the full, complete 100-card Commander decklist", result.AnalysisPromptText);
     }
 
     /// <summary>
@@ -784,6 +784,7 @@ Commander
             new FakeMechanicLookupService(),
             new FakeCommanderBanListService(),
             new FakeScryfallSetService(),
+            new FakeCommanderSpellbookService(),
             new FakeWebHostEnvironment(rootPath),
             executeCollectionAsync: executeCollectionAsync ?? ((request, _) => Task.FromResult(CreateCollectionResponse(request))),
             executeSearchAsync: executeSearchAsync,
@@ -865,7 +866,7 @@ Commander
     {
         public Task<IReadOnlyList<ScryfallSetOption>> GetSetsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<ScryfallSetOption>>(
-                [new ScryfallSetOption("dsk", "Test Set", "2026-01-01", "expansion", 2)]);
+                [new ScryfallSetOption("dsk", "Test Set", "2026-01-01")]);
 
         public Task<string> BuildSetPacketAsync(IReadOnlyList<string> setCodes, IReadOnlyList<string>? commanderColorIdentity = null, CancellationToken cancellationToken = default)
         {
@@ -899,6 +900,14 @@ Test Card | 1W | Creature | Survival — Test text.
     {
         public Task<IReadOnlyList<string>> GetBannedCardsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<string>>(["Dockside Extortionist", "Mana Crypt"]);
+    }
+
+    private sealed class FakeCommanderSpellbookService : ICommanderSpellbookService
+    {
+        public Task<CommanderSpellbookResult?> FindCombosAsync(
+            IReadOnlyList<DeckEntry> entries,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<CommanderSpellbookResult?>(null);
     }
 
     private sealed class FakeWebHostEnvironment(string contentRootPath) : IWebHostEnvironment

@@ -23,7 +23,8 @@ public sealed record ScryfallSet(
     string Name,
     [property: JsonPropertyName("released_at")] string? ReleasedAt,
     [property: JsonPropertyName("set_type")] string? SetType,
-    [property: JsonPropertyName("card_count")] int CardCount);
+    [property: JsonPropertyName("card_count")] int CardCount,
+    [property: JsonPropertyName("digital")] bool Digital);
 
 /// <summary>
 /// Container for a Scryfall collection lookup response.

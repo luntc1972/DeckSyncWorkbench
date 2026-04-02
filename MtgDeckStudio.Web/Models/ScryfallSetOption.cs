@@ -3,9 +3,7 @@ namespace MtgDeckStudio.Web.Models;
 public sealed record ScryfallSetOption(
     string Code,
     string Name,
-    string? ReleasedAt,
-    string? SetType,
-    int CardCount)
+    string? ReleasedAt)
 {
     public string DisplayLabel
         => string.IsNullOrWhiteSpace(ReleasedAt)

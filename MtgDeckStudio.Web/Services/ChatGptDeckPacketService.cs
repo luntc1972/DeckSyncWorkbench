@@ -53,6 +53,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     private readonly IMechanicLookupService _mechanicLookupService;
     private readonly ICommanderBanListService _commanderBanListService;
     private readonly IScryfallSetService _scryfallSetService;
+    private readonly ICommanderSpellbookService _commanderSpellbookService;
     private readonly string _chatGptArtifactsPath;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
@@ -70,6 +71,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         IMechanicLookupService mechanicLookupService,
         ICommanderBanListService commanderBanListService,
         IScryfallSetService scryfallSetService,
+        ICommanderSpellbookService commanderSpellbookService,
         IWebHostEnvironment environment,
         ILogger<ChatGptDeckPacketService>? logger = null,
         RestClient? scryfallRestClient = null,
@@ -85,6 +87,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         _mechanicLookupService = mechanicLookupService;
         _commanderBanListService = commanderBanListService;
         _scryfallSetService = scryfallSetService;
+        _commanderSpellbookService = commanderSpellbookService;
         _logger = logger ?? NullLogger<ChatGptDeckPacketService>.Instance;
         _chatGptArtifactsPath = string.IsNullOrWhiteSpace(chatGptArtifactsPath)
             ? Path.Combine(
@@ -174,17 +177,20 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         string? analysisPromptText = null;
         string? setUpgradePromptText = null;
         string? savedArtifactsDirectory = null;
-        var bannedCardsStopwatch = Stopwatch.StartNew();
-        var bannedCards = await _commanderBanListService.GetBannedCardsAsync(cancellationToken).ConfigureAwait(false);
-        _logger.LogInformation("ChatGPT packet banned-list fetch completed in {ElapsedMs}ms.", bannedCardsStopwatch.ElapsedMilliseconds);
+
+        // Fire banned-list and set-packet fetches in parallel — neither depends on the other.
+        var parallelStopwatch = Stopwatch.StartNew();
+        var bannedCardsTask = _commanderBanListService.GetBannedCardsAsync(cancellationToken);
+        var setPacketTask = BuildGeneratedSetPacketAsync(request, cancellationToken);
+        await Task.WhenAll(bannedCardsTask, setPacketTask).ConfigureAwait(false);
+        _logger.LogInformation("ChatGPT packet banned-list + set-packet fetch completed in {ElapsedMs}ms.", parallelStopwatch.ElapsedMilliseconds);
+        var bannedCards = bannedCardsTask.Result;
+        var generatedSetPacket = setPacketTask.Result;
 
         var probeResponse = ParseProbeResponse(request.ProbeResponseJson);
         var deckProfileText = string.IsNullOrWhiteSpace(request.DeckProfileJson)
             ? deckProfileSchemaJson
             : ExtractJsonObject(request.DeckProfileJson);
-        var setPacketStopwatch = Stopwatch.StartNew();
-        var generatedSetPacket = await BuildGeneratedSetPacketAsync(request, cancellationToken).ConfigureAwait(false);
-        _logger.LogInformation("ChatGPT packet set-packet generation completed in {ElapsedMs}ms.", setPacketStopwatch.ElapsedMilliseconds);
         var selectedQuestions = AnalysisQuestionCatalog.NormalizeSelections(request.SelectedAnalysisQuestions);
 
         if (probeResponse is not null && CommanderBracketCatalog.Find(request.TargetCommanderBracket) is null)
@@ -205,6 +211,13 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         }
 
         if (probeResponse is not null
+            && AnalysisQuestionCatalog.RequiresCategoryOutput(selectedQuestions)
+            && string.IsNullOrWhiteSpace(request.DecklistExportFormat))
+        {
+            throw new InvalidOperationException("Choose Moxfield or Archidekt as the export format when assigning or updating categories — plain text does not support inline category formatting.");
+        }
+
+        if (probeResponse is not null
             && selectedQuestions.Contains("budget-upgrades", StringComparer.OrdinalIgnoreCase)
             && string.IsNullOrWhiteSpace(request.BudgetUpgradeAmount))
         {
@@ -214,6 +227,13 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         if (probeResponse is not null)
         {
             var unknownCardNames = MergeUnknownCards(probeResponse.UnknownCards, commanderName);
+
+            // Start combo lookup immediately — only needs deckEntries, independent of Scryfall lookups.
+            var comboStopwatch = Stopwatch.StartNew();
+            var comboTask = AnalysisQuestionCatalog.RequiresComboLookup(selectedQuestions)
+                ? _commanderSpellbookService.FindCombosAsync(deckEntries, cancellationToken)
+                : Task.FromResult<CommanderSpellbookResult?>(null);
+
             var cardReferenceStopwatch = Stopwatch.StartNew();
             var cardReferenceBundle = await LookupCardReferencesAsync(unknownCardNames, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation(
@@ -229,7 +249,19 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                 mechanicReferences.Count);
 
             referenceText = BuildReferenceText(request, mechanicReferences, cardReferenceBundle.CardReferences, bannedCards);
-            analysisPromptText = BuildAnalysisPrompt(request, decklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards);
+
+            var comboResult = await comboTask.ConfigureAwait(false);
+            _logger.LogInformation(
+                "Commander Spellbook lookup completed in {ElapsedMs}ms. Included={Included} AlmostIncluded={AlmostIncluded}.",
+                comboStopwatch.ElapsedMilliseconds,
+                comboResult?.IncludedCombos.Count ?? 0,
+                comboResult?.AlmostIncludedCombos.Count ?? 0);
+
+            var includeCardVersions = AnalysisQuestionCatalog.RequiresFullDecklistOutput(selectedQuestions) && request.IncludeCardVersions;
+            var analysisDecklistText = includeCardVersions
+                ? BuildDecklistText(deckEntries, possibleIncludeEntries, includeVersions: true)
+                : decklistText;
+            analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, comboResult, includeCardVersions);
             setUpgradePromptText = BuildSetUpgradePrompt(request, decklistText, deckProfileText, commanderName, generatedSetPacket, bannedCards);
         }
         else if (!string.IsNullOrWhiteSpace(generatedSetPacket) || !string.IsNullOrWhiteSpace(request.DeckProfileJson) || !string.IsNullOrWhiteSpace(request.SetPacketText))
@@ -369,20 +401,40 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         return builder.ToString().TrimEnd();
     }
 
+    private static string FormatDecklistLine(DeckEntry entry, bool includeVersions)
+    {
+        var name = entry.Name;
+        if (includeVersions)
+        {
+            var slash = name.IndexOf(" // ", StringComparison.Ordinal);
+            if (slash >= 0) name = name[..slash].TrimEnd();
+        }
+        var line = $"{entry.Quantity} {name}";
+        if (includeVersions && !string.IsNullOrWhiteSpace(entry.SetCode))
+        {
+            line += $" ({entry.SetCode.ToUpperInvariant()})";
+            if (!string.IsNullOrWhiteSpace(entry.CollectorNumber))
+                line += $" {entry.CollectorNumber}";
+        }
+        return line;
+    }
+
     /// <summary>
     /// Builds the analysis deck text, keeping possible includes separate from the playable list.
+    /// When <paramref name="includeVersions"/> is <see langword="true"/>, each commander and mainboard
+    /// line includes the set code and collector number when available.
     /// </summary>
-    private static string BuildDecklistText(IReadOnlyList<DeckEntry> entries, IReadOnlyList<DeckEntry> possibleIncludeEntries)
+    private static string BuildDecklistText(IReadOnlyList<DeckEntry> entries, IReadOnlyList<DeckEntry> possibleIncludeEntries, bool includeVersions = false)
     {
         var commanderLines = entries
             .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => $"{entry.Quantity} {entry.Name}")
+            .Select(entry => FormatDecklistLine(entry, includeVersions))
             .ToList();
         var mainboardLines = entries
             .Where(entry => !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => $"{entry.Quantity} {entry.Name}")
+            .Select(entry => FormatDecklistLine(entry, includeVersions))
             .ToList();
 
         var builder = new StringBuilder();
@@ -545,6 +597,56 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     }
 
     /// <summary>
+    /// Formats the Commander Spellbook combo lookup result as a reference block for injection into the analysis prompt.
+    /// Returns an empty string when no combo data is available.
+    /// </summary>
+    private static string BuildComboReferenceText(CommanderSpellbookResult? result)
+    {
+        if (result is null
+            || (result.IncludedCombos.Count == 0 && result.AlmostIncludedCombos.Count == 0))
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder();
+        builder.AppendLine("Commander Spellbook combo reference (verified data — use this when answering combo questions):");
+
+        if (result.IncludedCombos.Count > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine($"COMPLETE COMBOS IN THIS DECK ({result.IncludedCombos.Count}):");
+            for (var i = 0; i < result.IncludedCombos.Count; i++)
+            {
+                var combo = result.IncludedCombos[i];
+                builder.AppendLine($"{i + 1}. Cards: {string.Join(" + ", combo.CardNames)}");
+                builder.AppendLine($"   Result: {string.Join(", ", combo.Results)}");
+                if (!string.IsNullOrWhiteSpace(combo.Instructions))
+                {
+                    builder.AppendLine($"   How: {combo.Instructions}");
+                }
+            }
+        }
+
+        if (result.AlmostIncludedCombos.Count > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine($"COMBOS ONE CARD AWAY (within color identity) ({result.AlmostIncludedCombos.Count}):");
+            for (var i = 0; i < result.AlmostIncludedCombos.Count; i++)
+            {
+                var combo = result.AlmostIncludedCombos[i];
+                builder.AppendLine($"{i + 1}. Missing: {combo.MissingCard} | Have: {string.Join(" + ", combo.CardsInDeck)}");
+                builder.AppendLine($"   Result: {string.Join(", ", combo.Results)}");
+                if (!string.IsNullOrWhiteSpace(combo.Instructions))
+                {
+                    builder.AppendLine($"   How: {combo.Instructions}");
+                }
+            }
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    /// <summary>
     /// Suggests a conversation title derived from the commander or deck name.
     /// </summary>
     private static string BuildSuggestedChatTitle(ChatGptDeckRequest request, string? commanderName)
@@ -609,11 +711,12 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     /// <summary>
     /// Builds the main analysis prompt from the deck text, references, bracket guidance, and selected questions.
     /// </summary>
-    private static string BuildAnalysisPrompt(ChatGptDeckRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards)
+    private static string BuildAnalysisPrompt(ChatGptDeckRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false)
     {
         var bracket = CommanderBracketCatalog.Find(request.TargetCommanderBracket);
         var selectedQuestions = AnalysisQuestionCatalog.ResolveTexts(selectedQuestionIds, request.CardSpecificQuestionCardName, request.BudgetUpgradeAmount);
         var requiresFullDecklists = AnalysisQuestionCatalog.RequiresFullDecklistOutput(selectedQuestionIds);
+        var requiresCategoryOutput = AnalysisQuestionCatalog.RequiresCategoryOutput(selectedQuestionIds);
         var builder = new StringBuilder();
         builder.AppendLine("Analyze this Magic: The Gathering deck.");
         builder.AppendLine();
@@ -655,18 +758,44 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             var exportFormat = request.DecklistExportFormat.Trim();
             if (string.Equals(exportFormat, "moxfield", StringComparison.OrdinalIgnoreCase))
             {
-                builder.AppendLine("Format each decklist for Moxfield bulk edit: one card per line as 'quantity CardName' (e.g. '1 Sol Ring'). List all 100 cards together with no section headers. The commander is just another line.");
+                if (requiresCategoryOutput)
+                    builder.AppendLine("Format each decklist for Moxfield bulk edit: one card per line as 'quantity CardName (SET) collectorNumber #Category1 #Category2' (e.g. '1 Sol Ring (CMM) 1 #Ramp #ManaRocks'). Category names must be single words with no spaces — use CamelCase or hyphens for multi-word categories. List all 100 cards together with no section headers. The commander line needs no category tags.");
+                else
+                    builder.AppendLine("Format each decklist for Moxfield bulk edit: one card per line as 'quantity CardName (SET) collectorNumber' (e.g. '1 Sol Ring (CMM) 1'). List all 100 cards together with no section headers. The commander is just another line.");
             }
             else if (string.Equals(exportFormat, "archidekt", StringComparison.OrdinalIgnoreCase))
             {
-                builder.AppendLine("Format each decklist for Archidekt bulk edit: start with a '// Commander' section header, then the commander line as '1 CommanderName [Commander]', then a '// Mainboard' section header, then the remaining 99 cards as 'quantity CardName' (one per line).");
+                if (requiresCategoryOutput)
+                    builder.AppendLine("Format each decklist for Archidekt bulk edit: start with a '// Commander' section header, then the commander line as '1 CommanderName (SET) collectorNumber [Commander]', then a '// Mainboard' section header, then the remaining 99 cards as 'quantity CardName (SET) collectorNumber [Category1,Category2]' (one per line). Categories are comma-delimited inside square brackets — no spaces around commas, no quotes.");
+                else
+                    builder.AppendLine("Format each decklist for Archidekt bulk edit: start with a '// Commander' section header, then the commander line as '1 CommanderName (SET) collectorNumber [Commander]', then a '// Mainboard' section header, then the remaining 99 cards as 'quantity CardName (SET) collectorNumber' (one per line).");
             }
             else
             {
-                builder.AppendLine("Format each decklist as plain text: quantity CardName (one card per line, e.g. '1 Sol Ring'). Start with the commander line.");
+                builder.AppendLine("Format each decklist as plain text: quantity CardName (SET) collectorNumber (one card per line, e.g. '1 Sol Ring (CMM) 1'). Start with the commander line.");
+            }
+            if (requiresCategoryOutput)
+            {
+                builder.AppendLine("Do NOT use basic card types as categories (Creature, Instant, Sorcery, Enchantment, Artifact, Planeswalker, Battle). Use functional role categories instead (e.g. Ramp, Card Draw, Removal, Wipe, Tutor, Win Condition, Protection).");
+                var preferredCats = ParseCardNameList(request.PreferredCategories);
+                if (preferredCats.Count > 0)
+                {
+                    builder.AppendLine($"Preferred category names: {string.Join(", ", preferredCats)}");
+                    builder.AppendLine("Use these category names wherever they fit. You may create additional categories when none of the preferred names apply, but prefer the listed names.");
+                }
+            }
+            if (includeCardVersions)
+            {
+                builder.AppendLine("For every card retained from the original deck, use the exact set code and collector number from the decklist below.");
+                builder.AppendLine("For cards added that were not in the original deck, omit the set code and collector number — the deck builder will pick the default printing.");
             }
             builder.AppendLine("Return each full list in its own clearly labeled ```text fenced code block with the version or path name as the label (e.g. ```text Budget Efficiency).");
             builder.AppendLine("The goal is a list that can be pasted directly into the deck builder's bulk-edit field. It must be complete and machine-readable.");
+            builder.AppendLine();
+            builder.AppendLine("After each complete decklist, output these three sections:");
+            builder.AppendLine("1. Cards Added — a bulleted list of every card in the new deck that was NOT in the original deck.");
+            builder.AppendLine("2. Cards Cut — a bulleted list of every card in the original deck that is NOT in the new deck.");
+            builder.AppendLine("3. A deck_profile JSON block for this specific deck version, using the same schema as the main deck_profile at the end of the response. Return it inside a ```json fenced code block labeled with the version name (e.g., ```json deck_profile — Budget Efficiency).");
         }
         var protectedCards = ParseCardNameList(request.ProtectedCards);
         if (protectedCards.Count > 0 && requiresFullDecklists)
@@ -675,6 +804,13 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             builder.AppendLine("Keep every protected card in all requested deck versions and upgrade paths.");
             builder.AppendLine("You may still mention them as potential cuts in the general top-cuts analysis if warranted by the deck evaluation.");
         }
+        var comboReferenceText = BuildComboReferenceText(comboResult);
+        if (!string.IsNullOrWhiteSpace(comboReferenceText))
+        {
+            builder.AppendLine();
+            builder.AppendLine(comboReferenceText);
+        }
+
         builder.AppendLine();
         builder.AppendLine("After the analysis, return a JSON object named deck_profile that matches this schema.");
         builder.AppendLine("Return the deck_profile JSON inside a ```json fenced code block so it can be copied cleanly.");

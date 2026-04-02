@@ -663,7 +663,7 @@ const applyChatGptUiMode = (form, mode) => {
     });
 };
 const validateChatGptPacketsStep = (form, step) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r;
     const deckSource = (_b = (_a = form.querySelector('textarea[name="DeckSource"]')) === null || _a === void 0 ? void 0 : _a.value.trim()) !== null && _b !== void 0 ? _b : '';
     const probeResponseJson = (_d = (_c = form.querySelector('textarea[name="ProbeResponseJson"]')) === null || _c === void 0 ? void 0 : _c.value.trim()) !== null && _d !== void 0 ? _d : '';
     const deckProfileJson = (_f = (_e = form.querySelector('textarea[name="DeckProfileJson"]')) === null || _e === void 0 ? void 0 : _e.value.trim()) !== null && _f !== void 0 ? _f : '';
@@ -674,6 +674,8 @@ const validateChatGptPacketsStep = (form, step) => {
     const selectedSetCodes = Array.from(form.querySelectorAll('select[name="SelectedSetCodes"] option:checked'));
     const selectedCardSpecificQuestions = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="card-worth-it"]:checked, input[name="SelectedAnalysisQuestions"][value="better-alternatives"]:checked').length;
     const selectedBudgetQuestions = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="budget-upgrades"]:checked').length;
+    const selectedCategoryQuestions = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="add-categories"]:checked, input[name="SelectedAnalysisQuestions"][value="update-categories"]:checked').length;
+    const decklistExportFormat = (_r = (_q = form.querySelector('select[name="DecklistExportFormat"]')) === null || _q === void 0 ? void 0 : _q.value.trim()) !== null && _r !== void 0 ? _r : '';
     if (!deckSource) {
         return 'Paste a deck URL or deck export before generating ChatGPT packets.';
     }
@@ -691,6 +693,9 @@ const validateChatGptPacketsStep = (form, step) => {
     }
     if (step >= 3 && selectedBudgetQuestions > 0 && !budgetUpgradeAmount) {
         return 'Enter a budget amount for the selected budget upgrade question.';
+    }
+    if (step >= 3 && selectedCategoryQuestions > 0 && !decklistExportFormat) {
+        return 'Choose Moxfield or Archidekt as the export format when assigning or updating categories — plain text does not support inline category formatting.';
     }
     if (step >= 4) {
         if (!deckProfileJson) {
@@ -717,6 +722,39 @@ const syncBudgetQuestionField = (form) => {
     }
     const hasBudgetQuestion = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="budget-upgrades"]:checked').length > 0;
     field.classList.toggle('hidden', !hasBudgetQuestion);
+};
+const syncPreferredCategoriesField = (form) => {
+    const field = form.querySelector('[data-preferred-categories-field]');
+    if (!field) {
+        return;
+    }
+    const hasUpdateCategories = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="update-categories"]:checked').length > 0;
+    field.classList.toggle('hidden', !hasUpdateCategories);
+};
+const bracketToVersionQuestionId = {
+    core: 'bracket-2-version',
+    upgraded: 'bracket-3-version',
+    optimized: 'bracket-4-version',
+    cedh: 'bracket-5-version',
+};
+const syncVersioningBracketOptions = (form) => {
+    var _a, _b;
+    const bracketSelect = form.querySelector('select[name="TargetCommanderBracket"]');
+    const selectedBracket = ((_a = bracketSelect === null || bracketSelect === void 0 ? void 0 : bracketSelect.value) !== null && _a !== void 0 ? _a : '').toLowerCase();
+    const disabledQuestionId = (_b = bracketToVersionQuestionId[selectedBracket]) !== null && _b !== void 0 ? _b : null;
+    Object.values(bracketToVersionQuestionId).forEach(questionId => {
+        var _a;
+        const checkbox = form.querySelector(`input[name="SelectedAnalysisQuestions"][value="${questionId}"]`);
+        if (!checkbox)
+            return;
+        const shouldDisable = questionId === disabledQuestionId;
+        checkbox.disabled = shouldDisable;
+        if (shouldDisable && checkbox.checked) {
+            checkbox.checked = false;
+        }
+        (_a = checkbox.closest('label')) === null || _a === void 0 ? void 0 : _a.classList.toggle('chatgpt-question-option--disabled', shouldDisable);
+    });
+    syncQuestionBucketState(form);
 };
 const syncQuestionBucketState = (form) => {
     form.querySelectorAll('[data-question-bucket]').forEach(bucketCheckbox => {
@@ -753,9 +791,17 @@ const attachQuestionBucketSelection = (form) => {
             var _a;
             const bucketId = (_a = bucketCheckbox.dataset.questionBucket) !== null && _a !== void 0 ? _a : '';
             const questionsDiv = form.querySelector(`[data-bucket-questions="${bucketId}"]`);
-            form.querySelectorAll(`input[data-question-option="${bucketId}"]`).forEach(questionCheckbox => {
-                questionCheckbox.checked = bucketCheckbox.checked;
-            });
+            if (bucketId === 'deck-versioning') {
+                // Checking the bucket header selects only the three-upgrade-paths question
+                form.querySelectorAll(`input[data-question-option="${bucketId}"]`).forEach(questionCheckbox => {
+                    questionCheckbox.checked = bucketCheckbox.checked && questionCheckbox.value === 'three-upgrade-paths' && !questionCheckbox.disabled;
+                });
+            }
+            else {
+                form.querySelectorAll(`input[data-question-option="${bucketId}"]`).forEach(questionCheckbox => {
+                    questionCheckbox.checked = bucketCheckbox.checked;
+                });
+            }
             // Auto-expand the bucket when the select-all checkbox is checked
             if (bucketCheckbox.checked && (questionsDiv === null || questionsDiv === void 0 ? void 0 : questionsDiv.classList.contains('hidden'))) {
                 questionsDiv.classList.remove('hidden');
@@ -769,14 +815,26 @@ const attachQuestionBucketSelection = (form) => {
     });
     form.querySelectorAll('input[data-question-option]').forEach(questionCheckbox => {
         questionCheckbox.addEventListener('change', () => {
+            var _a;
+            const bucketId = (_a = questionCheckbox.dataset.questionOption) !== null && _a !== void 0 ? _a : '';
+            // Single-select for deck-versioning: checking one unchecks all siblings
+            if (bucketId === 'deck-versioning' && questionCheckbox.checked) {
+                form.querySelectorAll(`input[data-question-option="${bucketId}"]`).forEach(sibling => {
+                    if (sibling !== questionCheckbox) {
+                        sibling.checked = false;
+                    }
+                });
+            }
             syncQuestionBucketState(form);
             syncCardSpecificQuestionField(form);
             syncBudgetQuestionField(form);
+            syncPreferredCategoriesField(form);
         });
     });
     syncQuestionBucketState(form);
     syncCardSpecificQuestionField(form);
     syncBudgetQuestionField(form);
+    syncPreferredCategoriesField(form);
 };
 const attachChatGptPacketsWorkflow = () => {
     const form = document.querySelector('[data-chatgpt-packets-form]');
@@ -787,6 +845,9 @@ const attachChatGptPacketsWorkflow = () => {
     const initialUiMode = parseChatGptUiMode(storageAvailable === null || storageAvailable === void 0 ? void 0 : storageAvailable.getItem(chatGptUiModeStorageKey));
     attachQuestionBucketSelection(form);
     attachBucketToggles(form);
+    const bracketSelect = form.querySelector('select[name="TargetCommanderBracket"]');
+    bracketSelect === null || bracketSelect === void 0 ? void 0 : bracketSelect.addEventListener('change', () => syncVersioningBracketOptions(form));
+    syncVersioningBracketOptions(form);
     applyChatGptUiMode(form, initialUiMode);
     showChatGptStep(form, currentStep);
     setChatGptValidationMessage(null);

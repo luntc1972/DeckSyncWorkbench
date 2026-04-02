@@ -9,6 +9,20 @@
   --warning: #fff0b8;
   --error: #8b1e1e;
   --info: #d8edff;
+
+  /* semantic panel tokens */
+  --panel-inferred-border: #7c94ae;
+  --panel-inferred-bg: #eef4fb;
+  --panel-live-border: #4d78ad;
+  --panel-live-bg: #e7f0fb;
+  --panel-edhrec-border: #b77c35;
+  --panel-edhrec-bg: #fff1de;
+  --panel-retry-border: #6f859d;
+  --panel-retry-bg: #eef3f8;
+  --panel-summary-border: #7da18a;
+  --panel-summary-bg: #edf7f0;
+  --panel-fallback-border: #9aabbd;
+  --panel-fallback-bg: #f5f8fb;
 }
 
 * {
@@ -82,34 +96,34 @@ body {
 }
 
 .inferred-panel {
-  border-color: #7c94ae;
+  border-color: var(--panel-inferred-border);
   border-style: dashed;
-  background: #eef4fb;
+  background: var(--panel-inferred-bg);
 }
 
 .live-search-panel {
-  border-color: #4d78ad;
-  background: #e7f0fb;
+  border-color: var(--panel-live-border);
+  background: var(--panel-live-bg);
 }
 
 .edhrec-panel {
-  border-color: #b77c35;
-  background: #fff1de;
+  border-color: var(--panel-edhrec-border);
+  background: var(--panel-edhrec-bg);
 }
 
 .retry-panel {
-  border-color: #6f859d;
-  background: #eef3f8;
+  border-color: var(--panel-retry-border);
+  background: var(--panel-retry-bg);
 }
 
 .summary-panel {
-  border-color: #7da18a;
-  background: #edf7f0;
+  border-color: var(--panel-summary-border);
+  background: var(--panel-summary-bg);
 }
 
 .fallback-panel {
-  border-color: #9aabbd;
-  background: #f5f8fb;
+  border-color: var(--panel-fallback-border);
+  background: var(--panel-fallback-bg);
 }
 
 .nested-panel {
@@ -434,6 +448,15 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   margin-top: 0.1rem;
 }
 
+.chatgpt-question-option--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chatgpt-question-option--disabled input[type="checkbox"] {
+  pointer-events: none;
+}
+
 .toolbar button {
   align-self: flex-end;
 }
@@ -467,7 +490,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 .clear-cache-button {
   background: #fff;
   border: 1px solid var(--line);
-  color: var(--text);
+  color: var(--ink);
   align-items: flex-end;
   padding: 0.6rem 0.9rem;
   border-radius: 8px;
@@ -545,9 +568,6 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   border: 1px solid var(--line);
   border-radius: 999px;
   background: #1e293b;
-  color: #fff;
-  font-size: 0.95rem;
-  line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -602,23 +622,14 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   display: block;
 }
 
-.field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.source-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
+.field-grid,
 .url-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+}
+
+.url-grid {
   margin-bottom: 1rem;
 }
 
@@ -888,7 +899,6 @@ details summary {
 
 @media (max-width: 900px) {
   .field-grid,
-  .source-grid,
   .url-grid {
     grid-template-columns: 1fr;
   }

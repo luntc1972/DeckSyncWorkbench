@@ -857,6 +857,10 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
   const selectedBudgetQuestions = form.querySelectorAll<HTMLInputElement>(
     'input[name="SelectedAnalysisQuestions"][value="budget-upgrades"]:checked'
   ).length;
+  const selectedCategoryQuestions = form.querySelectorAll<HTMLInputElement>(
+    'input[name="SelectedAnalysisQuestions"][value="add-categories"]:checked, input[name="SelectedAnalysisQuestions"][value="update-categories"]:checked'
+  ).length;
+  const decklistExportFormat = form.querySelector<HTMLSelectElement>('select[name="DecklistExportFormat"]')?.value.trim() ?? '';
 
   if (!deckSource) {
     return 'Paste a deck URL or deck export before generating ChatGPT packets.';
@@ -880,6 +884,10 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
 
   if (step >= 3 && selectedBudgetQuestions > 0 && !budgetUpgradeAmount) {
     return 'Enter a budget amount for the selected budget upgrade question.';
+  }
+
+  if (step >= 3 && selectedCategoryQuestions > 0 && !decklistExportFormat) {
+    return 'Choose Moxfield or Archidekt as the export format when assigning or updating categories — plain text does not support inline category formatting.';
   }
 
   if (step >= 4) {
@@ -921,6 +929,45 @@ const syncBudgetQuestionField = (form: HTMLFormElement): void => {
   field.classList.toggle('hidden', !hasBudgetQuestion);
 };
 
+const syncPreferredCategoriesField = (form: HTMLFormElement): void => {
+  const field = form.querySelector<HTMLElement>('[data-preferred-categories-field]');
+  if (!field) {
+    return;
+  }
+
+  const hasUpdateCategories = form.querySelectorAll<HTMLInputElement>(
+    'input[name="SelectedAnalysisQuestions"][value="update-categories"]:checked'
+  ).length > 0;
+
+  field.classList.toggle('hidden', !hasUpdateCategories);
+};
+
+const bracketToVersionQuestionId: Readonly<Record<string, string>> = {
+  core: 'bracket-2-version',
+  upgraded: 'bracket-3-version',
+  optimized: 'bracket-4-version',
+  cedh: 'bracket-5-version',
+};
+
+const syncVersioningBracketOptions = (form: HTMLFormElement): void => {
+  const bracketSelect = form.querySelector<HTMLSelectElement>('select[name="TargetCommanderBracket"]');
+  const selectedBracket = (bracketSelect?.value ?? '').toLowerCase();
+  const disabledQuestionId = bracketToVersionQuestionId[selectedBracket] ?? null;
+
+  Object.values(bracketToVersionQuestionId).forEach(questionId => {
+    const checkbox = form.querySelector<HTMLInputElement>(`input[name="SelectedAnalysisQuestions"][value="${questionId}"]`);
+    if (!checkbox) return;
+    const shouldDisable = questionId === disabledQuestionId;
+    checkbox.disabled = shouldDisable;
+    if (shouldDisable && checkbox.checked) {
+      checkbox.checked = false;
+    }
+    checkbox.closest('label')?.classList.toggle('chatgpt-question-option--disabled', shouldDisable);
+  });
+
+  syncQuestionBucketState(form);
+};
+
 const syncQuestionBucketState = (form: HTMLFormElement): void => {
   form.querySelectorAll<HTMLInputElement>('[data-question-bucket]').forEach(bucketCheckbox => {
     const bucketId = bucketCheckbox.dataset.questionBucket ?? '';
@@ -959,9 +1006,18 @@ const attachQuestionBucketSelection = (form: HTMLFormElement): void => {
     bucketCheckbox.addEventListener('change', () => {
       const bucketId = bucketCheckbox.dataset.questionBucket ?? '';
       const questionsDiv = form.querySelector<HTMLElement>(`[data-bucket-questions="${bucketId}"]`);
-      form.querySelectorAll<HTMLInputElement>(`input[data-question-option="${bucketId}"]`).forEach(questionCheckbox => {
-        questionCheckbox.checked = bucketCheckbox.checked;
-      });
+
+      if (bucketId === 'deck-versioning') {
+        // Checking the bucket header selects only the three-upgrade-paths question
+        form.querySelectorAll<HTMLInputElement>(`input[data-question-option="${bucketId}"]`).forEach(questionCheckbox => {
+          questionCheckbox.checked = bucketCheckbox.checked && questionCheckbox.value === 'three-upgrade-paths' && !questionCheckbox.disabled;
+        });
+      } else {
+        form.querySelectorAll<HTMLInputElement>(`input[data-question-option="${bucketId}"]`).forEach(questionCheckbox => {
+          questionCheckbox.checked = bucketCheckbox.checked;
+        });
+      }
+
       // Auto-expand the bucket when the select-all checkbox is checked
       if (bucketCheckbox.checked && questionsDiv?.classList.contains('hidden')) {
         questionsDiv.classList.remove('hidden');
@@ -977,15 +1033,28 @@ const attachQuestionBucketSelection = (form: HTMLFormElement): void => {
 
   form.querySelectorAll<HTMLInputElement>('input[data-question-option]').forEach(questionCheckbox => {
     questionCheckbox.addEventListener('change', () => {
+      const bucketId = questionCheckbox.dataset.questionOption ?? '';
+
+      // Single-select for deck-versioning: checking one unchecks all siblings
+      if (bucketId === 'deck-versioning' && questionCheckbox.checked) {
+        form.querySelectorAll<HTMLInputElement>(`input[data-question-option="${bucketId}"]`).forEach(sibling => {
+          if (sibling !== questionCheckbox) {
+            sibling.checked = false;
+          }
+        });
+      }
+
       syncQuestionBucketState(form);
       syncCardSpecificQuestionField(form);
       syncBudgetQuestionField(form);
+      syncPreferredCategoriesField(form);
     });
   });
 
   syncQuestionBucketState(form);
   syncCardSpecificQuestionField(form);
   syncBudgetQuestionField(form);
+  syncPreferredCategoriesField(form);
 };
 
 const attachChatGptPacketsWorkflow = (): void => {
@@ -998,6 +1067,11 @@ const attachChatGptPacketsWorkflow = (): void => {
   const initialUiMode = parseChatGptUiMode(storageAvailable?.getItem(chatGptUiModeStorageKey));
   attachQuestionBucketSelection(form);
   attachBucketToggles(form);
+
+  const bracketSelect = form.querySelector<HTMLSelectElement>('select[name="TargetCommanderBracket"]');
+  bracketSelect?.addEventListener('change', () => syncVersioningBracketOptions(form));
+  syncVersioningBracketOptions(form);
+
   applyChatGptUiMode(form, initialUiMode);
   showChatGptStep(form, currentStep);
   setChatGptValidationMessage(null);

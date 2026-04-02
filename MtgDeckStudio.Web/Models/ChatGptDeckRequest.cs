@@ -17,6 +17,7 @@ public sealed class ChatGptDeckRequest
     private string _setPacketText = string.Empty;
     private string _protectedCards = string.Empty;
     private string _decklistExportFormat = string.Empty;
+    private string _preferredCategories = string.Empty;
 
     public string DeckSource
     {
@@ -110,5 +111,13 @@ public sealed class ChatGptDeckRequest
     {
         get => _decklistExportFormat;
         set => _decklistExportFormat = value ?? string.Empty;
+    }
+
+    public bool IncludeCardVersions { get; set; }
+
+    public string PreferredCategories
+    {
+        get => _preferredCategories;
+        set => _preferredCategories = value ?? string.Empty;
     }
 }

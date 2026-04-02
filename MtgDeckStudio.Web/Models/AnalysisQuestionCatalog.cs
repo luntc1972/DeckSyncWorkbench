@@ -103,6 +103,13 @@ public static class AnalysisQuestionCatalog
                 new("mana-base-optimization", "How optimized is the mana base?")
             ]),
         new(
+            "combo-analysis",
+            "Combo Analysis (Commander Spellbook)",
+            [
+                new("combo-in-deck", "What combos does this deck already contain? Use the provided Commander Spellbook combo reference data."),
+                new("combo-one-away", "What cards would complete combos that are one card away within this deck's color identity? Use the provided Commander Spellbook combo reference data.")
+            ]),
+        new(
             "deck-versioning",
             "Deck Versioning & Upgrade Paths",
             [
@@ -110,9 +117,21 @@ public static class AnalysisQuestionCatalog
                 new("bracket-3-version", "Create a Bracket 3 version of this deck."),
                 new("bracket-4-version", "Create a Bracket 4 version of this deck."),
                 new("bracket-5-version", "Create a Bracket 5 version of this deck."),
-                new("three-upgrade-paths", "Create 3 different upgrade-path versions of this deck. Give each path a descriptive name (e.g. Budget Efficiency, Synergy Focus, Power Spike). For each path, provide a complete 100-card Commander decklist.")
+                new("three-upgrade-paths", "Create 3 different upgrade-path versions of this deck. Give each path a descriptive name (e.g. Budget Efficiency, Synergy Focus, Power Spike). For each path, provide a complete 100-card Commander decklist."),
+                new("add-categories", "Assign categories/tags to every card in this deck."),
+                new("update-categories", "Update the categories/tags for every card in this deck using the provided preferred category list.")
             ])
     ];
+
+    /// <summary>
+    /// Question IDs that require a Commander Spellbook combo lookup before the prompt is built.
+    /// </summary>
+    public static IReadOnlySet<string> ComboLookupQuestionIds { get; } =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "combo-in-deck",
+            "combo-one-away"
+        };
 
     public static IReadOnlySet<string> FullDecklistQuestionIds { get; } =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -121,7 +140,20 @@ public static class AnalysisQuestionCatalog
             "bracket-3-version",
             "bracket-4-version",
             "bracket-5-version",
-            "three-upgrade-paths"
+            "three-upgrade-paths",
+            "add-categories",
+            "update-categories"
+        };
+
+    /// <summary>
+    /// Question IDs that require an inline category/tag format in the output decklist.
+    /// These questions require Moxfield or Archidekt export format — plain text is not supported.
+    /// </summary>
+    public static IReadOnlySet<string> CategoryQuestionIds { get; } =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "add-categories",
+            "update-categories"
         };
 
     public static IReadOnlyList<AnalysisQuestionOption> AllQuestions { get; } = Buckets
@@ -193,4 +225,19 @@ public static class AnalysisQuestionCatalog
     /// <param name="selections">Selected question IDs.</param>
     public static bool RequiresFullDecklistOutput(IEnumerable<string>? selections) =>
         NormalizeSelections(selections).Any(selection => FullDecklistQuestionIds.Contains(selection));
+
+    /// <summary>
+    /// Determines whether the selected questions require a Commander Spellbook combo lookup.
+    /// </summary>
+    /// <param name="selections">Selected question IDs.</param>
+    public static bool RequiresComboLookup(IEnumerable<string>? selections) =>
+        NormalizeSelections(selections).Any(selection => ComboLookupQuestionIds.Contains(selection));
+
+    /// <summary>
+    /// Determines whether the selected questions require inline category/tag output in the decklist.
+    /// When true, the export format must be Moxfield or Archidekt — plain text is not supported.
+    /// </summary>
+    /// <param name="selections">Selected question IDs.</param>
+    public static bool RequiresCategoryOutput(IEnumerable<string>? selections) =>
+        NormalizeSelections(selections).Any(selection => CategoryQuestionIds.Contains(selection));
 }

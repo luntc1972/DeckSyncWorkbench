@@ -58,13 +58,14 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         }
 
         var sets = response.Data.Data
+            .Where(set => !set.Digital)
             .Where(set => set.CardCount > 0)
             .Where(set => !string.Equals(set.SetType, "token", StringComparison.OrdinalIgnoreCase))
             .Where(set => !string.Equals(set.SetType, "minigame", StringComparison.OrdinalIgnoreCase))
             .Where(set => !string.Equals(set.SetType, "memorabilia", StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(set => ParseReleasedAt(set.ReleasedAt))
             .ThenBy(set => set.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(set => new ScryfallSetOption(set.Code, set.Name, set.ReleasedAt, set.SetType, set.CardCount))
+            .Select(set => new ScryfallSetOption(set.Code, set.Name, set.ReleasedAt))
             .ToList();
 
         _cache.Set(SetCacheKey, sets, SetCacheDuration);
@@ -98,7 +99,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         foreach (var setCode in normalizedCodes)
         {
             var set = knownSets.FirstOrDefault(option => string.Equals(option.Code, setCode, StringComparison.OrdinalIgnoreCase))
-                ?? new ScryfallSetOption(setCode, setCode.ToUpperInvariant(), null, null, 0);
+                ?? new ScryfallSetOption(setCode, setCode.ToUpperInvariant(), null);
             var cards = await FetchCardsForSetAsync(setCode, cancellationToken).ConfigureAwait(false);
             if (normalizedCommanderIdentity.Count > 0)
             {

@@ -292,13 +292,25 @@
                             @if (bucket.Id == "deck-versioning")
                             {
                                 <label class="field">
-                                    <span>Decklist export format</span>
+                                    <span>Decklist export format <small>(required for category questions)</small></span>
                                     <select name="DecklistExportFormat">
                                         <option value="" selected="@(string.IsNullOrEmpty(Model.Request.DecklistExportFormat))">Plain text (no preference)</option>
                                         <option value="moxfield" selected="@(string.Equals(Model.Request.DecklistExportFormat, "moxfield", StringComparison.OrdinalIgnoreCase))">Moxfield</option>
                                         <option value="archidekt" selected="@(string.Equals(Model.Request.DecklistExportFormat, "archidekt", StringComparison.OrdinalIgnoreCase))">Archidekt</option>
                                     </select>
-                                    <small class="sync-column__hint">Choose which deck builder you will paste the generated lists into. This controls the exact line format ChatGPT outputs so it can be pasted directly into the bulk-edit field.</small>
+                                    <small class="sync-column__hint">Choose which deck builder you will paste the generated lists into. Required when assigning or updating categories — plain text does not support inline category formatting.</small>
+                                </label>
+                                <label class="chatgpt-question-option">
+                                    <input type="checkbox" name="IncludeCardVersions" value="true" @(Model.Request.IncludeCardVersions ? "checked" : "") />
+                                    <span>
+                                        Include card versions (set code &amp; collector number) for retained cards
+                                        <small class="sync-column__hint" style="display:block;margin-top:0.2rem">When checked, the original deck's set code and collector number are provided to ChatGPT so it can preserve the exact printing for any card kept in a generated deck version.</small>
+                                    </span>
+                                </label>
+                                <label class="field hidden" data-preferred-categories-field>
+                                    <span>Preferred category names (optional)</span>
+                                    <textarea name="PreferredCategories" rows="4" spellcheck="false">@Model.Request.PreferredCategories</textarea>
+                                    <small class="sync-column__hint">One category name per line. ChatGPT will use these names when assigning categories and will only create new ones when none of the preferred names fit.</small>
                                 </label>
                                 <label class="field">
                                     <span>Protected cards (optional)</span>
