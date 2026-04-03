@@ -37,7 +37,8 @@ public sealed record ChatGptDeckPacketResult(
     string? ReferenceText,
     string? AnalysisPromptText,
     string? SetUpgradePromptText,
-    string? SavedArtifactsDirectory);
+    string? SavedArtifactsDirectory,
+    string? TimingSummary);
 
 /// <summary>
 /// Builds probe, analysis, and set-upgrade prompts plus supporting reference data for ChatGPT.
@@ -110,6 +111,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     {
         ArgumentNullException.ThrowIfNull(request);
         var overallStopwatch = Stopwatch.StartNew();
+        var timings = new List<(string Label, long Ms, string? Detail)>();
 
         if (string.IsNullOrWhiteSpace(request.DeckSource))
         {
@@ -118,6 +120,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
         var loadDeckStopwatch = Stopwatch.StartNew();
         var entries = await LoadDeckEntriesAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
+        timings.Add(("Deck load", loadDeckStopwatch.ElapsedMilliseconds, null));
         _logger.LogInformation("ChatGPT packet deck load completed in {ElapsedMs}ms.", loadDeckStopwatch.ElapsedMilliseconds);
         var deckEntries = entries
             .Where(entry =>
@@ -137,6 +140,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         var commanderName = deckEntries
             .FirstOrDefault(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             ?.Name;
+        var inferredCommanderFromMoxfieldOrdering = false;
 
         // Fallback for Moxfield exports without a Commander section header.
         // By convention the commander (or partner pair) appears first in the list.
@@ -148,6 +152,19 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                     && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
                 .Take(2)
                 .ToList();
+
+            // If two candidates were found, confirm the second is a partner commander and not the
+            // first card of an A-Z-sorted mainboard. When the second entry sorts alphabetically
+            // before the third entry it fits naturally in a sorted mainboard sequence; in that case
+            // only the first entry is the commander.
+            if (leadingOneOfs.Count == 2 && entries.Count > 2)
+            {
+                var thirdEntry = entries[2];
+                if (string.Compare(leadingOneOfs[1].Name, thirdEntry.Name, StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    leadingOneOfs = leadingOneOfs.Take(1).ToList();
+                }
+            }
 
             if (leadingOneOfs.Count > 0)
             {
@@ -163,7 +180,31 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                         : entry)
                     .ToList();
                 commanderName = leadingOneOfs[0].Name;
+                inferredCommanderFromMoxfieldOrdering = true;
             }
+        }
+
+        if (string.Equals(request.Format, "Commander", StringComparison.OrdinalIgnoreCase) && inferredCommanderFromMoxfieldOrdering)
+        {
+            var validatedCommanderName = await ValidateCommanderAsync(entries, commanderName, cancellationToken).ConfigureAwait(false);
+            commanderName = validatedCommanderName;
+            entries = entries
+                .Select(entry => string.Equals(entry.Name, validatedCommanderName, StringComparison.OrdinalIgnoreCase)
+                    ? entry with { Board = "commander" }
+                    : string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase)
+                        ? entry with { Board = "main" }
+                        : entry)
+                .ToList();
+            deckEntries = entries
+                .Where(entry =>
+                    !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            possibleIncludeEntries = entries
+                .Where(entry =>
+                    string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+                .ToList();
         }
 
         var inputSummary = BuildInputSummary(request, deckEntries, possibleIncludeEntries, commanderName);
@@ -183,6 +224,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         var bannedCardsTask = _commanderBanListService.GetBannedCardsAsync(cancellationToken);
         var setPacketTask = BuildGeneratedSetPacketAsync(request, cancellationToken);
         await Task.WhenAll(bannedCardsTask, setPacketTask).ConfigureAwait(false);
+        timings.Add(("Ban list + set packet", parallelStopwatch.ElapsedMilliseconds, null));
         _logger.LogInformation("ChatGPT packet banned-list + set-packet fetch completed in {ElapsedMs}ms.", parallelStopwatch.ElapsedMilliseconds);
         var bannedCards = bannedCardsTask.Result;
         var generatedSetPacket = setPacketTask.Result;
@@ -198,7 +240,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             throw new InvalidOperationException("Choose a target Commander bracket before generating the analysis packet.");
         }
 
-        if (probeResponse is not null && selectedQuestions.Count == 0)
+        if (probeResponse is not null && selectedQuestions.Count == 0 && string.IsNullOrWhiteSpace(request.FreeformQuestion))
         {
             throw new InvalidOperationException("Select at least one analysis question before generating the analysis packet.");
         }
@@ -236,6 +278,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
             var cardReferenceStopwatch = Stopwatch.StartNew();
             var cardReferenceBundle = await LookupCardReferencesAsync(unknownCardNames, cancellationToken).ConfigureAwait(false);
+            timings.Add(("Scryfall card lookup", cardReferenceStopwatch.ElapsedMilliseconds, $"{cardReferenceBundle.CardReferences.Count} cards, {cardReferenceBundle.MechanicNames.Count} mechanics found"));
             _logger.LogInformation(
                 "ChatGPT packet card reference lookup completed in {ElapsedMs}ms for {CardCount} cards and {MechanicCount} mechanics.",
                 cardReferenceStopwatch.ElapsedMilliseconds,
@@ -243,6 +286,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                 cardReferenceBundle.MechanicNames.Count);
             var mechanicReferenceStopwatch = Stopwatch.StartNew();
             var mechanicReferences = await LookupMechanicReferencesAsync(cardReferenceBundle.MechanicNames, cancellationToken).ConfigureAwait(false);
+            timings.Add(("Mechanic rules lookup", mechanicReferenceStopwatch.ElapsedMilliseconds, $"{mechanicReferences.Count} mechanics resolved"));
             _logger.LogInformation(
                 "ChatGPT packet mechanic lookup completed in {ElapsedMs}ms for {MechanicCount} mechanics.",
                 mechanicReferenceStopwatch.ElapsedMilliseconds,
@@ -251,6 +295,10 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             referenceText = BuildReferenceText(request, mechanicReferences, cardReferenceBundle.CardReferences, bannedCards);
 
             var comboResult = await comboTask.ConfigureAwait(false);
+            if (AnalysisQuestionCatalog.RequiresComboLookup(selectedQuestions))
+            {
+                timings.Add(("Commander Spellbook", comboStopwatch.ElapsedMilliseconds, $"{comboResult?.IncludedCombos.Count ?? 0} combos, {comboResult?.AlmostIncludedCombos.Count ?? 0} near-combos"));
+            }
             _logger.LogInformation(
                 "Commander Spellbook lookup completed in {ElapsedMs}ms. Included={Included} AlmostIncluded={AlmostIncluded}.",
                 comboStopwatch.ElapsedMilliseconds,
@@ -283,6 +331,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                 deckProfileSchemaJson,
                 setUpgradePromptText,
                 cancellationToken).ConfigureAwait(false);
+            timings.Add(("Artifact save", saveArtifactsStopwatch.ElapsedMilliseconds, null));
             _logger.LogInformation("ChatGPT packet artifact save completed in {ElapsedMs}ms.", saveArtifactsStopwatch.ElapsedMilliseconds);
         }
 
@@ -293,6 +342,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             !string.IsNullOrWhiteSpace(analysisPromptText),
             !string.IsNullOrWhiteSpace(setUpgradePromptText));
 
+        var timingSummary = BuildTimingSummary(timings, overallStopwatch.ElapsedMilliseconds);
+
         return new ChatGptDeckPacketResult(
             inputSummary,
             probePromptText,
@@ -301,7 +352,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             referenceText,
             analysisPromptText,
             setUpgradePromptText,
-            savedArtifactsDirectory);
+            savedArtifactsDirectory,
+            timingSummary);
     }
 
     /// <summary>
@@ -559,6 +611,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine("- Do not guess card text.");
         builder.AppendLine("- Do not analyze the deck yet.");
         builder.AppendLine("- If you are unsure whether you know a card exactly, include it.");
+        builder.AppendLine("- Verify whether the commander found in the deck is a legal commander by these established rules only: it must be a legendary creature, a legendary Vehicle, or a planeswalker whose text says it can be your commander.");
+        builder.AppendLine("- If no commander is found in the deck context or decklist, return a missing commander status and a message telling the user to enter one before continuing.");
         builder.AppendLine("- Do not return mechanics. The app will derive mechanics from the returned card text.");
         builder.AppendLine("- Treat the Commander and Decklist sections as the actual deck being evaluated.");
         builder.AppendLine("- Treat the Sideboard and Maybeboard sections only as candidate additions, not part of the current deck.");
@@ -743,6 +797,10 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         {
             builder.AppendLine($"- {question}");
         }
+        if (!string.IsNullOrWhiteSpace(request.FreeformQuestion))
+        {
+            builder.AppendLine($"- {request.FreeformQuestion.Trim()}");
+        }
         builder.AppendLine();
         builder.AppendLine("After answering the questions, include these recommendation sections in the prose analysis:");
         builder.AppendLine("1. top adds");
@@ -777,6 +835,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             if (requiresCategoryOutput)
             {
                 builder.AppendLine("Do NOT use basic card types as categories (Creature, Instant, Sorcery, Enchantment, Artifact, Planeswalker, Battle). Use functional role categories instead (e.g. Ramp, Card Draw, Removal, Wipe, Tutor, Win Condition, Protection).");
+                builder.AppendLine("Return the categorized decklist only inside a fenced ```text code block. Do not put the final decklist in prose or outside the code block.");
                 var preferredCats = ParseCardNameList(request.PreferredCategories);
                 if (preferredCats.Count > 0)
                 {
@@ -856,6 +915,11 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     private static string BuildSetUpgradePrompt(ChatGptDeckRequest request, string decklistText, string deckProfileJson, string? commanderName, string? generatedSetPacket, IReadOnlyList<string> bannedCards)
     {
         var builder = new StringBuilder();
+        var upgradeFocus = request.SetUpgradeFocus.Trim();
+        var isLateralOnly = string.Equals(upgradeFocus, "lateral-moves", StringComparison.OrdinalIgnoreCase);
+        var isStrictOnly = string.Equals(upgradeFocus, "strict-upgrades", StringComparison.OrdinalIgnoreCase);
+        var isBoth = string.Equals(upgradeFocus, "both", StringComparison.OrdinalIgnoreCase);
+
         builder.AppendLine("Given this deck and this set packet, analyze each selected set for possible additions to the deck, suggested removals for those additions, and any traps from that set.");
         builder.AppendLine();
         builder.AppendLine("Use the deck profile as authoritative for the deck's plan, strengths, weaknesses, and replaceable slots.");
@@ -864,6 +928,32 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine("Cards listed under Possible Includes are not part of the current deck. Treat them only as candidate additions.");
         builder.AppendLine("Do not recommend cards from the official Commander banned list.");
         builder.AppendLine($"Official Commander banned cards: {FormatBannedCardsLine(bannedCards)}");
+
+        if (isLateralOnly)
+        {
+            builder.AppendLine();
+            builder.AppendLine("Focus: lateral moves only.");
+            builder.AppendLine("A lateral move is a card from the set that fills the same role as a card already in the deck but offers a different angle, better synergy fit, or a more interesting effect at roughly the same power level.");
+            builder.AppendLine("For every lateral move, identify the current deck card it would replace and explain why the swap is worth considering even though neither card is strictly better.");
+            builder.AppendLine("Do not recommend cards that are simply stronger — only flag those as traps if they would create a bracket or power mismatch.");
+        }
+        else if (isStrictOnly)
+        {
+            builder.AppendLine();
+            builder.AppendLine("Focus: strict upgrades only.");
+            builder.AppendLine("A strict upgrade is a card from the set that does the same job as a card already in the deck but is meaningfully more powerful, more efficient, or more synergistic with the deck's strategy.");
+            builder.AppendLine("For every strict upgrade, name the card it replaces and explain precisely why it is better in this deck's context.");
+            builder.AppendLine("Do not recommend lateral moves or speculative includes that are not clearly better than what the deck already runs.");
+        }
+        else if (isBoth)
+        {
+            builder.AppendLine();
+            builder.AppendLine("Focus: strict upgrades and lateral moves.");
+            builder.AppendLine("For strict upgrades: identify cards from the set that are meaningfully more powerful or efficient than a card already in the deck. Name the card being replaced and explain why it is better.");
+            builder.AppendLine("For lateral moves: identify cards from the set that fill the same role as an existing card but offer a different angle, better synergy fit, or more interesting effect at roughly the same power level. Name the card being replaced and explain why the swap is worth considering.");
+            builder.AppendLine("Label each recommendation clearly as 'Strict Upgrade' or 'Lateral Move'.");
+        }
+
         builder.AppendLine();
         builder.AppendLine("Return sections:");
         builder.AppendLine("1. per-set analysis");
@@ -1007,6 +1097,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     {
         return """
 {
+  "commander_status": "valid",
+  "commander_name": "Card Name",
+  "commander_reason": "",
   "unknown_cards": [
     "Card Name"
   ]
@@ -1222,6 +1315,50 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             .Replace('\u2013', '-')
             .Replace('\u2014', '-')
             .ToLowerInvariant();
+
+    private async Task<string> ValidateCommanderAsync(IReadOnlyList<DeckEntry> entries, string? commanderName, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(commanderName))
+        {
+            throw new InvalidOperationException("The commander isn't in the deck text. Add a legal commander line before generating the probe prompt.");
+        }
+
+        var commanderEntry = entries.FirstOrDefault(entry => string.Equals(entry.Name, commanderName, StringComparison.OrdinalIgnoreCase));
+        if (commanderEntry is null)
+        {
+            throw new InvalidOperationException("The commander isn't in the deck text. Add a legal commander line before generating the probe prompt.");
+        }
+
+        var commanderCard = await SearchFallbackCardAsync(commanderName, cancellationToken).ConfigureAwait(false);
+        if (commanderCard is null || !IsCommanderEligible(commanderCard))
+        {
+            throw new InvalidOperationException($"The commander isn't in the deck text. \"{commanderName}\" is not a legal commander by this workflow's rules.");
+        }
+
+        return commanderEntry.Name;
+    }
+
+    private static bool IsCommanderEligible(ScryfallCard card)
+    {
+        var typeLine = card.TypeLine ?? string.Empty;
+        var oracleText = NormalizeOracleText(card);
+        if (IsLegendaryType(typeLine, "Creature"))
+        {
+            return true;
+        }
+
+        if (IsLegendaryType(typeLine, "Vehicle"))
+        {
+            return true;
+        }
+
+        return typeLine.Contains("Planeswalker", StringComparison.OrdinalIgnoreCase)
+            && oracleText.Contains("can be your commander", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsLegendaryType(string typeLine, string requiredType)
+        => typeLine.Contains("Legendary", StringComparison.OrdinalIgnoreCase)
+            && typeLine.Contains(requiredType, StringComparison.OrdinalIgnoreCase);
 
     private async Task<IReadOnlyList<MechanicReference>> LookupMechanicReferencesAsync(IReadOnlyList<string> mechanicNames, CancellationToken cancellationToken)
     {
@@ -1544,6 +1681,24 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                 yield return face.OracleText;
             }
         }
+    }
+
+    private static string BuildTimingSummary(List<(string Label, long Ms, string? Detail)> timings, long totalMs)
+    {
+        var sb = new StringBuilder();
+        foreach (var (label, ms, detail) in timings)
+        {
+            sb.Append($"{label}: {ms:N0}ms");
+            if (!string.IsNullOrWhiteSpace(detail))
+            {
+                sb.Append($" ({detail})");
+            }
+
+            sb.AppendLine();
+        }
+
+        sb.Append($"Total: {totalMs:N0}ms");
+        return sb.ToString();
     }
 
     [GeneratedRegex(@"^(?<term>[A-Za-z][A-Za-z' -]{1,40})\s+—\s+", RegexOptions.Compiled | RegexOptions.CultureInvariant)]

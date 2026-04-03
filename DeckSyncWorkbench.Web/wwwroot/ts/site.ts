@@ -14,12 +14,22 @@
       return;
     }
 
+    const updateVisibility = (): void => {
+      const shouldShow = window.scrollY > 120;
+      button.classList.toggle('is-visible', shouldShow);
+      button.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+      button.tabIndex = shouldShow ? 0 : -1;
+    };
+
     button.addEventListener('click', () => {
       window.scrollTo({
         top: 0,
         behavior: 'smooth'
       });
     });
+
+    window.addEventListener('scroll', updateVisibility, { passive: true });
+    updateVisibility();
   };
 
   document.addEventListener('DOMContentLoaded', attachBackToTop);

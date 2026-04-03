@@ -37,6 +37,9 @@ Commander
         });
 
         Assert.Contains("unknown_cards", result.ProbePromptText);
+        Assert.Contains("commander_status", result.ProbePromptText);
+        Assert.Contains("legendary creature, a legendary Vehicle, or a planeswalker whose text says it can be your commander", result.ProbePromptText);
+        Assert.Contains("enter one before continuing", result.ProbePromptText);
         Assert.DoesNotContain("unknown_mechanics", result.ProbePromptText);
         Assert.Contains("```json", result.ProbePromptText);
         Assert.Contains("Atraxa, Praetors' Voice", result.ProbePromptText);
@@ -363,6 +366,110 @@ Commander
         Assert.Contains("you must output the full, complete 100-card Commander decklist", result.AnalysisPromptText);
     }
 
+    [Fact]
+    public async Task BuildAsync_ThrowsValidationError_WhenCategoryQuestionSelectedWithoutExportFormat()
+    {
+        var service = CreateService();
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            ProbeResponseJson = """
+{
+ "unknown_cards": []
+}
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["add-categories"]
+        }));
+
+        Assert.Equal("Choose Moxfield or Archidekt as the export format when assigning or updating categories — plain text does not support inline category formatting.", exception.Message);
+    }
+
+    [Fact]
+    public async Task BuildAsync_RequiresTextCodeBlock_WhenCategoryQuestionSelected()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            ProbeResponseJson = """
+{
+ "unknown_cards": []
+}
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["add-categories"],
+            DecklistExportFormat = "moxfield"
+        });
+
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.Contains("Return the categorized decklist only inside a fenced ```text code block.", result.AnalysisPromptText);
+        Assert.Contains("Format each decklist for Moxfield bulk edit", result.AnalysisPromptText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ThrowsValidationError_WhenFallbackCommanderIsNotCommanderEligible()
+    {
+        var service = CreateService(
+            executeSearchAsync: (request, _) =>
+            {
+                var query = request.Parameters.FirstOrDefault(parameter => parameter.Name?.ToString() == "q")?.Value?.ToString() ?? string.Empty;
+                var cards = query.Contains("Aerith's Curaga Magic", StringComparison.Ordinal)
+                    ? new[]
+                    {
+                        new ScryfallCard(
+                            "Aerith's Curaga Magic",
+                            "{1}{G}",
+                            "Instant",
+                            "Prevent all damage that would be dealt to target creature this turn.",
+                            null,
+                            null,
+                            [],
+                            ["G"],
+                            "sld",
+                            "Secret Lair Drop",
+                            "1872")
+                    }
+                    : Array.Empty<ScryfallCard>();
+
+                return Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(cards.ToList())
+                });
+            },
+            executeNamedAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCard>(request)
+            {
+                StatusCode = HttpStatusCode.NotFound
+            }));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckName = "Earthfall",
+            DeckSource = """
+1 Aerith's Curaga Magic (SLD) 1872 #ProtectEngine #Protection
+1 Aftermath Analyst (EOC) 91 #ComboPiece #Graveyard #Mill #Rebuild #Recursion
+1 Arid Archway (OTJ) 252 #Land #ManaBase #Utility
+"""
+        }));
+
+        Assert.Equal("The commander isn't in the deck text. \"Aerith's Curaga Magic\" is not a legal commander by this workflow's rules.", exception.Message);
+    }
+
     /// <summary>
     /// Protected cards list is injected into the analysis prompt when versioning questions are selected.
     /// </summary>
@@ -438,12 +545,13 @@ Commander
     {
         var service = CreateService();
 
+        // Mainboard is A-Z sorted as Moxfield exports it: Arcane Signet (A) before Sol Ring (S).
         var result = await service.BuildAsync(new ChatGptDeckRequest
         {
             DeckSource = """
 1 Atraxa, Praetors' Voice
-1 Sol Ring
 1 Arcane Signet
+1 Sol Ring
 """
         });
 
@@ -451,6 +559,35 @@ Commander
         Assert.Contains("Suggested chat title: Atraxa, Praetors' Voice | AI Deck Analysis", result.ProbePromptText);
         var probeText = result.ProbePromptText.Replace("\r\n", "\n", StringComparison.Ordinal);
         Assert.Contains("Commander\n1 Atraxa, Praetors' Voice [Commander]", probeText);
+        Assert.DoesNotContain("Arcane Signet [Commander]", probeText);
+    }
+
+    /// <summary>
+    /// A single commander followed by an early-alphabet mainboard card does not produce two commanders.
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_DoesNotTreatFirstMainboardCard_AsSecondCommander_WhenItSortsBeforeThirdEntry()
+    {
+        var service = CreateService();
+
+        // Tannuk (T) is the commander; Aerith's (A) is the first mainboard card and sorts before
+        // Aftermath Analyst (Af) — confirming it belongs to the A-Z sorted mainboard, not as a partner.
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+1 Tannuk, Memorial Ensign
+1 Aerith's Curaga Magic
+1 Aftermath Analyst
+1 Sol Ring
+"""
+        });
+
+        var summary = result.InputSummary;
+        Assert.Contains("Commander: Tannuk, Memorial Ensign", summary);
+        Assert.Contains("Commander cards: 1", summary);
+        var probeText = result.ProbePromptText.Replace("\r\n", "\n", StringComparison.Ordinal);
+        Assert.Contains("Tannuk, Memorial Ensign [Commander]", probeText);
+        Assert.DoesNotContain("Aerith's Curaga Magic [Commander]", probeText);
     }
 
     /// <summary>
@@ -635,6 +772,169 @@ Commander
         Assert.Contains("\"game_plan\": \"Midrange value\"", result.SetUpgradePromptText);
     }
 
+    /// <summary>
+    /// Injects lateral-move focus instructions when SetUpgradeFocus is "lateral-moves".
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_InjectsLateralMoveFocus_WhenSetUpgradeFocusIsLateralMoves()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            DeckProfileJson = """
+{
+  "format": "Commander",
+  "commander": "Atraxa, Praetors' Voice",
+  "game_plan": "Midrange value",
+  "primary_axes": ["counters"],
+  "speed": "medium",
+  "strengths": [],
+  "weaknesses": [],
+  "deck_needs": [],
+  "weak_slots": [],
+  "synergy_tags": []
+}
+""",
+            SetPacketText = "SET: Test Set\nCARDS:\nTest Card | 2G | Creature | Example text.",
+            SetUpgradeFocus = "lateral-moves"
+        });
+
+        Assert.NotNull(result.SetUpgradePromptText);
+        Assert.Contains("Focus: lateral moves only.", result.SetUpgradePromptText);
+        Assert.Contains("fills the same role as a card already in the deck", result.SetUpgradePromptText);
+        Assert.Contains("neither card is strictly better", result.SetUpgradePromptText);
+        Assert.DoesNotContain("Focus: strict upgrades only.", result.SetUpgradePromptText);
+    }
+
+    /// <summary>
+    /// Injects strict-upgrade focus instructions when SetUpgradeFocus is "strict-upgrades".
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_InjectsStrictUpgradeFocus_WhenSetUpgradeFocusIsStrictUpgrades()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            DeckProfileJson = """
+{
+  "format": "Commander",
+  "commander": "Atraxa, Praetors' Voice",
+  "game_plan": "Midrange value",
+  "primary_axes": ["counters"],
+  "speed": "medium",
+  "strengths": [],
+  "weaknesses": [],
+  "deck_needs": [],
+  "weak_slots": [],
+  "synergy_tags": []
+}
+""",
+            SetPacketText = "SET: Test Set\nCARDS:\nTest Card | 2G | Creature | Example text.",
+            SetUpgradeFocus = "strict-upgrades"
+        });
+
+        Assert.NotNull(result.SetUpgradePromptText);
+        Assert.Contains("Focus: strict upgrades only.", result.SetUpgradePromptText);
+        Assert.Contains("meaningfully more powerful, more efficient", result.SetUpgradePromptText);
+        Assert.DoesNotContain("Focus: lateral moves only.", result.SetUpgradePromptText);
+    }
+
+    /// <summary>
+    /// Injects both-focus instructions and labels when SetUpgradeFocus is "both".
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_InjectsBothFocus_WhenSetUpgradeFocusIsBoth()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            DeckProfileJson = """
+{
+  "format": "Commander",
+  "commander": "Atraxa, Praetors' Voice",
+  "game_plan": "Midrange value",
+  "primary_axes": ["counters"],
+  "speed": "medium",
+  "strengths": [],
+  "weaknesses": [],
+  "deck_needs": [],
+  "weak_slots": [],
+  "synergy_tags": []
+}
+""",
+            SetPacketText = "SET: Test Set\nCARDS:\nTest Card | 2G | Creature | Example text.",
+            SetUpgradeFocus = "both"
+        });
+
+        Assert.NotNull(result.SetUpgradePromptText);
+        Assert.Contains("Focus: strict upgrades and lateral moves.", result.SetUpgradePromptText);
+        Assert.Contains("'Strict Upgrade' or 'Lateral Move'", result.SetUpgradePromptText);
+    }
+
+    /// <summary>
+    /// No focus instructions are injected when SetUpgradeFocus is empty (default behaviour).
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_OmitsFocusInstructions_WhenSetUpgradeFocusIsDefault()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            DeckProfileJson = """
+{
+  "format": "Commander",
+  "commander": "Atraxa, Praetors' Voice",
+  "game_plan": "Midrange value",
+  "primary_axes": ["counters"],
+  "speed": "medium",
+  "strengths": [],
+  "weaknesses": [],
+  "deck_needs": [],
+  "weak_slots": [],
+  "synergy_tags": []
+}
+""",
+            SetPacketText = "SET: Test Set\nCARDS:\nTest Card | 2G | Creature | Example text."
+        });
+
+        Assert.NotNull(result.SetUpgradePromptText);
+        Assert.DoesNotContain("Focus: lateral moves only.", result.SetUpgradePromptText);
+        Assert.DoesNotContain("Focus: strict upgrades only.", result.SetUpgradePromptText);
+        Assert.DoesNotContain("Focus: strict upgrades and lateral moves.", result.SetUpgradePromptText);
+    }
+
     [Fact]
     public async Task BuildAsync_UsesGeneratedSetPacket_WhenSetCodesSelected()
     {
@@ -766,6 +1066,68 @@ Commander
         Assert.DoesNotContain("set_name:", requestContext);
         Assert.Contains("selected_set_codes:", requestContext);
         Assert.DoesNotContain("selected_set_codes:\n-", requestContext.Replace("\r\n", "\n", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Appends the freeform question as an extra bullet in the analysis prompt.
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_IncludesFreeformQuestion_InAnalysisPrompt()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            ProbeResponseJson = """
+{
+  "unknown_cards": []
+}
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"],
+            FreeformQuestion = "Would this deck benefit from a dedicated stax package?"
+        });
+
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.Contains("Would this deck benefit from a dedicated stax package?", result.AnalysisPromptText);
+        Assert.Contains("What are the strengths and weaknesses of this deck?", result.AnalysisPromptText);
+    }
+
+    /// <summary>
+    /// A freeform question alone satisfies the requirement for at least one analysis question.
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_AllowsFreeformQuestionAlone_WithoutCatalogQuestions()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            ProbeResponseJson = """
+{
+  "unknown_cards": []
+}
+""",
+            TargetCommanderBracket = "Upgraded",
+            FreeformQuestion = "How does this deck compare to a typical Atraxa superfriends build?"
+        });
+
+        Assert.NotNull(result.AnalysisPromptText);
+        Assert.Contains("How does this deck compare to a typical Atraxa superfriends build?", result.AnalysisPromptText);
     }
 
     private static ChatGptDeckPacketService CreateService(

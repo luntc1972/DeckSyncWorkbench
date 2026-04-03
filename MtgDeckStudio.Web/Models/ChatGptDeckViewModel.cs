@@ -25,4 +25,6 @@ public sealed class ChatGptDeckViewModel
     public string? SetUpgradePromptText { get; init; }
 
     public string? SavedArtifactsDirectory { get; init; }
+
+    public string? TimingSummary { get; init; }
 }

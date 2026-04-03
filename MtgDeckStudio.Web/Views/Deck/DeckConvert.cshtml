@@ -1,0 +1,92 @@
+@model MtgDeckStudio.Web.Models.DeckConvertViewModel
+@{
+    var inputSource = Model.Request.InputSource;
+    var isMoxfieldSource = string.Equals(Model.Request.SourceFormat, "Moxfield", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = "Convert Deck";
+}
+
+<section class="hero">
+    <h1>Convert Deck</h1>
+    <p class="lede">Reformat a single deck from Moxfield to Archidekt or vice versa — no existing target deck needed.</p>
+</section>
+
+@await Html.PartialAsync("_BusyIndicator")
+@await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
+
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="error-banner" role="alert">@Model.ErrorMessage</div>
+}
+
+@if (Model.MissingCommander)
+{
+    <div class="warning-banner" role="alert">No commander was found in the import. Enter a commander name below and convert again to include it.</div>
+}
+
+<form method="post" action="/convert" class="deck-form" data-cache-key="deck-convert" data-busy-title="Converting Deck" data-busy-message="Loading and reformatting the deck.">
+    @Html.AntiForgeryToken()
+    <div class="toolbar">
+        <label class="mode-picker">
+            <span>Convert from</span>
+            <select name="SourceFormat" data-convert-source>
+                <option value="Moxfield" selected="@(string.Equals(Model.Request.SourceFormat, "Moxfield", StringComparison.OrdinalIgnoreCase))">Moxfield</option>
+                <option value="Archidekt" selected="@(string.Equals(Model.Request.SourceFormat, "Archidekt", StringComparison.OrdinalIgnoreCase))">Archidekt</option>
+            </select>
+        </label>
+        <label class="mode-picker">
+            <span>Convert to</span>
+            <select name="TargetFormat">
+                <option value="Archidekt" selected="@(string.Equals(Model.Request.TargetFormat, "Archidekt", StringComparison.OrdinalIgnoreCase))">Archidekt</option>
+                <option value="Moxfield" selected="@(string.Equals(Model.Request.TargetFormat, "Moxfield", StringComparison.OrdinalIgnoreCase))">Moxfield</option>
+            </select>
+        </label>
+        <label class="mode-picker">
+            <span>Input method</span>
+            <select name="InputSource">
+                <option value="PasteText" selected="@(inputSource == MtgDeckStudio.Web.Models.DeckInputSource.PasteText)">Paste text</option>
+                <option value="PublicUrl" selected="@(inputSource == MtgDeckStudio.Web.Models.DeckInputSource.PublicUrl)">Public deck URL</option>
+            </select>
+        </label>
+        <button type="submit" class="run-button">Convert</button>
+        <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="/convert">Clear</button>
+    </div>
+
+    <label class="field @(inputSource == MtgDeckStudio.Web.Models.DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-convert-panel="url">
+        <span>Public deck URL</span>
+        <input type="url" name="DeckUrl" value="@Model.Request.DeckUrl" placeholder="https://moxfield.com/decks/... or https://archidekt.com/decks/..." />
+    </label>
+    <label class="field @(inputSource == MtgDeckStudio.Web.Models.DeckInputSource.PasteText ? string.Empty : "hidden")" data-convert-panel="text">
+        <span>Deck export text</span>
+        <textarea name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
+    </label>
+
+    <label class="field @(isMoxfieldSource ? string.Empty : "hidden")" data-convert-panel="commander">
+        <span>Commander <small>(if not included in your export)</small></span>
+        <input type="text"
+               name="CommanderOverride"
+               value="@Model.Request.CommanderOverride"
+               placeholder="Start typing a legendary creature or planeswalker name…"
+               autocomplete="off"
+               list="commander-suggestions"
+               data-commander-search="/convert/commander-search" />
+        <datalist id="commander-suggestions"></datalist>
+    </label>
+</form>
+
+@if (!string.IsNullOrWhiteSpace(Model.ConvertedText))
+{
+    <section class="result-panel">
+        <div class="panel-heading">
+            <div>
+                <h2>Converted deck</h2>
+                <p>Paste this into your deck builder's bulk-edit field.</p>
+            </div>
+            <button type="button" class="copy-button" data-copy-target="deck-convert-output">Copy</button>
+        </div>
+        <textarea id="deck-convert-output" readonly spellcheck="false">@Model.ConvertedText</textarea>
+    </section>
+}
+
+@section Scripts {
+    <script src="~/js/deck-sync.js" asp-append-version="true"></script>
+}

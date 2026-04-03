@@ -20,6 +20,7 @@ public sealed class DeckController : Controller
 {
     private static readonly TimeSpan SuggestionTimeout = TimeSpan.FromSeconds(20);
     private readonly IDeckSyncService _deckSyncService;
+    private readonly IDeckConvertService _deckConvertService;
     private readonly ICardSearchService _cardSearchService;
     private readonly ICardLookupService _cardLookupService;
     private readonly IMechanicLookupService _mechanicLookupService;
@@ -34,6 +35,7 @@ public sealed class DeckController : Controller
     /// </summary>
     public DeckController(
         IDeckSyncService deckSyncService,
+        IDeckConvertService deckConvertService,
         ICardSearchService cardSearchService,
         ICardLookupService cardLookupService,
         IMechanicLookupService mechanicLookupService,
@@ -44,6 +46,7 @@ public sealed class DeckController : Controller
         ILogger<DeckController> logger)
     {
         _deckSyncService = deckSyncService;
+        _deckConvertService = deckConvertService;
         _cardSearchService = cardSearchService;
         _cardLookupService = cardLookupService;
         _mechanicLookupService = mechanicLookupService;
@@ -130,6 +133,80 @@ public sealed class DeckController : Controller
             Request = new ChatGptJsonTextRequest(),
         });
     }
+
+    [HttpGet("/convert")]
+    /// <summary>
+    /// Renders the deck format conversion page.
+    /// </summary>
+    public IActionResult Convert()
+    {
+        return View("DeckConvert", new DeckConvertViewModel());
+    }
+
+    [HttpPost("/convert")]
+    [ValidateAntiForgeryToken]
+    /// <summary>
+    /// Converts a single deck from one platform format to another.
+    /// </summary>
+    /// <param name="request">Deck convert request.</param>
+    public async Task<IActionResult> Convert(DeckConvertRequest request)
+    {
+        request ??= new DeckConvertRequest();
+        var hasInput = request.InputSource == DeckInputSource.PublicUrl
+            ? !string.IsNullOrWhiteSpace(request.DeckUrl)
+            : !string.IsNullOrWhiteSpace(request.DeckText);
+
+        if (!hasInput)
+        {
+            return View("DeckConvert", new DeckConvertViewModel
+            {
+                Request = request,
+                ErrorMessage = "Paste a deck export or enter a public URL before converting.",
+            });
+        }
+
+        try
+        {
+            var result = await _deckConvertService.ConvertAsync(request, HttpContext.RequestAborted);
+            return View("DeckConvert", new DeckConvertViewModel
+            {
+                Request = request,
+                ConvertedText = result.ConvertedText,
+                MissingCommander = result.CommanderMissing,
+            });
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or HttpRequestException)
+        {
+            _logger.LogInformation(exception, "Deck conversion failed.");
+            return View("DeckConvert", new DeckConvertViewModel
+            {
+                Request = request,
+                ErrorMessage = exception.Message,
+            });
+        }
+    }
+    [HttpGet("/convert/commander-search")]
+    /// <summary>
+    /// Returns commander-eligible card name suggestions for the deck convert form typeahead.
+    /// </summary>
+    /// <param name="q">Partial commander name.</param>
+    public async Task<IActionResult> ConvertCommanderSearch(string q)
+    {
+        try
+        {
+            var names = await _cardSearchService.SearchCommandersAsync(q ?? string.Empty, HttpContext.RequestAborted);
+            return Json(names);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+        {
+            _logger.LogWarning(exception, "Commander search autocomplete failed for query {Query}.", q);
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                Message = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception)
+            });
+        }
+    }
+
     [HttpGet("/suggest-categories/card-search")]
     /// <summary>
     /// Provides card name suggestions for the suggest categories form.
@@ -271,6 +348,7 @@ public sealed class DeckController : Controller
                 DeckProfileSchemaJson = result.DeckProfileSchemaJson,
                 SetUpgradePromptText = result.SetUpgradePromptText,
                 SavedArtifactsDirectory = result.SavedArtifactsDirectory,
+                TimingSummary = result.TimingSummary,
             });
         }
         catch (InvalidOperationException exception)
@@ -284,6 +362,9 @@ public sealed class DeckController : Controller
                 ErrorMessage = exception.Message,
                 ProbeResponseSchemaJson = """
 {
+  "commander_status": "valid",
+  "commander_name": "Card Name",
+  "commander_reason": "",
   "unknown_cards": [
     "Card Name"
   ]

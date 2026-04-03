@@ -9,4 +9,5 @@ public enum DeckPageTab
     MechanicLookup = 4,
     ChatGptPackets = 5,
     ChatGptJsonToText = 6,
+    Convert = 7,
 }

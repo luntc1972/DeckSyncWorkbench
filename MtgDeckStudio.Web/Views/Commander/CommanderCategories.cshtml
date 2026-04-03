@@ -4,11 +4,11 @@
     var hasResults = Model.CategorySummaries.Count > 0;
     var showHint = commanderSpecified || !string.IsNullOrWhiteSpace(Model.ErrorMessage);
     var showNoResults = commanderSpecified && !hasResults && string.IsNullOrWhiteSpace(Model.ErrorMessage);
-    ViewData["Title"] = "Commander Categories";
+    ViewData["Title"] = "Category Reference";
 }
 
 <section class="hero">
-    <h1>Commander Categories</h1>
+    <h1>Category Reference</h1>
     <p class="lede">Search for a commander and see which Archidekt categories appear most often in decks that list it as their commander.</p>
 </section>
 

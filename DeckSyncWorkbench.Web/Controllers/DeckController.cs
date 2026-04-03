@@ -254,6 +254,9 @@ public sealed class DeckController : Controller
                 ErrorMessage = exception.Message,
                 ProbeResponseSchemaJson = """
 {
+  "commander_status": "valid",
+  "commander_name": "Card Name",
+  "commander_reason": "",
   "unknown_cards": [
     "Card Name"
   ]

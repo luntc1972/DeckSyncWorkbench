@@ -120,4 +120,23 @@ public sealed class ChatGptDeckRequest
         get => _preferredCategories;
         set => _preferredCategories = value ?? string.Empty;
     }
+
+    private string _freeformQuestion = string.Empty;
+
+    public string FreeformQuestion
+    {
+        get => _freeformQuestion;
+        set => _freeformQuestion = value ?? string.Empty;
+    }
+
+    private string _setUpgradeFocus = string.Empty;
+
+    /// <summary>
+    /// Controls the focus of the set-upgrade prompt: "lateral-moves", "strict-upgrades", or empty (default: best additions).
+    /// </summary>
+    public string SetUpgradeFocus
+    {
+        get => _setUpgradeFocus;
+        set => _setUpgradeFocus = value ?? string.Empty;
+    }
 }

@@ -533,7 +533,7 @@ const attachGenericPersistedForms = (): void => {
     });
   });
 
-  document.querySelectorAll<HTMLAnchorElement>('.tab-bar .tab-link').forEach(link => {
+  document.querySelectorAll<HTMLAnchorElement>('.tool-nav__link').forEach(link => {
     link.addEventListener('click', () => {
       forms.forEach(form => persistFormState(form));
       storageAvailable.setItem(tabNavigationKey, '1');
@@ -756,7 +756,7 @@ const attachDeckSyncPersistence = (): void => {
     updateSyncDirectionUi();
   });
 
-  document.querySelectorAll<HTMLAnchorElement>('.tab-bar .tab-link').forEach(link => {
+  document.querySelectorAll<HTMLAnchorElement>('.tool-nav__link').forEach(link => {
     link.addEventListener('click', () => {
       persistFormState(form);
       storageAvailable.setItem(tabNavigationKey, '1');
@@ -1141,6 +1141,94 @@ const bootstrapDeckSync = (): void => {
   attachGenericPersistedForms();
   attachDeckSyncPersistence();
   attachChatGptPacketsWorkflow();
+  attachToolNav();
+  attachConvertForm();
+};
+
+const attachToolNav = (): void => {
+  const nav = document.querySelector<HTMLElement>('[data-tool-nav]');
+  if (!nav) return;
+
+  nav.querySelectorAll<HTMLButtonElement>('[data-tool-nav-trigger]').forEach(trigger => {
+    trigger.addEventListener('click', () => {
+      const group = trigger.closest<HTMLElement>('[data-tool-nav-group]');
+      if (!group) return;
+      const isOpen = group.classList.contains('is-open');
+      nav.querySelectorAll<HTMLElement>('[data-tool-nav-group]').forEach(g => {
+        g.classList.remove('is-open');
+        g.querySelector<HTMLButtonElement>('[data-tool-nav-trigger]')?.setAttribute('aria-expanded', 'false');
+      });
+      if (!isOpen) {
+        group.classList.add('is-open');
+        trigger.setAttribute('aria-expanded', 'true');
+      }
+    });
+  });
+
+  document.addEventListener('click', event => {
+    if (!nav.contains(event.target as Node)) {
+      nav.querySelectorAll<HTMLElement>('[data-tool-nav-group]').forEach(g => {
+        g.classList.remove('is-open');
+        g.querySelector<HTMLButtonElement>('[data-tool-nav-trigger]')?.setAttribute('aria-expanded', 'false');
+      });
+    }
+  });
+};
+
+const attachConvertForm = (): void => {
+  const form = document.querySelector<HTMLFormElement>('form[data-cache-key="deck-convert"]');
+  if (!form) return;
+
+  const inputSourceSelect = form.querySelector<HTMLSelectElement>('select[name="InputSource"]');
+  const sourceFormatSelect = form.querySelector<HTMLSelectElement>('[data-convert-source]');
+  const urlPanel = form.querySelector<HTMLElement>('[data-convert-panel="url"]');
+  const textPanel = form.querySelector<HTMLElement>('[data-convert-panel="text"]');
+  const commanderPanel = form.querySelector<HTMLElement>('[data-convert-panel="commander"]');
+
+  const syncConvertPanels = (): void => {
+    const isUrl = inputSourceSelect?.value === 'PublicUrl';
+    urlPanel?.classList.toggle('hidden', !isUrl);
+    textPanel?.classList.toggle('hidden', isUrl);
+
+    const isMoxfield = sourceFormatSelect?.value === 'Moxfield';
+    commanderPanel?.classList.toggle('hidden', !isMoxfield);
+  };
+
+  inputSourceSelect?.addEventListener('change', syncConvertPanels);
+  sourceFormatSelect?.addEventListener('change', syncConvertPanels);
+  syncConvertPanels();
+
+  const commanderInput = form.querySelector<HTMLInputElement>('input[data-commander-search]');
+  if (commanderInput) {
+    const endpoint = commanderInput.dataset.commanderSearch!;
+    const datalist = document.getElementById('commander-suggestions') as HTMLDataListElement | null;
+    let debounceTimer: number | undefined;
+
+    commanderInput.addEventListener('input', () => {
+      window.clearTimeout(debounceTimer);
+      const query = commanderInput.value.trim();
+      if (query.length < 2) {
+        if (datalist) datalist.innerHTML = '';
+        return;
+      }
+
+      debounceTimer = window.setTimeout(async () => {
+        try {
+          const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}`);
+          if (!response.ok || !datalist) return;
+          const names = await response.json() as string[];
+          datalist.innerHTML = '';
+          names.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            datalist.appendChild(option);
+          });
+        } catch {
+          // ignore — typeahead is best-effort
+        }
+      }, 300);
+    });
+  }
 };
 
 document.addEventListener('DOMContentLoaded', bootstrapDeckSync);

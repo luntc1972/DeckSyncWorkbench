@@ -31,6 +31,9 @@ Commander
         });
 
         Assert.Contains("unknown_cards", result.ProbePromptText);
+        Assert.Contains("commander_status", result.ProbePromptText);
+        Assert.Contains("legendary creature or a legendary artifact", result.ProbePromptText);
+        Assert.Contains("enter one before continuing", result.ProbePromptText);
         Assert.DoesNotContain("unknown_mechanics", result.ProbePromptText);
         Assert.Contains("```json", result.ProbePromptText);
         Assert.Contains("Atraxa, Praetors' Voice", result.ProbePromptText);

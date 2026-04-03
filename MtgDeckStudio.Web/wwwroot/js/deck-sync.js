@@ -414,7 +414,7 @@ const attachGenericPersistedForms = () => {
             clearPersistedFormState(form);
         });
     });
-    document.querySelectorAll('.tab-bar .tab-link').forEach(link => {
+    document.querySelectorAll('.tool-nav__link').forEach(link => {
         link.addEventListener('click', () => {
             forms.forEach(form => persistFormState(form));
             storageAvailable.setItem(tabNavigationKey, '1');
@@ -594,7 +594,7 @@ const attachDeckSyncPersistence = () => {
         updateSyncInputModeUi();
         updateSyncDirectionUi();
     });
-    document.querySelectorAll('.tab-bar .tab-link').forEach(link => {
+    document.querySelectorAll('.tool-nav__link').forEach(link => {
         link.addEventListener('click', () => {
             persistFormState(form);
             storageAvailable.setItem(tabNavigationKey, '1');
@@ -905,6 +905,91 @@ const bootstrapDeckSync = () => {
     attachGenericPersistedForms();
     attachDeckSyncPersistence();
     attachChatGptPacketsWorkflow();
+    attachToolNav();
+    attachConvertForm();
+};
+const attachToolNav = () => {
+    const nav = document.querySelector('[data-tool-nav]');
+    if (!nav)
+        return;
+    nav.querySelectorAll('[data-tool-nav-trigger]').forEach(trigger => {
+        trigger.addEventListener('click', () => {
+            const group = trigger.closest('[data-tool-nav-group]');
+            if (!group)
+                return;
+            const isOpen = group.classList.contains('is-open');
+            nav.querySelectorAll('[data-tool-nav-group]').forEach(g => {
+                var _a;
+                g.classList.remove('is-open');
+                (_a = g.querySelector('[data-tool-nav-trigger]')) === null || _a === void 0 ? void 0 : _a.setAttribute('aria-expanded', 'false');
+            });
+            if (!isOpen) {
+                group.classList.add('is-open');
+                trigger.setAttribute('aria-expanded', 'true');
+            }
+        });
+    });
+    document.addEventListener('click', event => {
+        if (!nav.contains(event.target)) {
+            nav.querySelectorAll('[data-tool-nav-group]').forEach(g => {
+                var _a;
+                g.classList.remove('is-open');
+                (_a = g.querySelector('[data-tool-nav-trigger]')) === null || _a === void 0 ? void 0 : _a.setAttribute('aria-expanded', 'false');
+            });
+        }
+    });
+};
+const attachConvertForm = () => {
+    const form = document.querySelector('form[data-cache-key="deck-convert"]');
+    if (!form)
+        return;
+    const inputSourceSelect = form.querySelector('select[name="InputSource"]');
+    const sourceFormatSelect = form.querySelector('[data-convert-source]');
+    const urlPanel = form.querySelector('[data-convert-panel="url"]');
+    const textPanel = form.querySelector('[data-convert-panel="text"]');
+    const commanderPanel = form.querySelector('[data-convert-panel="commander"]');
+    const syncConvertPanels = () => {
+        const isUrl = (inputSourceSelect === null || inputSourceSelect === void 0 ? void 0 : inputSourceSelect.value) === 'PublicUrl';
+        urlPanel === null || urlPanel === void 0 ? void 0 : urlPanel.classList.toggle('hidden', !isUrl);
+        textPanel === null || textPanel === void 0 ? void 0 : textPanel.classList.toggle('hidden', isUrl);
+        const isMoxfield = (sourceFormatSelect === null || sourceFormatSelect === void 0 ? void 0 : sourceFormatSelect.value) === 'Moxfield';
+        commanderPanel === null || commanderPanel === void 0 ? void 0 : commanderPanel.classList.toggle('hidden', !isMoxfield);
+    };
+    inputSourceSelect === null || inputSourceSelect === void 0 ? void 0 : inputSourceSelect.addEventListener('change', syncConvertPanels);
+    sourceFormatSelect === null || sourceFormatSelect === void 0 ? void 0 : sourceFormatSelect.addEventListener('change', syncConvertPanels);
+    syncConvertPanels();
+    const commanderInput = form.querySelector('input[data-commander-search]');
+    if (commanderInput) {
+        const endpoint = commanderInput.dataset.commanderSearch;
+        const datalist = document.getElementById('commander-suggestions');
+        let debounceTimer;
+        commanderInput.addEventListener('input', () => {
+            window.clearTimeout(debounceTimer);
+            const query = commanderInput.value.trim();
+            if (query.length < 2) {
+                if (datalist)
+                    datalist.innerHTML = '';
+                return;
+            }
+            debounceTimer = window.setTimeout(async () => {
+                try {
+                    const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}`);
+                    if (!response.ok || !datalist)
+                        return;
+                    const names = await response.json();
+                    datalist.innerHTML = '';
+                    names.forEach(name => {
+                        const option = document.createElement('option');
+                        option.value = name;
+                        datalist.appendChild(option);
+                    });
+                }
+                catch (_a) {
+                    // ignore — typeahead is best-effort
+                }
+            }, 300);
+        });
+    }
 };
 document.addEventListener('DOMContentLoaded', bootstrapDeckSync);
 if (document.readyState !== 'loading') {

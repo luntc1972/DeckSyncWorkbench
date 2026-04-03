@@ -8,11 +8,11 @@
     var cardSpecified = !string.IsNullOrWhiteSpace(Model.SuggestionRequest.CardName);
     var hasExact = !string.IsNullOrWhiteSpace(Model.ExactSuggestedCategoriesText);
     var hasInferred = !string.IsNullOrWhiteSpace(Model.InferredCategoriesText);
-    ViewData["Title"] = "Suggest Categories";
+    ViewData["Title"] = "AI Category Suggestions";
 }
 
 <section class="hero">
-    <h1>Suggest Categories</h1>
+    <h1>AI Category Suggestions</h1>
     <p class="lede">Look up a single card against the local category store and recent public Archidekt decks.</p>
 </section>
 

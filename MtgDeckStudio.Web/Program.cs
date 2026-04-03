@@ -65,6 +65,7 @@ public class Program
         builder.Services.AddScoped<ICategorySuggestionService, CategorySuggestionService>();
         builder.Services.AddScoped<ICommanderCategoryService, CommanderCategoryService>();
         builder.Services.AddScoped<IDeckSyncService, DeckSyncService>();
+        builder.Services.AddScoped<IDeckConvertService, DeckConvertService>();
         builder.Services.AddSingleton<IMoxfieldDeckImporter, MoxfieldApiDeckImporter>();
         builder.Services.AddSingleton<IArchidektDeckImporter, ArchidektApiDeckImporter>();
         builder.Services.AddTransient<MoxfieldParser>();

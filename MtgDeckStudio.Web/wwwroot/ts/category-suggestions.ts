@@ -455,7 +455,7 @@
         });
       }
 
-      document.querySelectorAll<HTMLAnchorElement>('.tab-bar .tab-link').forEach(link => {
+      document.querySelectorAll<HTMLAnchorElement>('.tool-nav__link').forEach(link => {
         link.addEventListener('click', () => {
           persistFormState(form);
           sessionStorage.setItem(tabNavigationKey, '1');

@@ -63,3 +63,10 @@ public sealed record ScryfallCardFace(
 /// Represents an identifier Scryfall could not resolve from a collection request.
 /// </summary>
 public sealed record ScryfallCollectionIdentifier(string? Name);
+
+/// <summary>
+/// Identifies a specific printing of a card by set code and collector number for a collection lookup.
+/// </summary>
+public sealed record ScryfallPrintingIdentifier(
+    [property: JsonPropertyName("set")] string Set,
+    [property: JsonPropertyName("collector_number")] string CollectorNumber);

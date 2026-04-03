@@ -42,6 +42,7 @@ public sealed class DeckControllerTests
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Scryfall search returned HTTP 503.", null, HttpStatusCode.ServiceUnavailable)),
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
@@ -71,6 +72,7 @@ public sealed class DeckControllerTests
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
@@ -98,6 +100,7 @@ public sealed class DeckControllerTests
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new ThrowingCardLookupService(new HttpRequestException("Scryfall search returned HTTP 503.", null, HttpStatusCode.ServiceUnavailable)),
             new FakeMechanicLookupService(),
@@ -128,6 +131,7 @@ public sealed class DeckControllerTests
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new ThrowingCardLookupService(new InvalidOperationException("Please verify 100 non-empty lines or fewer per submission.")),
             new FakeMechanicLookupService(),
@@ -158,6 +162,7 @@ public sealed class DeckControllerTests
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new SuccessfulCardLookupService(),
             new FakeMechanicLookupService(),
@@ -190,6 +195,7 @@ public sealed class DeckControllerTests
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
@@ -217,6 +223,7 @@ public sealed class DeckControllerTests
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new FakeCardLookupService(),
             new SuccessfulMechanicLookupService(),
@@ -249,6 +256,7 @@ public sealed class DeckControllerTests
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
@@ -282,6 +290,7 @@ public sealed class DeckControllerTests
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
@@ -316,6 +325,7 @@ public sealed class DeckControllerTests
     {
         var controller = new DeckController(
             new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
@@ -353,6 +363,7 @@ public sealed class DeckControllerTests
         var capturingService = new CapturingChatGptDeckPacketService();
         var controller = new DeckController(
             new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
             new ThrowingCardSearchService(new HttpRequestException("Unused")),
             new FakeCardLookupService(),
             new FakeMechanicLookupService(),
@@ -399,6 +410,12 @@ public sealed class DeckControllerTests
             => throw new NotImplementedException();
     }
 
+    private sealed class FakeDeckConvertService : IDeckConvertService
+    {
+        public Task<DeckConvertResult> ConvertAsync(DeckConvertRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+    }
+
     private sealed class FakeChatGptDeckPacketService : IChatGptDeckPacketService
     {
         public Task<ChatGptDeckPacketResult> BuildAsync(ChatGptDeckRequest request, CancellationToken cancellationToken = default)
@@ -433,6 +450,7 @@ public sealed class DeckControllerTests
                 "reference",
                 "analysis",
                 "set-upgrade",
+                null,
                 null));
         }
     }
@@ -462,6 +480,9 @@ public sealed class DeckControllerTests
         }
 
         public Task<IReadOnlyList<string>> SearchAsync(string query, CancellationToken cancellationToken = default)
+            => Task.FromException<IReadOnlyList<string>>(_exception);
+
+        public Task<IReadOnlyList<string>> SearchCommandersAsync(string query, CancellationToken cancellationToken = default)
             => Task.FromException<IReadOnlyList<string>>(_exception);
     }
 

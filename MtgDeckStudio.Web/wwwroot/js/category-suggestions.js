@@ -338,7 +338,7 @@
                     form.requestSubmit();
                 });
             }
-            document.querySelectorAll('.tab-bar .tab-link').forEach(link => {
+            document.querySelectorAll('.tool-nav__link').forEach(link => {
                 link.addEventListener('click', () => {
                     persistFormState(form);
                     sessionStorage.setItem(tabNavigationKey, '1');

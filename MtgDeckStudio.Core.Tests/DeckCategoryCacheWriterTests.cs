@@ -61,8 +61,9 @@ public sealed class DeckCategoryCacheWriterTests : IDisposable
                 Directory.Delete(_tempDirectory, recursive: true);
             }
         }
-        catch
-        {
-        }
-    }
+		catch
+		{
+			// ignored
+		}
+	}
 }

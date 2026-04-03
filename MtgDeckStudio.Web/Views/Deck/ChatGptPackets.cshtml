@@ -1,6 +1,6 @@
 @model MtgDeckStudio.Web.Models.ChatGptDeckViewModel
 @{
-    ViewData["Title"] = "ChatGPT Packets";
+    ViewData["Title"] = "ChatGPT Analysis";
     var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 4);
     var commanderBrackets = MtgDeckStudio.Web.Models.CommanderBracketCatalog.Options;
     var questionBuckets = MtgDeckStudio.Web.Models.AnalysisQuestionCatalog.Buckets;
@@ -13,7 +13,7 @@
 }
 
 <section class="hero">
-    <h1>ChatGPT Packets</h1>
+    <h1>ChatGPT Analysis</h1>
     <p class="lede">Work through the prompt flow one stage at a time: build the probe prompt, paste ChatGPT's JSON back in, and stop after the analysis packet if that is all you need. The set-upgrade step is optional.</p>
 </section>
 
@@ -34,6 +34,14 @@
     <div class="info-banner chatgpt-global-note">
         Saved packet artifacts to <code>@Model.SavedArtifactsDirectory</code>.
     </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.TimingSummary))
+{
+    <details class="timing-summary">
+        <summary>Generation timing</summary>
+        <pre>@Model.TimingSummary</pre>
+    </details>
 }
 
 <div class="error-banner hidden" data-chatgpt-validation-error role="alert"></div>
@@ -143,7 +151,7 @@
                 <div class="panel-heading">
                     <div>
                         <h3>probe.txt</h3>
-                        <p>Paste this into ChatGPT first. It asks for a strict JSON list of unknown cards only.</p>
+                        <p>Paste this into ChatGPT first. It asks for strict JSON with commander validation plus any unknown cards.</p>
                     </div>
                     <button type="button" class="copy-button" data-copy-target="probe-output">Copy</button>
                 </div>
@@ -294,11 +302,11 @@
                                 <label class="field">
                                     <span>Decklist export format <small>(required for category questions)</small></span>
                                     <select name="DecklistExportFormat">
-                                        <option value="" selected="@(string.IsNullOrEmpty(Model.Request.DecklistExportFormat))">Plain text (no preference)</option>
+                                        <option value="" selected="@(string.IsNullOrEmpty(Model.Request.DecklistExportFormat))">Select export format</option>
                                         <option value="moxfield" selected="@(string.Equals(Model.Request.DecklistExportFormat, "moxfield", StringComparison.OrdinalIgnoreCase))">Moxfield</option>
                                         <option value="archidekt" selected="@(string.Equals(Model.Request.DecklistExportFormat, "archidekt", StringComparison.OrdinalIgnoreCase))">Archidekt</option>
                                     </select>
-                                    <small class="sync-column__hint">Choose which deck builder you will paste the generated lists into. Required when assigning or updating categories — plain text does not support inline category formatting.</small>
+                                    <small class="sync-column__hint">Choose which deck builder you will paste the generated lists into. When assigning or updating categories, you must choose Moxfield or Archidekt and ChatGPT should return the decklist in a fenced <code>```text</code> block.</small>
                                 </label>
                                 <label class="chatgpt-question-option">
                                     <input type="checkbox" name="IncludeCardVersions" value="true" @(Model.Request.IncludeCardVersions ? "checked" : "") />
@@ -323,6 +331,11 @@
                 }
             </div>
         </section>
+        <label class="field">
+            <span>Additional freeform question (optional)</span>
+            <textarea name="FreeformQuestion" rows="3" spellcheck="false" placeholder="Type any additional question or instruction to include in the analysis prompt…">@Model.Request.FreeformQuestion</textarea>
+            <small class="sync-column__hint">This question is appended to the list of selected analysis questions in the generated prompt.</small>
+        </label>
         <div class="toolbar chatgpt-step-actions">
             <button type="button" class="clear-cache-button" data-chatgpt-show-step="2">Back to Step 2</button>
             <button type="submit" class="run-button" data-chatgpt-submit-step="3">Generate Analysis Packet</button>
@@ -414,6 +427,16 @@
             {
                 <small class="sync-column__hint">The Scryfall set catalog could not be loaded right now. You can still paste a condensed set packet manually below.</small>
             }
+        </label>
+        <label class="field">
+            <span>Set upgrade focus</span>
+            <select name="SetUpgradeFocus">
+                <option value="" selected="@(string.IsNullOrEmpty(Model.Request.SetUpgradeFocus))">Best additions (default)</option>
+                <option value="lateral-moves" selected="@(string.Equals(Model.Request.SetUpgradeFocus, "lateral-moves", StringComparison.OrdinalIgnoreCase))">Lateral moves — same role, different card</option>
+                <option value="strict-upgrades" selected="@(string.Equals(Model.Request.SetUpgradeFocus, "strict-upgrades", StringComparison.OrdinalIgnoreCase))">Strict upgrades — clearly better than what I have</option>
+                <option value="both" selected="@(string.Equals(Model.Request.SetUpgradeFocus, "both", StringComparison.OrdinalIgnoreCase))">Both — lateral moves and strict upgrades</option>
+            </select>
+            <small class="sync-column__hint">Controls what ChatGPT looks for. Default finds the best adds regardless of type. Lateral moves swap a card for something at a similar power level. Strict upgrades replace a card with something meaningfully better.</small>
         </label>
         <details class="result-panel nested-panel">
             <summary>Show condensed set packet override</summary>

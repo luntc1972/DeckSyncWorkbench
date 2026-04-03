@@ -30,7 +30,9 @@ Three layouts are available via the toolbar: **Guided**, **Focused**, and **Expe
 Paste a public **Moxfield** or **Archidekt** deck URL, or paste deck export text directly. The page generates a probe prompt that:
 - Includes the full decklist with set code, collector number, and DFC front-face names on every line.
 - Annotates the commander line with `[Commander]`.
-- Falls back to treating leading quantity-1 entries as the commander when no Commander section header is present (Moxfield plain-text exports).
+- Falls back to treating leading quantity-1 entries as the commander when no Commander section header is present (Moxfield plain-text exports), then validates the inferred commander against Scryfall before continuing.
+- Rejects inferred commanders that are not legal by the workflow rules: legendary creature, legendary Vehicle, or a planeswalker whose oracle text says it can be your commander.
+- Returns commander-validation fields in the probe JSON schema (`commander_status`, `commander_name`, `commander_reason`) alongside `unknown_cards`.
 - Embeds a suggested ChatGPT conversation title so the chat is named before the analysis starts.
 - Asks ChatGPT to identify any card names it is uncertain about and return them as JSON.
 
@@ -104,6 +106,7 @@ When any versioning or category question is selected, the analysis prompt instru
 - **Assign categories** — ChatGPT assigns functional role categories to every card in the deck. Plain text export is not supported; Moxfield or Archidekt format is required.
 - **Update categories** — ChatGPT updates or reassigns categories using the preferred category names you provide. Preferred names are injected into the prompt; ChatGPT may add new categories only when none of the preferred names fit.
 - Basic card types (Creature, Instant, Sorcery, Enchantment, Artifact, Planeswalker, Battle) are excluded as categories. ChatGPT is instructed to use functional role labels instead (Ramp, Card Draw, Removal, Wipe, Tutor, Win Condition, Protection, etc.).
+- For category questions, the prompt explicitly requires the final decklist to be returned only inside a fenced `text` code block so it can be pasted directly into Moxfield or Archidekt bulk edit.
 
 ### Commander Spellbook combo lookup
 When either combo question is selected, the service calls the Commander Spellbook `find-my-combos` API before building the prompt:
@@ -231,3 +234,9 @@ See [`browser-extensions/moxfield-tag-exporter/README.md`](browser-extensions/mo
 - `ChatGptDeckPacketService` parallelizes independent fetches (banned-list, set-packet, Commander Spellbook) using `Task.WhenAll` to reduce total build time.
 - `CommanderSpellbookService` caches results for 30 minutes and degrades gracefully on API failure.
 - `CategoryKnowledgeStore` persists observations to SQLite (`artifacts/category-knowledge.db`) and is shared between the web app and CLI.
+
+---
+
+## UI Notes
+- The floating back-to-top control uses inline SVG in the shared layout, not the old `chevron-up.png` bitmap.
+- The back-to-top button stays hidden while the page is already near the top and appears only after the user scrolls down.

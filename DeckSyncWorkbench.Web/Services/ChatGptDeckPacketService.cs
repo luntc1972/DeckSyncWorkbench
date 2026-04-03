@@ -275,6 +275,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine("- Do not guess card text.");
         builder.AppendLine("- Do not analyze the deck yet.");
         builder.AppendLine("- If you are unsure whether you know a card exactly, include it.");
+        builder.AppendLine("- Verify whether the commander found in the deck is a legal commander by these established rules only: it must be a legendary creature or a legendary artifact.");
+        builder.AppendLine("- If no commander is found in the deck context or decklist, return a missing commander status and a message telling the user to enter one before continuing.");
         builder.AppendLine("- Do not return mechanics. The app will derive mechanics from the returned card text.");
         builder.AppendLine("- Return valid JSON only.");
         builder.AppendLine("- Wrap the JSON in a ```json fenced code block so it can be copied cleanly.");
@@ -482,6 +484,9 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     {
         return """
 {
+  "commander_status": "valid",
+  "commander_name": "Card Name",
+  "commander_reason": "",
   "unknown_cards": [
     "Card Name"
   ]
