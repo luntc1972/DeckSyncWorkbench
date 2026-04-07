@@ -352,6 +352,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 
 .chatgpt-step-actions {
   align-items: center;
+  padding-top: 0.5rem;
 }
 
 .chatgpt-step-note {
