@@ -108,17 +108,25 @@ public sealed class DeckController : Controller
 
     [HttpGet("/chatgpt-packets")]
     /// <summary>
-    /// Renders the staged ChatGPT packet workflow with the latest available set options.
+    /// Renders the staged ChatGPT packet workflow. Set options load asynchronously on the client.
     /// </summary>
-    public async Task<IActionResult> ChatGptPackets()
+    public IActionResult ChatGptPackets()
     {
-        var availableSets = await TryGetSetOptionsAsync();
         return View("ChatGptPackets", new ChatGptDeckViewModel
         {
             ActiveTab = DeckPageTab.ChatGptPackets,
             Request = new ChatGptDeckRequest(),
-            AvailableSets = availableSets,
         });
+    }
+
+    [HttpGet("/api/set-options")]
+    /// <summary>
+    /// Returns the Scryfall set catalog as JSON for client-side async loading.
+    /// </summary>
+    public async Task<IActionResult> GetSetOptions()
+    {
+        var sets = await TryGetSetOptionsAsync();
+        return Json(sets.Select(s => new { s.Code, s.DisplayLabel }));
     }
 
     [HttpGet("/chatgpt-json-to-text")]
@@ -333,13 +341,11 @@ public sealed class DeckController : Controller
 
         try
         {
-            var availableSets = await TryGetSetOptionsAsync();
             var result = await _chatGptDeckPacketService.BuildAsync(request, HttpContext.RequestAborted);
             return View("ChatGptPackets", new ChatGptDeckViewModel
             {
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = request,
-                AvailableSets = availableSets,
                 InputSummary = result.InputSummary,
                 ProbePromptText = result.ProbePromptText,
                 ProbeResponseSchemaJson = result.ProbeResponseSchemaJson,
@@ -358,7 +364,6 @@ public sealed class DeckController : Controller
             {
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = request,
-                AvailableSets = await TryGetSetOptionsAsync(),
                 ErrorMessage = exception.Message,
                 ProbeResponseSchemaJson = """
 {
@@ -379,7 +384,6 @@ public sealed class DeckController : Controller
             {
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = request,
-                AvailableSets = await TryGetSetOptionsAsync(),
                 ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
             });
         }

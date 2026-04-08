@@ -1,7 +1,7 @@
 @model MtgDeckStudio.Web.Models.ChatGptDeckViewModel
 @{
     ViewData["Title"] = "ChatGPT Analysis";
-    var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 5);
+    var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 4);
     var commanderBrackets = MtgDeckStudio.Web.Models.CommanderBracketCatalog.Options;
     var questionBuckets = MtgDeckStudio.Web.Models.AnalysisQuestionCatalog.Buckets;
     var analysisFollowUpPrompt = """
@@ -80,9 +80,8 @@ Do not omit any fields from the schema.
     <div class="chatgpt-step-nav" role="tablist" aria-label="ChatGPT packet workflow steps">
         <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-1" aria-controls="chatgpt-step-panel-1" aria-selected="false" tabindex="-1" data-chatgpt-show-step="1">Step 1: Deck Setup</button>
         <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-2" aria-controls="chatgpt-step-panel-2" aria-selected="false" tabindex="-1" data-chatgpt-show-step="2">Step 2: Probe (Optional)</button>
-        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-3" aria-controls="chatgpt-step-panel-3" aria-selected="false" tabindex="-1" data-chatgpt-show-step="3">Step 3: Probe JSON (Optional)</button>
-        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-4" aria-controls="chatgpt-step-panel-4" aria-selected="false" tabindex="-1" data-chatgpt-show-step="4">Step 4: Analysis</button>
-        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-5" aria-controls="chatgpt-step-panel-5" aria-selected="false" tabindex="-1" data-chatgpt-show-step="5">Step 5: Set Upgrades (Optional)</button>
+        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-3" aria-controls="chatgpt-step-panel-3" aria-selected="false" tabindex="-1" data-chatgpt-show-step="3">Step 3: Analysis</button>
+        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-4" aria-controls="chatgpt-step-panel-4" aria-selected="false" tabindex="-1" data-chatgpt-show-step="4">Step 4: Set Upgrades (Optional)</button>
     </div>
     <section class="result-panel chatgpt-step-panel chatgpt-workflow-setup" role="tabpanel" id="chatgpt-step-panel-1" aria-labelledby="chatgpt-step-tab-1" data-chatgpt-step="1" data-chatgpt-setup-panel>
         <div class="chatgpt-step-heading">
@@ -128,7 +127,7 @@ Do not omit any fields from the schema.
                 <li>Use the deck you already pasted in the required setup block above.</li>
                 <li>Click <code>Generate Probe Prompt</code>.</li>
                 <li>Copy <code>probe.txt</code> and paste it into ChatGPT.</li>
-                <li>Ask ChatGPT to return the JSON in a fenced <code>```json</code> code block, then copy that response and move to Step 3 if you want to keep that output with the workflow.</li>
+                <li>Ask ChatGPT to return the JSON in a fenced <code>```json</code> code block, then paste its response into <code>Probe response JSON</code> below for your records.</li>
             </ol>
         </div>
         <div class="toolbar chatgpt-step-actions">
@@ -173,9 +172,15 @@ Do not omit any fields from the schema.
             </details>
         }
 
+        <label class="field">
+            <span>Probe response JSON (optional)</span>
+            <textarea name="ProbeResponseJson" spellcheck="false">@Model.Request.ProbeResponseJson</textarea>
+            <small class="sync-column__hint">After ChatGPT responds to the probe, paste its JSON response here for your records. The analysis packet no longer depends on it.</small>
+        </label>
+
         <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-chatgpt-show-step="1">Previous Step</button>
-            <button type="button" class="run-button" data-chatgpt-next-step="3">Next Step</button>
+            <button type="button" class="clear-cache-button" data-chatgpt-show-step="1">Back: Deck Setup</button>
+            <button type="button" class="run-button" data-chatgpt-next-step="3">Next: Analysis</button>
         </div>
     </section>
 
@@ -183,34 +188,6 @@ Do not omit any fields from the schema.
         <div class="chatgpt-step-heading">
             <div>
                 <p class="chatgpt-step-eyebrow">Step 3</p>
-                <h2>Optional: Paste the probe JSON</h2>
-                <p>This step is optional now. If you ran <code>probe.txt</code>, paste the returned JSON here for your records. The analysis packet no longer depends on it.</p>
-            </div>
-            <span class="chatgpt-step-badge">Optional</span>
-        </div>
-
-        <div class="chatgpt-instructions">
-            <strong>What you do:</strong>
-            <ol>
-                <li>If you used the optional probe step, paste the JSON code block from ChatGPT into <code>Probe response JSON</code>.</li>
-                <li>Continue to Step 4 when you are ready to generate the analysis packet.</li>
-            </ol>
-        </div>
-
-        <label class="field">
-            <span>Probe response JSON</span>
-            <textarea name="ProbeResponseJson" spellcheck="false">@Model.Request.ProbeResponseJson</textarea>
-        </label>
-        <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-chatgpt-show-step="2">Previous Step</button>
-            <button type="button" class="run-button" data-chatgpt-next-step="4">Next Step</button>
-        </div>
-    </section>
-
-    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-step-panel-4" aria-labelledby="chatgpt-step-tab-4" data-chatgpt-step="4">
-        <div class="chatgpt-step-heading">
-            <div>
-                <p class="chatgpt-step-eyebrow">Step 4</p>
                 <h2>Choose the analysis questions and generate the analysis packet</h2>
                 <p>Select the Commander bracket you want to target, then choose the question buckets or individual questions that should be answered in the analysis prompt. This packet now includes authoritative definitions for all cards in the current deck, with optional sideboard and maybeboard candidate references if you choose them.</p>
             </div>
@@ -226,7 +203,7 @@ Do not omit any fields from the schema.
                 <li>Click <code>Generate Analysis Packet</code>.</li>
                 <li>Copy <code>analysis.txt</code> and paste it into ChatGPT.</li>
                 <li>Ask ChatGPT to return the <code>deck_profile</code> JSON inside a fenced <code>```json</code> code block.</li>
-                <li>You can stop here if you only want the analysis. Move to Step 5 only if you want set-specific upgrade suggestions.</li>
+                <li>You can stop here if you only want the analysis. Move to Step 4 only if you want set-specific upgrade suggestions.</li>
             </ol>
         </div>
 
@@ -234,7 +211,7 @@ Do not omit any fields from the schema.
             <strong>How to push back on ChatGPT's conclusions</strong>
             <p>If ChatGPT makes a bad assumption, challenge the specific conclusion before you paste the <code>deck_profile</code> JSON back here. Ask it to revise the analysis and return an updated <code>deck_profile</code> JSON that reflects your corrections.</p>
             <p>Examples: "Re-evaluate this as Bracket 2 Core, not Bracket 3 Upgraded." "You overstated the combo finishers; the deck wins primarily through combat." "Card X is not a weak slot because it is part of the recursion engine."</p>
-            <p>Best practice: keep the conversation in ChatGPT going until the analysis reflects your corrections, then copy only the latest corrected <code>deck_profile</code> JSON into Step 5.</p>
+            <p>Best practice: keep the conversation in ChatGPT going until the analysis reflects your corrections, then copy only the latest corrected <code>deck_profile</code> JSON into Step 4.</p>
         </div>
 
         <section class="result-panel nested-panel">
@@ -250,7 +227,7 @@ Do not omit any fields from the schema.
 
         <label class="field">
             <span>Target Commander bracket <small>(required)</small></span>
-            <select name="TargetCommanderBracket" required aria-required="true">
+            <select name="TargetCommanderBracket" aria-required="true">
                 <option value="">Select a target bracket (required)</option>
                 @foreach (var bracket in commanderBrackets)
                 {
@@ -390,7 +367,7 @@ Do not omit any fields from the schema.
             <small class="sync-column__hint">This question is appended to the list of selected analysis questions in the generated prompt.</small>
         </label>
         <div class="toolbar chatgpt-step-actions">
-            <button type="submit" class="run-button" data-chatgpt-submit-step="4">Generate Analysis Packet</button>
+            <button type="submit" class="run-button" data-chatgpt-submit-step="3">Generate Analysis Packet</button>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.AnalysisPromptText))
@@ -437,15 +414,15 @@ Do not omit any fields from the schema.
         }
 
         <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-chatgpt-show-step="3">Previous Step</button>
-            <button type="button" class="run-button" data-chatgpt-next-step="5">Next Step</button>
+            <button type="button" class="clear-cache-button" data-chatgpt-show-step="2">Back: Probe</button>
+            <button type="button" class="run-button" data-chatgpt-next-step="4">Next: Set Upgrades</button>
         </div>
     </section>
 
-    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-step-panel-5" aria-labelledby="chatgpt-step-tab-5" data-chatgpt-step="5">
+    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-step-panel-4" aria-labelledby="chatgpt-step-tab-4" data-chatgpt-step="4">
         <div class="chatgpt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 5</p>
+                <p class="chatgpt-step-eyebrow">Step 4</p>
                 <h2>Optional: Paste the deck profile and build the set-upgrade packet</h2>
                 <p>This step is optional. Use it only when you want set-specific upgrade analysis after the main deck analysis is complete.</p>
             </div>
@@ -469,17 +446,10 @@ Do not omit any fields from the schema.
         </label>
         <label class="field">
             <span>Select sets to generate a set packet</span>
-            <select name="SelectedSetCodes" multiple size="12">
-                @foreach (var set in Model.AvailableSets)
-                {
-                    <option value="@set.Code" selected="@(Model.Request.SelectedSetCodes.Contains(set.Code, StringComparer.OrdinalIgnoreCase))">@set.DisplayLabel</option>
-                }
+            <select name="SelectedSetCodes" multiple size="12" data-set-options-select data-selected-codes="@string.Join(",", Model.Request.SelectedSetCodes)">
             </select>
             <small class="sync-column__hint">Hold Ctrl or Cmd to choose multiple sets. If you select sets here, the tool generates the condensed set packet for you.</small>
-            @if (Model.AvailableSets.Count == 0)
-            {
-                <small class="sync-column__hint">The Scryfall set catalog could not be loaded right now. You can still paste a condensed set packet manually below.</small>
-            }
+            <small class="sync-column__hint hidden" data-set-options-error>The Scryfall set catalog could not be loaded right now. You can still paste a condensed set packet manually below.</small>
         </label>
         <label class="field">
             <span>Set upgrade focus</span>
@@ -500,7 +470,7 @@ Do not omit any fields from the schema.
             </label>
         </details>
         <div class="toolbar chatgpt-step-actions">
-            <button type="submit" class="run-button" data-chatgpt-submit-step="5">Generate Set Upgrade Packet</button>
+            <button type="submit" class="run-button" data-chatgpt-submit-step="4">Generate Set Upgrade Packet</button>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.SetUpgradePromptText))
@@ -517,7 +487,7 @@ Do not omit any fields from the schema.
             </section>
         }
         <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-chatgpt-show-step="4">Previous Step</button>
+            <button type="button" class="clear-cache-button" data-chatgpt-show-step="3">Back: Analysis</button>
         </div>
     </section>
 </form>

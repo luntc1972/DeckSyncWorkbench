@@ -274,7 +274,7 @@ public sealed class DeckControllerTests
 
         var result = await controller.ChatGptPackets(new ChatGptDeckRequest
         {
-            WorkflowStep = 2,
+            WorkflowStep = 3,
             DeckSource = "Commander\n1 Atraxa, Praetors' Voice",
             ProbeResponseJson = "{\"unknown_cards\":[]}"
         });
@@ -282,7 +282,7 @@ public sealed class DeckControllerTests
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<ChatGptDeckViewModel>(view.Model);
         Assert.Equal("Choose a target Commander bracket before generating the analysis packet.", model.ErrorMessage);
-        Assert.Equal(2, model.Request.WorkflowStep);
+        Assert.Equal(3, model.Request.WorkflowStep);
     }
 
     [Fact]

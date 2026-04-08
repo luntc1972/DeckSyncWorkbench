@@ -766,7 +766,7 @@ const attachDeckSyncPersistence = (): void => {
 
 const parseChatGptStep = (value: string | undefined | null): number => {
   const parsedValue = parseInt(value ?? '1', 10);
-  return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 5 ? 1 : parsedValue;
+  return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 4 ? 1 : parsedValue;
 };
 
 type ChatGptUiMode = 'guided' | 'focused' | 'expert';
@@ -867,27 +867,27 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
     return 'Paste a deck URL or deck export before generating ChatGPT packets.';
   }
 
-  if (step >= 4 && !targetCommanderBracket) {
+  if (step >= 3 && !targetCommanderBracket) {
     return 'Choose the target Commander bracket before generating the analysis packet.';
   }
 
-  if (step >= 4 && form.querySelectorAll<HTMLInputElement>('input[name="SelectedAnalysisQuestions"]:checked').length === 0) {
+  if (step >= 3 && form.querySelectorAll<HTMLInputElement>('input[name="SelectedAnalysisQuestions"]:checked').length === 0) {
     return 'Select at least one analysis question before generating the analysis packet.';
   }
 
-  if (step >= 4 && selectedCardSpecificQuestions > 0 && !cardSpecificQuestionCardName) {
+  if (step >= 3 && selectedCardSpecificQuestions > 0 && !cardSpecificQuestionCardName) {
     return 'Enter a card name for the selected card-specific analysis questions.';
   }
 
-  if (step >= 4 && selectedBudgetQuestions > 0 && !budgetUpgradeAmount) {
+  if (step >= 3 && selectedBudgetQuestions > 0 && !budgetUpgradeAmount) {
     return 'Enter a budget amount for the selected budget upgrade question.';
   }
 
-  if (step >= 4 && selectedCategoryQuestions > 0 && !decklistExportFormat) {
+  if (step >= 3 && selectedCategoryQuestions > 0 && !decklistExportFormat) {
     return 'Choose Moxfield or Archidekt as the export format when assigning or updating categories — plain text does not support inline category formatting.';
   }
 
-  if (step >= 5) {
+  if (step >= 4) {
     if (!deckProfileJson) {
       return 'Paste the deck_profile JSON returned from ChatGPT into Deck profile JSON before generating the set-upgrade packet.';
     }
@@ -1054,6 +1054,41 @@ const attachQuestionBucketSelection = (form: HTMLFormElement): void => {
   syncPreferredCategoriesField(form);
 };
 
+const loadSetOptionsAsync = (): void => {
+  const select = document.querySelector<HTMLSelectElement>('[data-set-options-select]');
+  if (!select) {
+    return;
+  }
+
+  const selectedCodes = new Set(
+    (select.dataset.selectedCodes ?? '').split(',').map(c => c.trim().toLowerCase()).filter(Boolean)
+  );
+
+  fetch('/api/set-options')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return response.json() as Promise<Array<{ code: string; displayLabel: string }>>;
+    })
+    .then(sets => {
+      select.innerHTML = '';
+      for (const set of sets) {
+        const option = document.createElement('option');
+        option.value = set.code;
+        option.textContent = set.displayLabel;
+        if (selectedCodes.has(set.code.toLowerCase())) {
+          option.selected = true;
+        }
+        select.appendChild(option);
+      }
+    })
+    .catch(() => {
+      const errorHint = document.querySelector<HTMLElement>('[data-set-options-error]');
+      errorHint?.classList.remove('hidden');
+    });
+};
+
 const attachChatGptPacketsWorkflow = (): void => {
   const form = document.querySelector<HTMLFormElement>('[data-chatgpt-packets-form]');
   if (!form) {
@@ -1138,6 +1173,7 @@ const bootstrapDeckSync = (): void => {
   attachGenericPersistedForms();
   attachDeckSyncPersistence();
   attachChatGptPacketsWorkflow();
+  loadSetOptionsAsync();
   attachToolNav();
   attachConvertForm();
 };
