@@ -1,34 +1,31 @@
 :root {
-  /* Jeskai: Blue (U) / Red (R) / White (W) */
-  --bg: #eceef3;
-  --panel: #fafafa;
-  --ink: #1a1f2e;
-  --muted: #5c6478;
-  --line: #c4c9d6;
-  --accent: #2b6cb0;          /* Jeskai blue — monastery sky */
-  --accent-strong: #1e4f82;
-  --jeskai-red: #b83a2e;      /* Jeskai red — dragon fire */
-  --jeskai-red-soft: #d4574a;
-  --jeskai-red-bg: #fdf0ee;
-  --jeskai-blue-bg: #edf3fa;
-  --jeskai-white: #f5f3ee;    /* Jeskai white — monastery stone */
-  --warning: #fef3d0;
-  --error: #b83a2e;
-  --info: #e4eef8;
+  /* Planeswalker Dark — MTGO/Arena inspired */
+  --bg: #1a1e2e;
+  --panel: #232839;
+  --ink: #d8dce6;
+  --muted: #8b92a8;
+  --line: #3a4260;
+  --accent: #4d8fcc;          /* mana blue */
+  --accent-strong: #6aaae0;
+  --warning: #3d3520;
+  --error: #cc3d3d;
+  --info: #1e2d44;
+  --mythic-gold: #c9a84c;
+  --mythic-gold-bg: #2a2418;
 
-  /* semantic panel tokens — shifted into Jeskai palette */
-  --panel-inferred-border: #7a8da6;
-  --panel-inferred-bg: #edf2f8;
-  --panel-live-border: #2b6cb0;
-  --panel-live-bg: #edf3fa;
-  --panel-edhrec-border: #b83a2e;
-  --panel-edhrec-bg: #fdf0ee;
-  --panel-retry-border: #7a8598;
-  --panel-retry-bg: #eef1f6;
-  --panel-summary-border: #5a8a6e;
-  --panel-summary-bg: #edf5f0;
-  --panel-fallback-border: #9aa4b6;
-  --panel-fallback-bg: #f2f4f8;
+  /* semantic panel tokens — dark-adjusted */
+  --panel-inferred-border: #4a5e78;
+  --panel-inferred-bg: #1e2638;
+  --panel-live-border: #3d6590;
+  --panel-live-bg: #1c2840;
+  --panel-edhrec-border: #8a6830;
+  --panel-edhrec-bg: #2a2418;
+  --panel-retry-border: #4a5568;
+  --panel-retry-bg: #1e2530;
+  --panel-summary-border: #4a7a5c;
+  --panel-summary-bg: #1e2e24;
+  --panel-fallback-border: #4a5568;
+  --panel-fallback-bg: #1e2430;
 }
 
 * {
@@ -63,6 +60,7 @@ body {
 .hero h1 {
   margin: 0 0 0.35rem;
   font-size: 1.9rem;
+  color: #eef0f5;
 }
 
 .lede {
@@ -87,14 +85,15 @@ body {
 
 .warning-banner {
   background: var(--warning);
-  border-color: #c8a040;
+  border-color: #6b5b1e;
+  color: #fde68a;
 }
 
 .info-banner {
-  border: 1px solid #8aaac8;
+  border: 1px solid #2d5a8a;
   border-radius: 10px;
   background: var(--info);
-  color: var(--ink);
+  color: #a8c8e8;
   padding: 0.9rem 1rem;
   margin-bottom: 1rem;
 }
@@ -158,6 +157,7 @@ body {
 .error-banner {
   color: #fff;
   background: var(--error);
+  border-color: var(--error);
 }
 
 .deck-form,
@@ -213,7 +213,7 @@ body {
   padding: 0.85rem 1rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--jeskai-white);
+  background: #1e2436;
 }
 
 .chatgpt-layout-picker__copy {
@@ -232,22 +232,22 @@ body {
 .chatgpt-layout-picker [data-chatgpt-ui-mode-button].is-active {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(43, 108, 176, 0.08);
+  background: rgba(77, 143, 204, 0.1);
 }
 
 .chatgpt-step-tab {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 0.7rem 1rem;
-  background: var(--jeskai-blue-bg);
+  background: #2a3048;
   color: var(--ink);
   cursor: pointer;
 }
 
 .chatgpt-step-tab.is-active {
   border-color: var(--accent);
-  background: var(--jeskai-blue-bg);
-  color: var(--accent-strong);
+  background: #1e2d44;
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -272,11 +272,12 @@ body {
   font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--jeskai-red);
+  color: var(--accent);
 }
 
 .chatgpt-step-heading h2 {
   margin: 0 0 0.35rem;
+  color: #eef0f5;
 }
 
 .chatgpt-step-heading p:last-child {
@@ -287,9 +288,9 @@ body {
   white-space: nowrap;
   padding: 0.3rem 0.7rem;
   border-radius: 999px;
-  border: 1px solid var(--jeskai-red-soft);
-  background: var(--jeskai-red-bg);
-  color: var(--jeskai-red);
+  border: 1px solid var(--mythic-gold);
+  background: var(--mythic-gold-bg);
+  color: var(--mythic-gold);
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -299,7 +300,7 @@ body {
   padding: 0.95rem 1rem;
   border: 1px dashed var(--line);
   border-radius: 10px;
-  background: var(--jeskai-white);
+  background: #1e2436;
 }
 
 .chatgpt-instructions strong {
@@ -337,7 +338,7 @@ body {
 
 .chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-instructions {
   padding: 0.7rem 0.8rem;
-  background: var(--jeskai-white);
+  background: #1e2436;
 }
 
 .chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-step-heading {
@@ -388,7 +389,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   padding: 0.9rem 1rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--jeskai-white);
+  background: #1e2436;
   color: var(--muted);
 }
 
@@ -424,7 +425,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   padding: 0.9rem 1rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--jeskai-white);
+  background: #1e2436;
 }
 
 .chatgpt-question-bucket__label,
@@ -535,7 +536,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 .clear-cache-button:hover {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(43, 108, 176, 0.08);
+  background: rgba(77, 143, 204, 0.1);
 }
 
 .stack {
@@ -555,7 +556,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(26, 31, 46, 0.18);
+  background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(2px);
 }
 
@@ -572,13 +573,13 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--panel);
-  box-shadow: 0 16px 40px rgba(26, 31, 46, 0.12);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
 }
 
 .busy-indicator__spinner {
   width: 1.25rem;
   height: 1.25rem;
-  border: 3px solid var(--jeskai-blue-bg);
+  border: 3px solid var(--line);
   border-top-color: var(--accent);
   border-radius: 999px;
   animation: busy-spin 0.9s linear infinite;
@@ -600,11 +601,11 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   height: 2.35rem;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: var(--accent-strong);
+  background: #2a3048;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 22px rgba(26, 31, 46, 0.18);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
   cursor: pointer;
   opacity: 0;
   visibility: hidden;
@@ -636,11 +637,11 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 }
 
 .back-to-top-button:hover {
-  background: var(--ink);
+  background: var(--line);
 }
 
 .back-to-top-button:focus-visible {
-  outline: 2px solid #fff;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -662,7 +663,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   padding: 0.6rem 0.9rem;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--jeskai-blue-bg);
+  background: #2a3048;
   color: var(--ink);
   font: inherit;
   font-size: 0.9rem;
@@ -719,7 +720,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 }
 
 .tool-nav__link:hover {
-  background: var(--jeskai-blue-bg);
+  background: #2a3048;
 }
 
 .tool-nav__link.is-active {
@@ -759,7 +760,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   border: 1px dashed var(--line);
   border-radius: 8px;
   color: var(--muted);
-  background: var(--jeskai-blue-bg);
+  background: #1e2436;
 }
 
 .card-lookup-editor-note {
@@ -800,7 +801,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   border: 1px solid var(--accent);
   border-radius: 8px;
   background: var(--panel);
-  box-shadow: 0 12px 28px rgba(26, 31, 46, 0.14);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
 }
 
 .autocomplete-option {
@@ -820,7 +821,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 
 .autocomplete-option:hover,
 .autocomplete-option:focus-visible {
-  background: var(--jeskai-blue-bg);
+  background: #2a3048;
   outline: 0;
 }
 
@@ -854,15 +855,15 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  box-shadow: 0 12px 24px rgba(26, 31, 46, 0.06);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
 }
 
 .sync-column--moxfield {
-  border-color: #b0b8c8;
+  border-color: var(--line);
 }
 
 .sync-column--archidekt {
-  border-color: #a8c8b8;
+  border-color: var(--line);
 }
 
 .sync-column__header {
@@ -932,7 +933,8 @@ select {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.75rem 0.85rem;
-  background: #fff;
+  background: #1c2030;
+  color: var(--ink);
 }
 
 .field textarea {
