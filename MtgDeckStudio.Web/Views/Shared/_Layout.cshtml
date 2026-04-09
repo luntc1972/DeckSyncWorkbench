@@ -1,16 +1,121 @@
+@{
+    var themeOptions = new (string FileName, string Label)[]
+    {
+        ("site.css", "Classic"),
+        ("site-bant.css", "Bant"),
+        ("site-abzan.css", "Abzan"),
+        ("site-sultai.css", "Sultai"),
+        ("site-mardu.css", "Mardu"),
+        ("site-temur.css", "Temur"),
+        ("site-esper.css", "Esper"),
+        ("site-grixis.css", "Grixis"),
+        ("site-jund.css", "Jund"),
+        ("site-naya.css", "Naya"),
+        ("site-jeskai.css", "Jeskai"),
+        ("site-nyx.css", "Nyx"),
+        ("site-planeswalker-dark.css", "Planeswalker Dark"),
+        ("site-commander-table.css", "Commander Table"),
+    };
+    const string defaultThemeFileName = "site.css";
+    var defaultThemeHref = Url.Content($"~/css/{defaultThemeFileName}");
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - MTG Deck Studio</title>
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link id="theme-stylesheet" rel="stylesheet" href="@defaultThemeHref" data-default-href="@defaultThemeHref" data-default-theme="@defaultThemeFileName" />
+    <style>
+        .page-frame {
+            position: relative;
+            max-width: 1120px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 20;
+        }
+
+        .content-shell {
+            max-width: none;
+            margin: 0;
+        }
+
+        .hero {
+            padding-right: 13.5rem;
+        }
+
+        .theme-picker {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.2rem 0.35rem;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel);
+            box-shadow: 0 8px 24px rgba(26, 31, 46, 0.06);
+        }
+
+        .theme-picker__label {
+            color: var(--muted);
+            font-size: 0.68rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .theme-picker__select {
+            min-width: 6.75rem;
+            max-width: 8rem;
+            padding: 0.28rem 0.45rem;
+            font-size: 0.78rem;
+        }
+
+        @@media (max-width: 900px) {
+            .page-header {
+                position: static;
+                margin-bottom: 0.75rem;
+            }
+
+            .hero {
+                padding-right: 0;
+            }
+
+            .theme-picker {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .theme-picker__select {
+                min-width: 0;
+                max-width: none;
+                width: auto;
+                flex: 1 1 auto;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="page-shell">
-        <main role="main" class="content-shell">
-            @RenderBody()
-        </main>
+        <div class="page-frame">
+            <header class="page-header">
+                <div class="theme-picker">
+                    <label class="theme-picker__label" for="theme-picker">Theme</label>
+                    <select id="theme-picker" class="theme-picker__select">
+                        @foreach (var themeOption in themeOptions)
+                        {
+                            <option value="@themeOption.FileName" data-theme-href="@Url.Content($"~/css/{themeOption.FileName}")">@themeOption.Label</option>
+                        }
+                    </select>
+                </div>
+            </header>
+            <main role="main" class="content-shell">
+                @RenderBody()
+            </main>
+        </div>
     </div>
     <button type="button" id="back-to-top-button" class="back-to-top-button" aria-label="Back to top" title="Back to top">
         <svg class="back-to-top-icon" aria-hidden="true" viewBox="0 0 20 20" width="20" height="20" focusable="false">

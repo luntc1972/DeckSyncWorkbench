@@ -2,6 +2,8 @@
   'use strict';
 
   let backToTopInitialized = false;
+  let themePickerInitialized = false;
+  const themeStorageKey = 'mtg-deck-studio-theme';
 
   const attachBackToTop = (): void => {
     if (backToTopInitialized) {
@@ -32,8 +34,60 @@
     updateVisibility();
   };
 
+  const attachThemePicker = (): void => {
+    if (themePickerInitialized) {
+      return;
+    }
+
+    themePickerInitialized = true;
+    const themeLink = document.getElementById('theme-stylesheet');
+    const themeSelect = document.getElementById('theme-picker');
+    if (!(themeLink instanceof HTMLLinkElement) || !(themeSelect instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    const getStoredTheme = (): string | null => {
+      try {
+        return window.localStorage.getItem(themeStorageKey);
+      } catch {
+        return null;
+      }
+    };
+
+    const setStoredTheme = (value: string): void => {
+      try {
+        window.localStorage.setItem(themeStorageKey, value);
+      } catch {
+        // Ignore storage failures and keep the current session theme applied.
+      }
+    };
+
+    const getThemeHref = (value: string): string | null => {
+      const matchingOption = Array.from(themeSelect.options).find((option) => option.value === value);
+      return matchingOption?.dataset.themeHref ?? null;
+    };
+
+    const applyTheme = (value: string, persistSelection: boolean): void => {
+      const selectedValue = getThemeHref(value) ? value : themeSelect.options[0]?.value ?? 'site.css';
+      const selectedHref = getThemeHref(selectedValue) ?? themeLink.dataset.defaultHref ?? themeLink.href;
+      themeLink.href = selectedHref;
+      themeSelect.value = selectedValue;
+
+      if (persistSelection) {
+        setStoredTheme(selectedValue);
+      }
+    };
+
+    applyTheme(getStoredTheme() ?? themeLink.dataset.defaultTheme ?? 'site.css', false);
+    themeSelect.addEventListener('change', () => {
+      applyTheme(themeSelect.value, true);
+    });
+  };
+
   document.addEventListener('DOMContentLoaded', attachBackToTop);
+  document.addEventListener('DOMContentLoaded', attachThemePicker);
   if (document.readyState !== 'loading') {
     attachBackToTop();
+    attachThemePicker();
   }
 })();
