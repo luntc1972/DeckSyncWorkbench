@@ -1,0 +1,20 @@
+Compare these two Magic: The Gathering decks in [FORMAT] at [POWER LEVEL].
+
+For each deck, identify:
+- core game plan
+- main win conditions
+- biggest strengths
+- biggest weaknesses
+
+Then give:
+- a short side-by-side comparison
+- which deck is stronger overall
+- why
+
+Be explicit about what is direct evidence from the decklists versus inference.
+
+Deck A ([DECK A NAME]):
+[DECK A LIST]
+
+Deck B ([DECK B NAME]):
+[DECK B LIST]

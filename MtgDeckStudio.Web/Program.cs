@@ -68,6 +68,7 @@ public class Program
         builder.Services.AddSingleton<ICommanderSpellbookService, CommanderSpellbookService>();
         builder.Services.AddSingleton<IScryfallSetService, ScryfallSetService>();
         builder.Services.AddScoped<IChatGptDeckPacketService, ChatGptDeckPacketService>();
+        builder.Services.AddScoped<IChatGptDeckComparisonService, ChatGptDeckComparisonService>();
         builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
         builder.Services.AddScoped<ICategorySuggestionService, CategorySuggestionService>();
         builder.Services.AddScoped<ICommanderCategoryService, CommanderCategoryService>();

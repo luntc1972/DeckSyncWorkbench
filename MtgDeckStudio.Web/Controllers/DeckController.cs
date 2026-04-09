@@ -26,6 +26,7 @@ public sealed class DeckController : Controller
     private readonly IMechanicLookupService _mechanicLookupService;
     private readonly ICategorySuggestionService _categorySuggestionService;
     private readonly IChatGptDeckPacketService _chatGptDeckPacketService;
+    private readonly IChatGptDeckComparisonService _chatGptDeckComparisonService;
     private readonly IChatGptJsonTextFormatterService _chatGptJsonTextFormatterService;
     private readonly IScryfallSetService _scryfallSetService;
     private readonly ILogger<DeckController> _logger;
@@ -41,6 +42,7 @@ public sealed class DeckController : Controller
         IMechanicLookupService mechanicLookupService,
         ICategorySuggestionService categorySuggestionService,
         IChatGptDeckPacketService chatGptDeckPacketService,
+        IChatGptDeckComparisonService chatGptDeckComparisonService,
         IChatGptJsonTextFormatterService chatGptJsonTextFormatterService,
         IScryfallSetService scryfallSetService,
         ILogger<DeckController> logger)
@@ -52,6 +54,7 @@ public sealed class DeckController : Controller
         _mechanicLookupService = mechanicLookupService;
         _categorySuggestionService = categorySuggestionService;
         _chatGptDeckPacketService = chatGptDeckPacketService;
+        _chatGptDeckComparisonService = chatGptDeckComparisonService;
         _chatGptJsonTextFormatterService = chatGptJsonTextFormatterService;
         _scryfallSetService = scryfallSetService;
         _logger = logger;
@@ -116,6 +119,19 @@ public sealed class DeckController : Controller
         {
             ActiveTab = DeckPageTab.ChatGptPackets,
             Request = new ChatGptDeckRequest(),
+        });
+    }
+
+    [HttpGet("/chatgpt-deck-comparison")]
+    /// <summary>
+    /// Renders the staged ChatGPT deck-comparison workflow.
+    /// </summary>
+    public IActionResult ChatGptDeckComparison()
+    {
+        return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+        {
+            ActiveTab = DeckPageTab.ChatGptDeckComparison,
+            Request = new ChatGptDeckComparisonRequest(),
         });
     }
 
@@ -374,6 +390,73 @@ public sealed class DeckController : Controller
                 ActiveTab = DeckPageTab.ChatGptPackets,
                 Request = request,
                 ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
+    }
+
+    [HttpPost("/chatgpt-deck-comparison")]
+    [ValidateAntiForgeryToken]
+    /// <summary>
+    /// Processes the ChatGPT deck comparison workflow.
+    /// </summary>
+    /// <param name="request">Current comparison workflow request.</param>
+    public async Task<IActionResult> ChatGptDeckComparison(ChatGptDeckComparisonRequest request)
+    {
+        request ??= new ChatGptDeckComparisonRequest();
+        if (!ModelState.IsValid)
+        {
+            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                Request = request,
+                ErrorMessage = "The comparison form contains invalid values. Review the highlighted fields and try again."
+            });
+        }
+
+        try
+        {
+            var result = await _chatGptDeckComparisonService.BuildAsync(request, HttpContext.RequestAborted);
+            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                Request = request,
+                InputSummary = result.InputSummary,
+                DeckAListText = result.DeckAListText,
+                DeckBListText = result.DeckBListText,
+                DeckAComboText = result.DeckAComboText,
+                DeckBComboText = result.DeckBComboText,
+                ComparisonContextText = result.ComparisonContextText,
+                ComparisonPromptText = result.ComparisonPromptText,
+                FollowUpPromptText = result.FollowUpPromptText,
+                ComparisonSchemaJson = result.ComparisonSchemaJson,
+                ComparisonResponse = result.ComparisonResponse,
+                SavedArtifactsDirectory = result.SavedArtifactsDirectory,
+                TimingSummary = result.TimingSummary
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "ChatGPT deck comparison failed validation.");
+            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                Request = request,
+                ErrorMessage = exception.Message
+            });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "ChatGPT deck comparison hit an upstream dependency.");
+            var errorMessage = exception.Message.Contains("Deck A", StringComparison.OrdinalIgnoreCase)
+                || exception.Message.Contains("Deck B", StringComparison.OrdinalIgnoreCase)
+                    ? exception.Message
+                    : UpstreamErrorMessageBuilder.BuildScryfallMessage(exception);
+
+            return View("ChatGptDeckComparison", new ChatGptDeckComparisonViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptDeckComparison,
+                Request = request,
+                ErrorMessage = errorMessage
             });
         }
     }

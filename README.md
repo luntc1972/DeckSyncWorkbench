@@ -1,12 +1,12 @@
 # MTG Deck Studio
 
-MTG Deck Studio helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides a ChatGPT prompt-building workflow, Commander Spellbook combo lookup, Scryfall card and mechanic references, and a cache-backed category suggestion engine.
+MTG Deck Studio helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides ChatGPT prompt-building workflows for single-deck analysis and head-to-head deck comparison, Commander Spellbook combo lookup, Scryfall card and mechanic references, and a cache-backed category suggestion engine.
 
-**Repository description (≤350 characters):** MTG Deck Studio unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, ChatGPT deck-analysis prompt generation with Scryfall references, Commander Spellbook combos, and cache-backed category suggestions.
+**Repository description (≤350 characters):** MTG Deck Studio unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, ChatGPT deck-analysis and deck-comparison prompt generation with Scryfall references, Commander Spellbook combos, and cache-backed category suggestions.
 
 ## Highlights
 - `MtgDeckStudio.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
-- `MtgDeckStudio.Web` provides an ASP.NET Core MVC UI for running syncs, ChatGPT prompt building, card lookup, commander category browsing, and category suggestions.
+- `MtgDeckStudio.Web` provides an ASP.NET Core MVC UI for running syncs, ChatGPT prompt building, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
 - `MtgDeckStudio.CLI` exposes deck comparison, category harvesting, and cache querying in a console tool.
 - The ChatGPT Packets page is the primary analysis workflow: it resolves card text via Scryfall, looks up rules for mechanics via the WOTC rules page, queries Commander Spellbook for combos, and assembles a complete analysis prompt with reference data attached.
 - The Commander Categories page shows which Archidekt tags appear most often on decks where a given card is listed as commander.
@@ -116,6 +116,46 @@ When either combo question is selected, the service calls the Commander Spellboo
 - Results are injected as a reference block in the prompt. ChatGPT is told to treat this data as authoritative.
 - Results are cached for 30 minutes keyed by the sorted deck card list.
 - API failures degrade gracefully — the analysis continues without combo data rather than failing.
+
+---
+
+## ChatGPT Deck Comparison
+
+The Deck Comparison page (`/Deck/ChatGptDeckComparison`) generates structured ChatGPT prompts for comparing two Commander decklists side by side. It lives under the **ChatGPT** dropdown alongside the Analysis and Response Formatter pages.
+
+### Step 1 — Deck Setup
+Paste two decklists (Moxfield/Archidekt URL or plain-text export) and select a Commander Bracket for each deck. Optionally name each deck — the service falls back to the commander name if left blank.
+
+### Step 2 — Generate Comparison Packet
+The service:
+- Parses both decklists, resolving cards via Scryfall `POST /cards/collection` in batches of 75.
+- Queries Commander Spellbook for combos in each deck.
+- Builds a comparison context document with bracket definitions, role counts (ramp, draw, interaction, wipes, recursion, closing power), mana curves, color identity, category overlap, and combo gaps.
+- Generates a structured comparison prompt with `### Task`, `### Rules`, `### Comparison Axes`, `### Output Format`, deck sections, and comparison context. The prompt instructs ChatGPT to produce both a human-readable comparison and a fenced `json` block matching a `deck_comparison` schema.
+- Generates a follow-up prompt for iterative refinement of the comparison.
+
+Comparison axes include: commander role and game plan, speed and setup tempo, ramp, draw, spot interaction, sweepers, recursion, closing power (including combos), resilience, consistency, mana stability, commander dependence, table fit, major overlap/differences, and five concrete cards or packages that best explain the gap.
+
+### Step 3 — Review Results
+Paste ChatGPT's JSON response back into the form. The page parses the `deck_comparison` JSON and renders a formatted view with:
+- Game plans and bracket labels for each deck
+- Strengths and weaknesses per deck
+- Key combos per deck
+- Verdict panel: speed, resilience, interaction, mana consistency, closing power, and combo comparisons
+- Shared themes and major differences
+- Key gap cards or packages
+- Recommended-for notes per deck
+- Confidence notes (when ChatGPT flags uncertainty)
+
+### Artifact saving
+Check **Save artifacts to disk** to write generated files to:
+```
+Documents\MTG Deck Studio\ChatGPT Deck Comparison\<timestamp>\
+```
+Files saved: `00-comparison-input-summary.txt`, `10-deck-a-list.txt`, `11-deck-b-list.txt`, `20-comparison-context.txt`, `30-comparison-prompt.txt`, `32-comparison-follow-up-prompt.txt`.
+
+### Prompt templates
+The `prompt-templates/deck-comparison/` directory contains reference templates for compact and JSON-structured comparison prompts: all-in-one, competitive meta, matchup, quick verdict, JSON matchup, JSON strict return, and JSON tuning variants. See `docs/deck-comparison-prompt-cheat-sheet.md` for usage guidance.
 
 ---
 
@@ -234,6 +274,7 @@ See [`browser-extensions/moxfield-tag-exporter/README.md`](browser-extensions/mo
 - Web and CLI layers orchestrate requests and rely on DI to resolve shared services.
 - Importers for Archidekt and Moxfield implement typed interfaces (`IMoxfieldDeckImporter`, `IArchidektDeckImporter`) for easy test substitution.
 - `ChatGptDeckPacketService` parallelizes independent fetches (banned-list, set-packet, Commander Spellbook) using `Task.WhenAll` to reduce total build time.
+- `ChatGptDeckComparisonService` parses two decklists, resolves cards via Scryfall, queries Commander Spellbook for both decks, derives comparison context (role counts, mana curves, combo gaps), and generates structured ChatGPT prompts with a JSON output schema.
 - `CommanderSpellbookService` caches results for 30 minutes and degrades gracefully on API failure.
 - `CategoryKnowledgeStore` persists observations to SQLite (`artifacts/category-knowledge.db`) and is shared between the web app and CLI.
 
@@ -242,3 +283,11 @@ See [`browser-extensions/moxfield-tag-exporter/README.md`](browser-extensions/mo
 ## UI Notes
 - The floating back-to-top control uses inline SVG in the shared layout, not the old `chevron-up.png` bitmap.
 - The back-to-top button stays hidden while the page is already near the top and appears only after the user scrolls down.
+
+### Visual themes
+A persistent theme picker in the shared layout lets users switch between visual themes. The selection is stored in `localStorage` and applied on page load. Available themes:
+- **Default** — the base site stylesheet
+- **Abzan**, **Bant**, **Esper**, **Grixis**, **Jeskai**, **Jund**, **Mardu**, **Naya**, **Sultai**, **Temur** — color-shard/wedge-inspired palettes
+- **Nyx** — enchantment-themed dark palette
+- **Planeswalker Dark** — dark-mode palette
+- **Commander Table** — warm tabletop-inspired palette

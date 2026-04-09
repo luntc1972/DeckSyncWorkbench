@@ -1,0 +1,43 @@
+Compare these two Magic: The Gathering decks in [FORMAT], then explain how Deck A can be tuned to close the gap against Deck B.
+
+Include:
+- why Deck B is ahead, if it is ahead
+- the 5 card or package differences that matter most
+- what Deck A should change in ramp, draw, interaction, resilience, and closing power
+- what type of playgroup each deck fits best
+
+Return:
+- a readable explanation
+- then a fenced ```json block with a top-level "deck_comparison" object using this schema
+
+{
+  "deck_comparison": {
+    "deck_a_name": "[DECK A NAME]",
+    "deck_b_name": "[DECK B NAME]",
+    "deck_a_commander": "",
+    "deck_b_commander": "",
+    "shared_themes": [],
+    "major_differences": [],
+    "deck_a_strengths": [],
+    "deck_b_strengths": [],
+    "deck_a_weaknesses": [],
+    "deck_b_weaknesses": [],
+    "speed_comparison": "",
+    "resilience_comparison": "",
+    "interaction_comparison": "",
+    "closing_power_comparison": "",
+    "overall_verdict": "",
+    "key_gap_cards_or_packages": [],
+    "recommended_for": {
+      "deck_a": [],
+      "deck_b": []
+    },
+    "confidence_notes": []
+  }
+}
+
+Deck A ([DECK A NAME]):
+[DECK A LIST]
+
+Deck B ([DECK B NAME]):
+[DECK B LIST]

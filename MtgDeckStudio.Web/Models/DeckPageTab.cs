@@ -10,4 +10,5 @@ public enum DeckPageTab
     ChatGptPackets = 5,
     ChatGptJsonToText = 6,
     Convert = 7,
+    ChatGptDeckComparison = 8,
 }

@@ -48,6 +48,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
             new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
@@ -78,6 +79,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
             new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
@@ -106,6 +108,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
             new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
@@ -137,6 +140,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
             new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
@@ -168,6 +172,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
             new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
@@ -201,6 +206,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
             new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
@@ -229,6 +235,7 @@ public sealed class DeckControllerTests
             new SuccessfulMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
             new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
@@ -262,6 +269,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new ThrowingChatGptDeckPacketService(new InvalidOperationException("Choose a target Commander bracket before generating the analysis packet.")),
+            new FakeChatGptDeckComparisonService(),
             new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
@@ -295,6 +303,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new ThrowingChatGptDeckPacketService(new InvalidOperationException("Select at least one analysis question before generating the analysis packet.")),
+            new FakeChatGptDeckComparisonService(),
             new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
@@ -329,6 +338,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             new ThrowingChatGptDeckPacketService(new InvalidOperationException("Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.")),
+            new FakeChatGptDeckComparisonService(),
             new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
@@ -366,6 +376,7 @@ public sealed class DeckControllerTests
             new FakeMechanicLookupService(),
             new FakeCategorySuggestionService(),
             capturingService,
+            new FakeChatGptDeckComparisonService(),
             new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
@@ -400,6 +411,97 @@ public sealed class DeckControllerTests
         Assert.Equal("75", capturingService.LastRequest.BudgetUpgradeAmount);
     }
 
+    [Fact]
+    public void ChatGptDeckComparison_Get_RendersPage()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new FakeCardLookupService(),
+            new FakeMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
+            new FakeChatGptJsonTextFormatterService(),
+            new FakeScryfallSetService(),
+            NullLogger<DeckController>.Instance);
+
+        var result = controller.ChatGptDeckComparison();
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ChatGptDeckComparisonViewModel>(view.Model);
+        Assert.Equal(DeckPageTab.ChatGptDeckComparison, model.ActiveTab);
+    }
+
+    [Fact]
+    public async Task ChatGptDeckComparison_Post_ReturnsExpectedResultModel()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new FakeCardLookupService(),
+            new FakeMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
+            new FakeChatGptJsonTextFormatterService(),
+            new FakeScryfallSetService(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var result = await controller.ChatGptDeckComparison(new ChatGptDeckComparisonRequest
+        {
+            WorkflowStep = 2,
+            DeckABracket = "Upgraded",
+            DeckASource = "Commander\n1 Atraxa, Praetors' Voice",
+            DeckBBracket = "Optimized",
+            DeckBSource = "Commander\n1 Tymna the Weaver"
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ChatGptDeckComparisonViewModel>(view.Model);
+        Assert.Equal("comparison prompt", model.ComparisonPromptText);
+        Assert.Equal("comparison follow-up prompt", model.FollowUpPromptText);
+        Assert.NotNull(model.ComparisonResponse);
+    }
+
+    [Fact]
+    public async Task ChatGptDeckComparison_Post_ReturnsViewWithError_WhenModelStateInvalid()
+    {
+        var controller = new DeckController(
+            new FakeDeckSyncService(),
+            new FakeDeckConvertService(),
+            new ThrowingCardSearchService(new HttpRequestException("Unused")),
+            new FakeCardLookupService(),
+            new FakeMechanicLookupService(),
+            new FakeCategorySuggestionService(),
+            new FakeChatGptDeckPacketService(),
+            new FakeChatGptDeckComparisonService(),
+            new FakeChatGptJsonTextFormatterService(),
+            new FakeScryfallSetService(),
+            NullLogger<DeckController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+        controller.ModelState.AddModelError("DeckASource", "Required");
+
+        var result = await controller.ChatGptDeckComparison(new ChatGptDeckComparisonRequest());
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ChatGptDeckComparisonViewModel>(view.Model);
+        Assert.Equal("The comparison form contains invalid values. Review the highlighted fields and try again.", model.ErrorMessage);
+    }
+
     private sealed class FakeDeckSyncService : IDeckSyncService
     {
         public Task<DeckSyncResult> CompareDecksAsync(DeckDiffRequest request, CancellationToken cancellationToken)
@@ -416,6 +518,36 @@ public sealed class DeckControllerTests
     {
         public Task<ChatGptDeckPacketResult> BuildAsync(ChatGptDeckRequest request, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
+    }
+
+    private sealed class FakeChatGptDeckComparisonService : IChatGptDeckComparisonService
+    {
+        public Task<ChatGptDeckComparisonResult> BuildAsync(ChatGptDeckComparisonRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(new ChatGptDeckComparisonResult(
+                "comparison summary",
+                "deck a list",
+                "deck b list",
+                "deck a combos",
+                "deck b combos",
+                "comparison context",
+                "comparison prompt",
+                "comparison follow-up prompt",
+                "{}",
+                new ChatGptDeckComparisonResponse
+                {
+                    DeckAName = "Deck A",
+                    DeckBName = "Deck B",
+                    DeckACommander = "Atraxa, Praetors' Voice",
+                    DeckBCommander = "Tymna the Weaver",
+                    DeckAGameplan = "Snowball permanents.",
+                    DeckBGameplan = "Interactive value.",
+                    DeckABracket = "Bracket 3: Upgraded",
+                    DeckBBracket = "Bracket 4: Optimized",
+                    ManaConsistencyComparison = "Deck B is smoother.",
+                    ComboComparison = "Deck A has the cleaner combo finish."
+                },
+                null,
+                null));
     }
 
     private sealed class ThrowingChatGptDeckPacketService : IChatGptDeckPacketService

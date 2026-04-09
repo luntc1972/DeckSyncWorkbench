@@ -1,0 +1,34 @@
+Compare these two Magic: The Gathering decks in detail for [FORMAT] at [POWER LEVEL].
+
+For each deck, explain:
+- game plan
+- commander or focal card role
+- setup speed
+- win conditions
+- strengths
+- weaknesses
+- consistency
+- resilience
+- interaction
+- closing power
+
+Then compare:
+- how the matchup plays out head-to-head
+- what cards or packages create the biggest gap
+- which deck is stronger in a vacuum
+- which is better into a typical meta
+- which is more explosive
+- which is more resilient
+
+Finish with:
+- a readable side-by-side summary
+- a final verdict
+- 5 concrete card or package differences that best explain the result
+
+Be explicit about direct evidence versus inference.
+
+Deck A ([DECK A NAME]):
+[DECK A LIST]
+
+Deck B ([DECK B NAME]):
+[DECK B LIST]

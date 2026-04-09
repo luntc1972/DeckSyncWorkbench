@@ -1,0 +1,678 @@
+@model MtgDeckStudio.Web.Models.ChatGptDeckComparisonViewModel
+@{
+    ViewData["Title"] = "Deck Comparison";
+    var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 3);
+    var commanderBrackets = MtgDeckStudio.Web.Models.CommanderBracketCatalog.Options;
+    var presetBestPracticeHeader = """
+Use the decklists as the primary evidence base.
+Do not invent card text, archetype details, or matchup claims.
+When a conclusion is directly supported by the list, treat it as evidence.
+When a conclusion depends on pattern recognition or likely play patterns, label it as inference.
+If the list is insufficient to support a confident claim, say so clearly.
+""";
+    var presetQuickVerdict = """
+Compare these two Magic: The Gathering decks in [FORMAT] at [POWER LEVEL].
+
+For each deck, identify:
+- core game plan
+- main win conditions
+- biggest strengths
+- biggest weaknesses
+
+Then give:
+- a short side-by-side comparison
+- which deck is stronger overall
+- why
+
+Be explicit about what is direct evidence from the decklists versus inference.
+
+Deck A ([DECK A NAME]):
+[DECK A LIST]
+
+Deck B ([DECK B NAME]):
+[DECK B LIST]
+""";
+    var presetAllInOne = """
+Compare these two Magic: The Gathering decks in detail for [FORMAT] at [POWER LEVEL].
+
+For each deck, explain:
+- game plan
+- commander or focal card role
+- setup speed
+- win conditions
+- strengths
+- weaknesses
+- consistency
+- resilience
+- interaction
+- closing power
+
+Then compare:
+- how the matchup plays out head-to-head
+- what cards or packages create the biggest gap
+- which deck is stronger in a vacuum
+- which is better into a typical meta
+- which is more explosive
+- which is more resilient
+
+Finish with:
+- a readable side-by-side summary
+- a final verdict
+- 5 concrete card or package differences that best explain the result
+
+Be explicit about direct evidence versus inference.
+
+Deck A ([DECK A NAME]):
+[DECK A LIST]
+
+Deck B ([DECK B NAME]):
+[DECK B LIST]
+""";
+    var presetJsonReturn = """
+Compare these two Magic: The Gathering decks in [FORMAT] at [POWER LEVEL].
+
+Analyze:
+- deck identity and overall game plan for each deck
+- commander role and deck thesis
+- speed and setup tempo
+- ramp, draw, interaction, board wipes, recursion, and finishing power
+- consistency and resilience
+- strengths and weaknesses of each deck
+- major overlap and major differences
+- which deck is stronger in a vacuum
+- which deck is more resilient
+- which deck is more explosive
+- which deck is likely better at a typical [FORMAT] table
+- recommended audience or playgroup fit for each deck
+- 5 concrete cards or packages that best explain the gap
+
+Output requirements:
+- start with a readable comparison summary
+- then give a side-by-side comparison
+- then give a final verdict
+- then return a fenced ```json block
+- inside that block, return a top-level object named "deck_comparison"
+- the JSON must be valid and must match the schema exactly
+- if evidence is limited, say so in confidence_notes
+
+Schema:
+{
+  "deck_comparison": {
+  "deck_a_name": "[DECK A NAME]",
+  "deck_b_name": "[DECK B NAME]",
+  "deck_a_commander": "",
+  "deck_b_commander": "",
+  "deck_a_gameplan": "",
+  "deck_b_gameplan": "",
+  "deck_a_bracket": "",
+  "deck_b_bracket": "",
+  "shared_themes": [],
+  "major_differences": [],
+  "deck_a_strengths": [],
+    "deck_b_strengths": [],
+    "deck_a_weaknesses": [],
+    "deck_b_weaknesses": [],
+    "speed_comparison": "",
+  "resilience_comparison": "",
+  "interaction_comparison": "",
+  "mana_consistency_comparison": "",
+  "closing_power_comparison": "",
+  "combo_comparison": "",
+  "overall_verdict": "",
+  "key_gap_cards_or_packages": [],
+  "deck_a_key_combos": [],
+  "deck_b_key_combos": [],
+  "recommended_for": {
+    "deck_a": [],
+    "deck_b": []
+    },
+    "confidence_notes": []
+  }
+}
+
+Separate direct evidence from inference.
+
+Deck A ([DECK A NAME]):
+[DECK A LIST]
+
+Deck B ([DECK B NAME]):
+[DECK B LIST]
+""";
+}
+
+<section class="hero">
+    <h1>Deck Comparison</h1>
+    <p class="lede">Compare two Commander decks side by side, generate a ChatGPT-ready comparison packet, and paste the returned <code>deck_comparison</code> JSON back here for a readable verdict.</p>
+</section>
+
+@await Html.PartialAsync("_BusyIndicator")
+@await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
+
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="error-banner" role="alert">@Model.ErrorMessage</div>
+}
+
+<div class="info-banner">
+    Follow the steps in order: enter both decks, generate the comparison packet, paste <code>30-comparison-prompt.txt</code> into ChatGPT, then paste the returned <code>deck_comparison</code> JSON into Step 3.
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.SavedArtifactsDirectory))
+{
+    <div class="info-banner">
+        Saved comparison artifacts to <code>@Model.SavedArtifactsDirectory</code>.
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.TimingSummary))
+{
+    <details class="timing-summary">
+        <summary>Generation timing</summary>
+        <pre>@Model.TimingSummary</pre>
+    </details>
+}
+
+<div class="error-banner hidden" data-chatgpt-comparison-validation-error role="alert"></div>
+
+<form method="post" class="deck-form" data-cache-key="chatgpt-deck-comparison" data-chatgpt-comparison-form data-chatgpt-comparison-current-step="@currentStep" data-busy-title="Building Deck Comparison Packet" data-busy-message="Parsing both decks and generating the comparison prompt.">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-comparison-workflow-step />
+
+    <div class="chatgpt-step-nav" role="tablist" aria-label="Deck comparison workflow steps">
+        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-comparison-step-tab-1" aria-controls="chatgpt-comparison-step-panel-1" aria-selected="false" tabindex="-1" data-chatgpt-comparison-show-step="1">Step 1: Enter Decks</button>
+        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-comparison-step-tab-2" aria-controls="chatgpt-comparison-step-panel-2" aria-selected="false" tabindex="-1" data-chatgpt-comparison-show-step="2">Step 2: Generate Packet</button>
+        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-comparison-step-tab-3" aria-controls="chatgpt-comparison-step-panel-3" aria-selected="false" tabindex="-1" data-chatgpt-comparison-show-step="3">Step 3: Paste JSON</button>
+    </div>
+
+    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-comparison-step-panel-1" aria-labelledby="chatgpt-comparison-step-tab-1" data-chatgpt-comparison-step="1">
+        <div class="chatgpt-step-heading">
+            <div>
+                <p class="chatgpt-step-eyebrow">Step 1</p>
+                <h2>Enter both decks</h2>
+                <p>Each side accepts the same sources as the current ChatGPT workflow: a public Moxfield or Archidekt URL, or pasted deck export text.</p>
+            </div>
+            <span class="chatgpt-step-badge">Required</span>
+        </div>
+
+        <label class="chatgpt-question-option">
+            <input type="checkbox" name="SaveArtifactsToDisk" value="true" @(Model.Request.SaveArtifactsToDisk ? "checked" : null) />
+            <span>Save the generated comparison packet artifacts to disk under <code>Documents/MTG Deck Studio/ChatGPT Deck Comparison</code></span>
+        </label>
+
+        <details class="result-panel nested-panel">
+            <summary>Show Commander bracket definitions</summary>
+            <div class="chatgpt-context-note">
+                <p>Choose the bracket that best reflects each deck's intended power band. The comparison prompt includes these definitions so ChatGPT judges the lists against the selected bracket expectations instead of guessing.</p>
+                <ul>
+                    @foreach (var bracket in commanderBrackets)
+                    {
+                        <li><strong>@bracket.Label</strong>: @bracket.Summary @bracket.TurnsExpectation</li>
+                    }
+                </ul>
+            </div>
+        </details>
+
+        <div class="sync-columns">
+            <section class="sync-column sync-column--moxfield">
+                <div class="sync-column__header">
+                    <p>Deck A</p>
+                    <span class="sync-column__status">Required</span>
+                </div>
+                <label class="field">
+                    <span>Deck A name <small>(optional)</small></span>
+                    <input type="text" name="DeckAName" value="@Model.Request.DeckAName" />
+                    <small class="sync-column__hint">Optional. If blank, the comparison will fall back to the parsed commander or a generic Deck A label.</small>
+                </label>
+                <label class="field">
+                    <span>Deck A bracket</span>
+                    <select name="DeckABracket">
+                        <option value="">Select Deck A bracket</option>
+                        @foreach (var bracket in commanderBrackets)
+                        {
+                            <option value="@bracket.Value" selected="@(string.Equals(Model.Request.DeckABracket, bracket.Value, StringComparison.OrdinalIgnoreCase))">@bracket.Label</option>
+                        }
+                    </select>
+                    <small class="sync-column__hint">Required. This sets the expected power band and pacing for Deck A.</small>
+                </label>
+                <label class="field">
+                    <span>Deck A URL or deck text</span>
+                    <textarea name="DeckASource" spellcheck="false">@Model.Request.DeckASource</textarea>
+                    <small class="sync-column__hint">Required. Paste a public deck URL or raw deck export text.</small>
+                </label>
+            </section>
+
+            <section class="sync-column sync-column--archidekt">
+                <div class="sync-column__header">
+                    <p>Deck B</p>
+                    <span class="sync-column__status">Required</span>
+                </div>
+                <label class="field">
+                    <span>Deck B name <small>(optional)</small></span>
+                    <input type="text" name="DeckBName" value="@Model.Request.DeckBName" />
+                    <small class="sync-column__hint">Optional. If blank, the comparison will fall back to the parsed commander or a generic Deck B label.</small>
+                </label>
+                <label class="field">
+                    <span>Deck B bracket</span>
+                    <select name="DeckBBracket">
+                        <option value="">Select Deck B bracket</option>
+                        @foreach (var bracket in commanderBrackets)
+                        {
+                            <option value="@bracket.Value" selected="@(string.Equals(Model.Request.DeckBBracket, bracket.Value, StringComparison.OrdinalIgnoreCase))">@bracket.Label</option>
+                        }
+                    </select>
+                    <small class="sync-column__hint">Required. This sets the expected power band and pacing for Deck B.</small>
+                </label>
+                <label class="field">
+                    <span>Deck B URL or deck text</span>
+                    <textarea name="DeckBSource" spellcheck="false">@Model.Request.DeckBSource</textarea>
+                    <small class="sync-column__hint">Required. Paste a public deck URL or raw deck export text.</small>
+                </label>
+            </section>
+        </div>
+
+        <div class="chatgpt-step-footer">
+            <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/chatgpt-deck-comparison")">Clear</button>
+            <button type="button" class="run-button" data-chatgpt-comparison-next-step="2">Next: Generate Packet</button>
+        </div>
+    </section>
+
+    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-comparison-step-panel-2" aria-labelledby="chatgpt-comparison-step-tab-2" data-chatgpt-comparison-step="2">
+        <div class="chatgpt-step-heading">
+            <div>
+                <p class="chatgpt-step-eyebrow">Step 2</p>
+                <h2>Generate the comparison packet</h2>
+                <p>Generate the packet, copy <code>30-comparison-prompt.txt</code>, paste it into ChatGPT, then ask for the final answer plus the fenced <code>deck_comparison</code> JSON block.</p>
+            </div>
+            <span class="chatgpt-step-badge">Packet output</span>
+        </div>
+
+        <div class="chatgpt-instructions">
+            <strong>What you do:</strong>
+            <ol>
+                <li>Click <code>Generate Comparison Packet</code>.</li>
+                <li>Copy <code>30-comparison-prompt.txt</code>.</li>
+                <li>Paste it into ChatGPT.</li>
+                <li>Have ChatGPT return the readable comparison plus a fenced <code>```json</code> block whose top-level object is <code>deck_comparison</code>.</li>
+                <li>Use <code>32-comparison-follow-up-prompt.txt</code> later if you continue the ChatGPT thread and want refreshed JSON.</li>
+                <li>Paste that JSON into Step 3.</li>
+            </ol>
+        </div>
+
+        <details class="result-panel nested-panel">
+            <summary>Show extra prompt presets</summary>
+            <div class="stack">
+                <section class="result-panel nested-panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>Best-Practice Header</h3>
+                            <p>Prepend this to any comparison prompt when you want tighter evidence discipline.</p>
+                        </div>
+                        <button type="button" class="copy-button" data-copy-target="comparison-preset-header">Copy</button>
+                    </div>
+                    <textarea id="comparison-preset-header" readonly spellcheck="false">@presetBestPracticeHeader</textarea>
+                </section>
+
+                <section class="result-panel nested-panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>Quick Verdict Prompt</h3>
+                            <p>Use this when you want a short comparison outside the full app workflow.</p>
+                        </div>
+                        <button type="button" class="copy-button" data-copy-target="comparison-preset-quick">Copy</button>
+                    </div>
+                    <textarea id="comparison-preset-quick" readonly spellcheck="false">@presetQuickVerdict</textarea>
+                </section>
+
+                <section class="result-panel nested-panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>All-In-One Prompt</h3>
+                            <p>Use this for a detailed human-readable comparison without strict JSON output.</p>
+                        </div>
+                        <button type="button" class="copy-button" data-copy-target="comparison-preset-all-in-one">Copy</button>
+                    </div>
+                    <textarea id="comparison-preset-all-in-one" readonly spellcheck="false">@presetAllInOne</textarea>
+                </section>
+
+                <section class="result-panel nested-panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>Strict JSON Prompt</h3>
+                            <p>Use this when you want output shaped for the app's <code>deck_comparison</code> JSON step.</p>
+                        </div>
+                        <button type="button" class="copy-button" data-copy-target="comparison-preset-json">Copy</button>
+                    </div>
+                    <textarea id="comparison-preset-json" readonly spellcheck="false">@presetJsonReturn</textarea>
+                </section>
+            </div>
+        </details>
+
+        <div class="toolbar chatgpt-step-actions">
+            <button type="submit" class="run-button" data-chatgpt-comparison-submit-step="2">Generate Comparison Packet</button>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.InputSummary))
+        {
+            <section class="result-panel nested-panel summary-panel">
+                <h3>Comparison Input Summary</h3>
+                <pre>@Model.InputSummary</pre>
+            </section>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.DeckAListText) || !string.IsNullOrWhiteSpace(Model.DeckBListText))
+        {
+            <div class="sync-columns">
+                @if (!string.IsNullOrWhiteSpace(Model.DeckAListText))
+                {
+                    <section class="result-panel nested-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <h3>10-deck-a-list.txt</h3>
+                                <p>The normalized deck list for Deck A.</p>
+                            </div>
+                            <button type="button" class="copy-button" data-copy-target="comparison-deck-a-list">Copy</button>
+                        </div>
+                        <textarea id="comparison-deck-a-list" readonly spellcheck="false">@Model.DeckAListText</textarea>
+                    </section>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.DeckBListText))
+                {
+                    <section class="result-panel nested-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <h3>11-deck-b-list.txt</h3>
+                                <p>The normalized deck list for Deck B.</p>
+                            </div>
+                            <button type="button" class="copy-button" data-copy-target="comparison-deck-b-list">Copy</button>
+                        </div>
+                        <textarea id="comparison-deck-b-list" readonly spellcheck="false">@Model.DeckBListText</textarea>
+                    </section>
+                }
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.DeckAComboText) || !string.IsNullOrWhiteSpace(Model.DeckBComboText))
+        {
+            <div class="sync-columns">
+                @if (!string.IsNullOrWhiteSpace(Model.DeckAComboText))
+                {
+                    <section class="result-panel nested-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <h3>12-deck-a-combos.txt</h3>
+                                <p>Commander Spellbook combo summary for Deck A.</p>
+                            </div>
+                            <button type="button" class="copy-button" data-copy-target="comparison-deck-a-combos">Copy</button>
+                        </div>
+                        <textarea id="comparison-deck-a-combos" readonly spellcheck="false">@Model.DeckAComboText</textarea>
+                    </section>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.DeckBComboText))
+                {
+                    <section class="result-panel nested-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <h3>13-deck-b-combos.txt</h3>
+                                <p>Commander Spellbook combo summary for Deck B.</p>
+                            </div>
+                            <button type="button" class="copy-button" data-copy-target="comparison-deck-b-combos">Copy</button>
+                        </div>
+                        <textarea id="comparison-deck-b-combos" readonly spellcheck="false">@Model.DeckBComboText</textarea>
+                    </section>
+                }
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.ComparisonContextText))
+        {
+            <section class="result-panel nested-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <h3>20-comparison-context.txt</h3>
+                                <p>Structured comparison context derived from both decklists, the selected brackets, and Commander Spellbook combo lookup results.</p>
+                            </div>
+                            <button type="button" class="copy-button" data-copy-target="comparison-context-output">Copy</button>
+                        </div>
+                <textarea id="comparison-context-output" readonly spellcheck="false">@Model.ComparisonContextText</textarea>
+            </section>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.ComparisonPromptText))
+        {
+            <section class="result-panel nested-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h3>30-comparison-prompt.txt</h3>
+                        <p>Paste this into ChatGPT to get the side-by-side comparison plus the required <code>deck_comparison</code> JSON.</p>
+                    </div>
+                    <button type="button" class="copy-button" data-copy-target="comparison-prompt-output">Copy</button>
+                </div>
+                <textarea id="comparison-prompt-output" readonly spellcheck="false" data-chatgpt-comparison-result-anchor>@Model.ComparisonPromptText</textarea>
+            </section>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.ComparisonSchemaJson))
+        {
+            <details class="result-panel nested-panel">
+                <summary>Show expected JSON format for deck-comparison-schema.json</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h3>deck-comparison-schema.json</h3>
+                        <p>ChatGPT should return a <code>deck_comparison</code> JSON object matching this schema.</p>
+                    </div>
+                    <button type="button" class="copy-button" data-copy-target="comparison-schema-output">Copy</button>
+                </div>
+                <textarea id="comparison-schema-output" readonly spellcheck="false">@Model.ComparisonSchemaJson</textarea>
+            </details>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.FollowUpPromptText))
+        {
+            <section class="result-panel nested-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h3>32-comparison-follow-up-prompt.txt</h3>
+                        <p>Paste this into the same ChatGPT thread after follow-up questions when you want an updated comparison and regenerated <code>deck_comparison</code> JSON.</p>
+                    </div>
+                    <button type="button" class="copy-button" data-copy-target="comparison-follow-up-prompt-output">Copy</button>
+                </div>
+                <textarea id="comparison-follow-up-prompt-output" readonly spellcheck="false">@Model.FollowUpPromptText</textarea>
+            </section>
+        }
+
+        <div class="chatgpt-step-footer">
+            <button type="button" class="clear-cache-button" data-chatgpt-comparison-show-step="1">Back: Enter Decks</button>
+            <button type="button" class="run-button" data-chatgpt-comparison-next-step="3">Next: Paste JSON</button>
+        </div>
+    </section>
+
+    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-comparison-step-panel-3" aria-labelledby="chatgpt-comparison-step-tab-3" data-chatgpt-comparison-step="3">
+        <div class="chatgpt-step-heading">
+            <div>
+                <p class="chatgpt-step-eyebrow">Step 3</p>
+                <h2>Paste the returned comparison JSON</h2>
+                <p>Paste only the fenced JSON block or raw JSON payload that contains the top-level <code>deck_comparison</code> object.</p>
+            </div>
+            <span class="chatgpt-step-badge">Final step</span>
+        </div>
+
+        <label class="field">
+            <span>Deck comparison JSON</span>
+            <textarea name="ComparisonResponseJson" spellcheck="false">@Model.Request.ComparisonResponseJson</textarea>
+            <small class="sync-column__hint">Required for rendering the final summary. You can paste the fenced <code>```json</code> block directly.</small>
+        </label>
+
+        <div class="toolbar chatgpt-step-actions">
+            <button type="submit" class="run-button" data-chatgpt-comparison-submit-step="3">Render Comparison Summary</button>
+        </div>
+
+        @if (Model.ComparisonResponse is not null)
+        {
+            <section class="result-panel nested-panel summary-panel" data-chatgpt-comparison-result-anchor>
+                <h3>Comparison Summary</h3>
+                <div class="stack">
+                    <div class="sync-columns">
+                        <section class="result-panel nested-panel">
+                            <h4>@Model.ComparisonResponse.DeckAName</h4>
+                            <p><strong>Commander:</strong> @Model.ComparisonResponse.DeckACommander</p>
+                            @if (!string.IsNullOrWhiteSpace(Model.ComparisonResponse.DeckAGameplan))
+                            {
+                                <p><strong>Game plan:</strong> @Model.ComparisonResponse.DeckAGameplan</p>
+                            }
+                            <p><strong>Bracket:</strong> @Model.ComparisonResponse.DeckABracket</p>
+                            <p><strong>Strengths</strong></p>
+                            <ul>
+                                @foreach (var item in Model.ComparisonResponse.DeckAStrengths)
+                                {
+                                    <li>@item</li>
+                                }
+                            </ul>
+                            <p><strong>Weaknesses</strong></p>
+                            <ul>
+                                @foreach (var item in Model.ComparisonResponse.DeckAWeaknesses)
+                                {
+                                    <li>@item</li>
+                                }
+                            </ul>
+                            @if (Model.ComparisonResponse.DeckAKeyCombos.Count > 0)
+                            {
+                                <p><strong>Key combos</strong></p>
+                                <ul>
+                                    @foreach (var item in Model.ComparisonResponse.DeckAKeyCombos)
+                                    {
+                                        <li>@item</li>
+                                    }
+                                </ul>
+                            }
+                        </section>
+
+                        <section class="result-panel nested-panel">
+                            <h4>@Model.ComparisonResponse.DeckBName</h4>
+                            <p><strong>Commander:</strong> @Model.ComparisonResponse.DeckBCommander</p>
+                            @if (!string.IsNullOrWhiteSpace(Model.ComparisonResponse.DeckBGameplan))
+                            {
+                                <p><strong>Game plan:</strong> @Model.ComparisonResponse.DeckBGameplan</p>
+                            }
+                            <p><strong>Bracket:</strong> @Model.ComparisonResponse.DeckBBracket</p>
+                            <p><strong>Strengths</strong></p>
+                            <ul>
+                                @foreach (var item in Model.ComparisonResponse.DeckBStrengths)
+                                {
+                                    <li>@item</li>
+                                }
+                            </ul>
+                            <p><strong>Weaknesses</strong></p>
+                            <ul>
+                                @foreach (var item in Model.ComparisonResponse.DeckBWeaknesses)
+                                {
+                                    <li>@item</li>
+                                }
+                            </ul>
+                            @if (Model.ComparisonResponse.DeckBKeyCombos.Count > 0)
+                            {
+                                <p><strong>Key combos</strong></p>
+                                <ul>
+                                    @foreach (var item in Model.ComparisonResponse.DeckBKeyCombos)
+                                    {
+                                        <li>@item</li>
+                                    }
+                                </ul>
+                            }
+                        </section>
+                    </div>
+
+                    <section class="result-panel nested-panel">
+                        <h4>Verdict</h4>
+                        <p>@Model.ComparisonResponse.OverallVerdict</p>
+                        <p><strong>Speed</strong>: @Model.ComparisonResponse.SpeedComparison</p>
+                        <p><strong>Resilience</strong>: @Model.ComparisonResponse.ResilienceComparison</p>
+                        <p><strong>Interaction</strong>: @Model.ComparisonResponse.InteractionComparison</p>
+                        @if (!string.IsNullOrWhiteSpace(Model.ComparisonResponse.ManaConsistencyComparison))
+                        {
+                            <p><strong>Mana consistency</strong>: @Model.ComparisonResponse.ManaConsistencyComparison</p>
+                        }
+                        <p><strong>Closing power</strong>: @Model.ComparisonResponse.ClosingPowerComparison</p>
+                        <p><strong>Combos</strong>: @Model.ComparisonResponse.ComboComparison</p>
+                    </section>
+
+                    <div class="sync-columns">
+                        <section class="result-panel nested-panel">
+                            <h4>Shared Themes</h4>
+                            <ul>
+                                @foreach (var item in Model.ComparisonResponse.SharedThemes)
+                                {
+                                    <li>@item</li>
+                                }
+                            </ul>
+                        </section>
+
+                        <section class="result-panel nested-panel">
+                            <h4>Major Differences</h4>
+                            <ul>
+                                @foreach (var item in Model.ComparisonResponse.MajorDifferences)
+                                {
+                                    <li>@item</li>
+                                }
+                            </ul>
+                        </section>
+                    </div>
+
+                    <section class="result-panel nested-panel">
+                        <h4>Key Gap Cards or Packages</h4>
+                        <ul>
+                            @foreach (var item in Model.ComparisonResponse.KeyGapCardsOrPackages)
+                            {
+                                <li>@item</li>
+                            }
+                        </ul>
+                    </section>
+
+                    <div class="sync-columns">
+                        <section class="result-panel nested-panel">
+                            <h4>Recommended For: @Model.ComparisonResponse.DeckAName</h4>
+                            <ul>
+                                @foreach (var item in Model.ComparisonResponse.RecommendedFor.DeckA)
+                                {
+                                    <li>@item</li>
+                                }
+                            </ul>
+                        </section>
+
+                        <section class="result-panel nested-panel">
+                            <h4>Recommended For: @Model.ComparisonResponse.DeckBName</h4>
+                            <ul>
+                                @foreach (var item in Model.ComparisonResponse.RecommendedFor.DeckB)
+                                {
+                                    <li>@item</li>
+                                }
+                            </ul>
+                        </section>
+                    </div>
+
+                    @if (Model.ComparisonResponse.ConfidenceNotes.Count > 0)
+                    {
+                        <section class="result-panel nested-panel">
+                            <h4>Confidence Notes</h4>
+                            <ul>
+                                @foreach (var item in Model.ComparisonResponse.ConfidenceNotes)
+                                {
+                                    <li>@item</li>
+                                }
+                            </ul>
+                        </section>
+                    }
+                </div>
+            </section>
+        }
+
+        <div class="chatgpt-step-footer">
+            <button type="button" class="clear-cache-button" data-chatgpt-comparison-show-step="2">Back: Generate Packet</button>
+        </div>
+    </section>
+</form>
+
+@section Scripts {
+    <script src="~/js/deck-sync.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,28 @@
+Compare these two Magic: The Gathering decks for a [CASUAL / HIGH-POWER / COMPETITIVE] [FORMAT] environment.
+
+Evaluate:
+- consistency
+- speed
+- resilience
+- interaction density
+- mana efficiency
+- closing power
+- expected performance into a typical field
+
+Answer:
+- which deck is better for a competitive meta
+- which is more resilient
+- which is more explosive
+- which is easier to pilot well
+
+End with:
+- final ranking
+- confidence notes
+
+Do not overstate claims that are only inferred from the decklists.
+
+Deck A ([DECK A NAME]):
+[DECK A LIST]
+
+Deck B ([DECK B NAME]):
+[DECK B LIST]

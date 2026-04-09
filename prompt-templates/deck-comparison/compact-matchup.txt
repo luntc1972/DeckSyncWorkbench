@@ -1,0 +1,21 @@
+Analyze the matchup between these two Magic: The Gathering decks in [FORMAT] at [POWER LEVEL].
+
+Explain:
+- how Deck A vs Deck B usually plays out
+- which deck is favored
+- why that deck is favored
+- what early turns matter most
+- what cards, engines, or interactions swing the matchup
+- what each deck must do to win
+
+End with:
+- matchup verdict
+- 5 cards or patterns that matter most
+
+Separate direct evidence from inference.
+
+Deck A ([DECK A NAME]):
+[DECK A LIST]
+
+Deck B ([DECK B NAME]):
+[DECK B LIST]

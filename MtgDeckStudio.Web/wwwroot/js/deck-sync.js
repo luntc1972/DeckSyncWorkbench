@@ -925,6 +925,123 @@ const attachChatGptPacketsWorkflow = () => {
         setChatGptValidationMessage(validationMessage);
     });
 };
+const parseChatGptComparisonStep = (value) => {
+    const parsedValue = parseInt(value !== null && value !== void 0 ? value : '1', 10);
+    return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 3 ? 1 : parsedValue;
+};
+const setChatGptComparisonValidationMessage = (message) => {
+    const errorNode = document.querySelector('[data-chatgpt-comparison-validation-error]');
+    if (!errorNode) {
+        return;
+    }
+    if (!message) {
+        errorNode.textContent = '';
+        errorNode.classList.add('hidden');
+        return;
+    }
+    errorNode.textContent = message;
+    errorNode.classList.remove('hidden');
+    errorNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+const showChatGptComparisonStep = (form, step) => {
+    form.dataset.chatgptComparisonCurrentStep = step.toString();
+    const workflowInput = form.querySelector('[data-chatgpt-comparison-workflow-step]');
+    if (workflowInput) {
+        workflowInput.value = step.toString();
+    }
+    form.querySelectorAll('[data-chatgpt-comparison-step]').forEach(panel => {
+        const panelStep = parseChatGptComparisonStep(panel.dataset.chatgptComparisonStep);
+        panel.classList.toggle('hidden', panelStep !== step);
+        panel.setAttribute('aria-hidden', panelStep === step ? 'false' : 'true');
+    });
+    form.querySelectorAll('[data-chatgpt-comparison-show-step]').forEach(button => {
+        const buttonStep = parseChatGptComparisonStep(button.dataset.chatgptComparisonShowStep);
+        button.classList.toggle('is-active', buttonStep === step);
+        button.setAttribute('aria-selected', buttonStep === step ? 'true' : 'false');
+        button.setAttribute('tabindex', buttonStep === step ? '0' : '-1');
+    });
+};
+const scrollChatGptComparisonResults = (form) => {
+    const step = parseChatGptComparisonStep(form.dataset.chatgptComparisonCurrentStep);
+    const activePanel = form.querySelector(`[data-chatgpt-comparison-step="${step}"]`);
+    const resultAnchor = activePanel === null || activePanel === void 0 ? void 0 : activePanel.querySelector('[data-chatgpt-comparison-result-anchor]');
+    if (!resultAnchor) {
+        return;
+    }
+    window.setTimeout(() => {
+        resultAnchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 120);
+};
+const validateChatGptComparisonStep = (form, step) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+    const deckASource = (_b = (_a = form.querySelector('textarea[name="DeckASource"]')) === null || _a === void 0 ? void 0 : _a.value.trim()) !== null && _b !== void 0 ? _b : '';
+    const deckBSource = (_d = (_c = form.querySelector('textarea[name="DeckBSource"]')) === null || _c === void 0 ? void 0 : _c.value.trim()) !== null && _d !== void 0 ? _d : '';
+    const deckABracket = (_f = (_e = form.querySelector('select[name="DeckABracket"]')) === null || _e === void 0 ? void 0 : _e.value.trim()) !== null && _f !== void 0 ? _f : '';
+    const deckBBracket = (_h = (_g = form.querySelector('select[name="DeckBBracket"]')) === null || _g === void 0 ? void 0 : _g.value.trim()) !== null && _h !== void 0 ? _h : '';
+    const comparisonResponseJson = (_k = (_j = form.querySelector('textarea[name="ComparisonResponseJson"]')) === null || _j === void 0 ? void 0 : _j.value.trim()) !== null && _k !== void 0 ? _k : '';
+    if (!deckASource) {
+        return 'Enter Deck A URL or deck text before generating the comparison packet.';
+    }
+    if (!deckBSource) {
+        return 'Enter Deck B URL or deck text before generating the comparison packet.';
+    }
+    if (!deckABracket) {
+        return 'Choose a Commander bracket for Deck A before generating the comparison packet.';
+    }
+    if (!deckBBracket) {
+        return 'Choose a Commander bracket for Deck B before generating the comparison packet.';
+    }
+    if (step >= 3 && !comparisonResponseJson) {
+        return 'Paste the deck_comparison JSON returned from ChatGPT into Step 3 before rendering the summary.';
+    }
+    return null;
+};
+const attachChatGptComparisonWorkflow = () => {
+    const form = document.querySelector('[data-chatgpt-comparison-form]');
+    if (!form) {
+        return;
+    }
+    const currentStep = parseChatGptComparisonStep(form.dataset.chatgptComparisonCurrentStep);
+    showChatGptComparisonStep(form, currentStep);
+    setChatGptComparisonValidationMessage(null);
+    scrollChatGptComparisonResults(form);
+    form.querySelectorAll('[data-chatgpt-comparison-show-step]').forEach(button => {
+        button.addEventListener('click', () => {
+            const step = parseChatGptComparisonStep(button.dataset.chatgptComparisonShowStep);
+            showChatGptComparisonStep(form, step);
+            setChatGptComparisonValidationMessage(null);
+        });
+    });
+    form.querySelectorAll('[data-chatgpt-comparison-next-step]').forEach(button => {
+        button.addEventListener('click', () => {
+            var _a;
+            const step = parseChatGptComparisonStep(button.dataset.chatgptComparisonNextStep);
+            const validationMessage = validateChatGptComparisonStep(form, Math.min(step, 2));
+            if (validationMessage) {
+                setChatGptComparisonValidationMessage(validationMessage);
+                return;
+            }
+            showChatGptComparisonStep(form, step);
+            setChatGptComparisonValidationMessage(null);
+            (_a = form.querySelector(`[data-chatgpt-comparison-step="${step}"]`)) === null || _a === void 0 ? void 0 : _a.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+    form.addEventListener('submit', event => {
+        var _a;
+        const submitter = event.submitter;
+        const step = parseChatGptComparisonStep((_a = submitter === null || submitter === void 0 ? void 0 : submitter.dataset.chatgptComparisonSubmitStep) !== null && _a !== void 0 ? _a : form.dataset.chatgptComparisonCurrentStep);
+        const validationMessage = validateChatGptComparisonStep(form, step);
+        if (!validationMessage) {
+            setChatGptComparisonValidationMessage(null);
+            showChatGptComparisonStep(form, step);
+            return;
+        }
+        event.preventDefault();
+        hideBusyIndicator();
+        showChatGptComparisonStep(form, step);
+        setChatGptComparisonValidationMessage(validationMessage);
+    });
+};
 window.setAllPrintingChoices = setAllPrintingChoices;
 window.hideBusyIndicator = hideBusyIndicator;
 let deckSyncBootstrapped = false;
@@ -939,6 +1056,7 @@ const bootstrapDeckSync = () => {
     attachGenericPersistedForms();
     attachDeckSyncPersistence();
     attachChatGptPacketsWorkflow();
+    attachChatGptComparisonWorkflow();
     loadSetOptionsAsync();
     attachToolNav();
     attachConvertForm();

@@ -1,0 +1,46 @@
+Analyze the head-to-head matchup between these two Magic: The Gathering decks in [FORMAT] at [POWER LEVEL].
+
+Focus on:
+- who is favored
+- why
+- critical early turns
+- swing cards and interactions
+- what each deck must do to win
+- what package differences decide the matchup
+
+Return:
+- a short matchup summary
+- a final verdict
+- a fenced ```json block with a top-level "deck_comparison" object using this schema
+
+{
+  "deck_comparison": {
+    "deck_a_name": "[DECK A NAME]",
+    "deck_b_name": "[DECK B NAME]",
+    "deck_a_commander": "",
+    "deck_b_commander": "",
+    "shared_themes": [],
+    "major_differences": [],
+    "deck_a_strengths": [],
+    "deck_b_strengths": [],
+    "deck_a_weaknesses": [],
+    "deck_b_weaknesses": [],
+    "speed_comparison": "",
+    "resilience_comparison": "",
+    "interaction_comparison": "",
+    "closing_power_comparison": "",
+    "overall_verdict": "",
+    "key_gap_cards_or_packages": [],
+    "recommended_for": {
+      "deck_a": [],
+      "deck_b": []
+    },
+    "confidence_notes": []
+  }
+}
+
+Deck A ([DECK A NAME]):
+[DECK A LIST]
+
+Deck B ([DECK B NAME]):
+[DECK B LIST]
