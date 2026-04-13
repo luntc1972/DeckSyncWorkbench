@@ -603,7 +603,7 @@ const attachDeckSyncPersistence = () => {
 };
 const parseChatGptStep = (value) => {
     const parsedValue = parseInt(value !== null && value !== void 0 ? value : '1', 10);
-    return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 3 ? 1 : parsedValue;
+    return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 4 ? 1 : parsedValue;
 };
 const chatGptUiModeStorageKey = 'decksync-chatgpt-ui-mode';
 const parseChatGptUiMode = (value) => {
@@ -695,10 +695,10 @@ const validateChatGptPacketsStep = (form, step) => {
     if (step >= 2 && selectedCategoryQuestions > 0 && !decklistExportFormat) {
         return 'Choose Moxfield or Archidekt as the export format when assigning or updating categories — plain text does not support inline category formatting.';
     }
-    if (step >= 3) {
-        if (!deckProfileJson) {
-            return 'Paste the deck_profile JSON returned from ChatGPT into Deck profile JSON before generating the set-upgrade packet.';
-        }
+    if (step >= 3 && !deckProfileJson) {
+        return 'Paste the deck_profile JSON returned from ChatGPT before rendering the analysis summary.';
+    }
+    if (step >= 4) {
         if (!setPacketText && selectedSetCodes.length === 0) {
             return 'Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.';
         }

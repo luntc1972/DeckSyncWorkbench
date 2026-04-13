@@ -16,8 +16,14 @@
         ("site-planeswalker-dark.css", "Planeswalker Dark"),
         ("site-commander-table.css", "Commander Table"),
     };
+    const string themeCookieName = "mtg-deck-studio-theme";
     const string defaultThemeFileName = "site.css";
+    var selectedThemeFileName = Context?.Request.Cookies.TryGetValue(themeCookieName, out var cookieTheme) == true
+        && Array.Exists(themeOptions, option => string.Equals(option.FileName, cookieTheme, StringComparison.OrdinalIgnoreCase))
+            ? cookieTheme
+            : defaultThemeFileName;
     var defaultThemeHref = Url.Content($"~/css/{defaultThemeFileName}");
+    var selectedThemeHref = Url.Content($"~/css/{selectedThemeFileName}");
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -25,7 +31,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - MTG Deck Studio</title>
-    <link id="theme-stylesheet" rel="stylesheet" href="@defaultThemeHref" data-default-href="@defaultThemeHref" data-default-theme="@defaultThemeFileName" />
+    <link id="theme-stylesheet" rel="stylesheet" href="@selectedThemeHref" data-default-href="@defaultThemeHref" data-default-theme="@defaultThemeFileName" data-cookie-name="@themeCookieName" />
     <style>
         .page-frame {
             position: relative;
@@ -107,7 +113,7 @@
                     <select id="theme-picker" class="theme-picker__select">
                         @foreach (var themeOption in themeOptions)
                         {
-                            <option value="@themeOption.FileName" data-theme-href="@Url.Content($"~/css/{themeOption.FileName}")">@themeOption.Label</option>
+                            <option value="@themeOption.FileName" data-theme-href="@Url.Content($"~/css/{themeOption.FileName}")" selected="@(themeOption.FileName == selectedThemeFileName ? "selected" : null)">@themeOption.Label</option>
                         }
                     </select>
                 </div>

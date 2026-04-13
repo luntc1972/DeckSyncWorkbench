@@ -4,6 +4,7 @@
     let backToTopInitialized = false;
     let themePickerInitialized = false;
     const themeStorageKey = 'mtg-deck-studio-theme';
+    const themeCookieMaxAgeSeconds = 60 * 60 * 24 * 365;
     const attachBackToTop = () => {
         if (backToTopInitialized) {
             return;
@@ -29,7 +30,7 @@
         updateVisibility();
     };
     const attachThemePicker = () => {
-        var _a, _b;
+        var _a, _b, _c, _d;
         if (themePickerInitialized) {
             return;
         }
@@ -39,9 +40,26 @@
         if (!(themeLink instanceof HTMLLinkElement) || !(themeSelect instanceof HTMLSelectElement)) {
             return;
         }
+        const themeCookieName = (_a = themeLink.dataset.cookieName) !== null && _a !== void 0 ? _a : themeStorageKey;
         const getStoredTheme = () => {
             try {
                 return window.localStorage.getItem(themeStorageKey);
+            }
+            catch (_a) {
+                return null;
+            }
+        };
+        const getCookieTheme = () => {
+            const cookiePrefix = `${encodeURIComponent(themeCookieName)}=`;
+            const cookieValue = document.cookie
+                .split(';')
+                .map((value) => value.trim())
+                .find((value) => value.startsWith(cookiePrefix));
+            if (!cookieValue) {
+                return null;
+            }
+            try {
+                return decodeURIComponent(cookieValue.substring(cookiePrefix.length));
             }
             catch (_a) {
                 return null;
@@ -54,6 +72,9 @@
             catch (_a) {
                 // Ignore storage failures and keep the current session theme applied.
             }
+        };
+        const setCookieTheme = (value) => {
+            document.cookie = `${encodeURIComponent(themeCookieName)}=${encodeURIComponent(value)}; max-age=${themeCookieMaxAgeSeconds}; path=/; samesite=lax`;
         };
         const getThemeHref = (value) => {
             var _a;
@@ -68,9 +89,10 @@
             themeSelect.value = selectedValue;
             if (persistSelection) {
                 setStoredTheme(selectedValue);
+                setCookieTheme(selectedValue);
             }
         };
-        applyTheme((_b = (_a = getStoredTheme()) !== null && _a !== void 0 ? _a : themeLink.dataset.defaultTheme) !== null && _b !== void 0 ? _b : 'site.css', false);
+        applyTheme((_d = (_c = (_b = getStoredTheme()) !== null && _b !== void 0 ? _b : getCookieTheme()) !== null && _c !== void 0 ? _c : themeLink.dataset.defaultTheme) !== null && _d !== void 0 ? _d : 'site.css', false);
         themeSelect.addEventListener('change', () => {
             applyTheme(themeSelect.value, true);
         });

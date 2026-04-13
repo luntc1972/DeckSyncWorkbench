@@ -1,7 +1,7 @@
 @model MtgDeckStudio.Web.Models.ChatGptDeckViewModel
 @{
     ViewData["Title"] = "ChatGPT Analysis";
-    var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 3);
+    var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 4);
     var commanderBrackets = MtgDeckStudio.Web.Models.CommanderBracketCatalog.Options;
     var questionBuckets = MtgDeckStudio.Web.Models.AnalysisQuestionCatalog.Buckets;
     var analysisFollowUpPrompt = """
@@ -27,7 +27,7 @@ Do not omit any fields from the schema.
 
 <section class="hero">
     <h1>ChatGPT Analysis</h1>
-    <p class="lede">Paste your deck, choose your analysis questions, and generate the prompt. Stop after the analysis packet if that is all you need. The set-upgrade step is optional.</p>
+    <p class="lede">Paste your deck, choose your analysis questions, generate the prompt, and paste back the results. The set-upgrade step is optional.</p>
 </section>
 
 @await Html.PartialAsync("_BusyIndicator")
@@ -71,7 +71,7 @@ Do not omit any fields from the schema.
             <button type="button" class="clear-cache-button" data-chatgpt-ui-mode-button="expert">Advanced workflow</button>
         </div>
     </div>
-    <a class="clear-cache-button" href="@Url.Content("~/chatgpt-json-to-text")">Open ChatGPT JSON to Text</a>
+
 </div>
 
 <form method="post" class="deck-form chatgpt-packets-form" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-chatgpt-ui-mode="guided" data-set-options-url="@Url.Content("~/api/set-options")" data-busy-title="Building ChatGPT Packets" data-busy-message="Resolving the deck and generating prompt files.">
@@ -80,7 +80,8 @@ Do not omit any fields from the schema.
     <div class="chatgpt-step-nav" role="tablist" aria-label="ChatGPT packet workflow steps">
         <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-1" aria-controls="chatgpt-step-panel-1" aria-selected="false" tabindex="-1" data-chatgpt-show-step="1">Step 1: Deck Setup</button>
         <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-2" aria-controls="chatgpt-step-panel-2" aria-selected="false" tabindex="-1" data-chatgpt-show-step="2">Step 2: Analysis</button>
-        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-3" aria-controls="chatgpt-step-panel-3" aria-selected="false" tabindex="-1" data-chatgpt-show-step="3">Step 3: Set Upgrades (Optional)</button>
+        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-3" aria-controls="chatgpt-step-panel-3" aria-selected="false" tabindex="-1" data-chatgpt-show-step="3">Step 3: Analysis Results</button>
+        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-4" aria-controls="chatgpt-step-panel-4" aria-selected="false" tabindex="-1" data-chatgpt-show-step="4">Step 4: Set Upgrades (Optional)</button>
     </div>
     <section class="result-panel chatgpt-step-panel chatgpt-workflow-setup" role="tabpanel" id="chatgpt-step-panel-1" aria-labelledby="chatgpt-step-tab-1" data-chatgpt-step="1" data-chatgpt-setup-panel>
         <div class="chatgpt-step-heading">
@@ -128,7 +129,7 @@ Do not omit any fields from the schema.
                 <li>Click <code>Generate Analysis Packet</code>.</li>
                 <li>Copy <code>analysis.txt</code> and paste it into ChatGPT.</li>
                 <li>Ask ChatGPT to return the <code>deck_profile</code> JSON inside a fenced <code>```json</code> code block.</li>
-                <li>You can stop here if you only want the analysis. Move to Step 3 only if you want set-specific upgrade suggestions.</li>
+                <li>Move to Step 3 to paste the returned JSON and view a formatted analysis summary. Step 4 is optional for set-specific upgrade suggestions.</li>
             </ol>
         </div>
 
@@ -362,7 +363,7 @@ Do not omit any fields from the schema.
 
         <div class="chatgpt-step-footer">
             <button type="button" class="clear-cache-button" data-chatgpt-show-step="1">Back: Deck Setup</button>
-            <button type="button" class="run-button" data-chatgpt-next-step="3">Next: Set Upgrades</button>
+            <button type="button" class="run-button" data-chatgpt-next-step="3">Next: Analysis Results</button>
         </div>
     </section>
 
@@ -370,8 +371,174 @@ Do not omit any fields from the schema.
         <div class="chatgpt-step-heading">
             <div>
                 <p class="chatgpt-step-eyebrow">Step 3</p>
-                <h2>Optional: Paste the deck profile and build the set-upgrade packet</h2>
-                <p>This step is optional. Use it only when you want set-specific upgrade analysis after the main deck analysis is complete.</p>
+                <h2>Paste the deck profile JSON and view the analysis results</h2>
+                <p>Paste the fenced <code>deck_profile</code> JSON block or raw JSON payload returned from ChatGPT.</p>
+            </div>
+            <span class="chatgpt-step-badge">Review results</span>
+        </div>
+
+        <label class="field">
+            <span>Deck profile JSON</span>
+            <textarea name="DeckProfileJson" spellcheck="false">@Model.Request.DeckProfileJson</textarea>
+            <small class="sync-column__hint">Required for rendering the analysis summary and for the optional set-upgrade step. You can paste the fenced <code>```json</code> block directly.</small>
+        </label>
+
+        <div class="toolbar chatgpt-step-actions">
+            <button type="submit" class="run-button" data-chatgpt-submit-step="3">Render Analysis Summary</button>
+        </div>
+
+        @if (Model.AnalysisResponse is not null)
+        {
+            <section class="result-panel nested-panel summary-panel" data-chatgpt-result-anchor>
+                <h3>Analysis Summary</h3>
+                <div class="stack">
+                    <section class="result-panel nested-panel">
+                        <h4>Overview</h4>
+                        @if (!string.IsNullOrWhiteSpace(Model.AnalysisResponse.Format))
+                        {
+                            <p><strong>Format:</strong> @Model.AnalysisResponse.Format</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.AnalysisResponse.Commander))
+                        {
+                            <p><strong>Commander:</strong> @Model.AnalysisResponse.Commander</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.AnalysisResponse.GamePlan))
+                        {
+                            <p><strong>Game plan:</strong> @Model.AnalysisResponse.GamePlan</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.AnalysisResponse.Speed))
+                        {
+                            <p><strong>Speed:</strong> @Model.AnalysisResponse.Speed</p>
+                        }
+                        @if (Model.AnalysisResponse.PrimaryAxes.Count > 0)
+                        {
+                            <p><strong>Primary axes:</strong> @string.Join(", ", Model.AnalysisResponse.PrimaryAxes)</p>
+                        }
+                        @if (Model.AnalysisResponse.SynergyTags.Count > 0)
+                        {
+                            <p><strong>Synergy tags:</strong> @string.Join(", ", Model.AnalysisResponse.SynergyTags)</p>
+                        }
+                    </section>
+
+                    <div class="sync-columns">
+                        <section class="result-panel nested-panel">
+                            <h4>Strengths</h4>
+                            <ul>
+                                @foreach (var item in Model.AnalysisResponse.Strengths)
+                                {
+                                    <li>@item</li>
+                                }
+                            </ul>
+                        </section>
+
+                        <section class="result-panel nested-panel">
+                            <h4>Weaknesses</h4>
+                            <ul>
+                                @foreach (var item in Model.AnalysisResponse.Weaknesses)
+                                {
+                                    <li>@item</li>
+                                }
+                            </ul>
+                        </section>
+                    </div>
+
+                    @if (Model.AnalysisResponse.DeckNeeds.Count > 0)
+                    {
+                        <section class="result-panel nested-panel">
+                            <h4>Deck Needs</h4>
+                            <ul>
+                                @foreach (var item in Model.AnalysisResponse.DeckNeeds)
+                                {
+                                    <li>@item</li>
+                                }
+                            </ul>
+                        </section>
+                    }
+
+                    @if (Model.AnalysisResponse.WeakSlots.Count > 0)
+                    {
+                        <section class="result-panel nested-panel">
+                            <h4>Weak Slots</h4>
+                            <ul>
+                                @foreach (var slot in Model.AnalysisResponse.WeakSlots)
+                                {
+                                    <li><strong>@slot.Card</strong> — @slot.Reason</li>
+                                }
+                            </ul>
+                        </section>
+                    }
+
+                    @if (Model.AnalysisResponse.QuestionAnswers.Count > 0)
+                    {
+                        <section class="result-panel nested-panel">
+                            <h4>Question Answers</h4>
+                            @foreach (var qa in Model.AnalysisResponse.QuestionAnswers)
+                            {
+                                <div class="result-panel nested-panel" style="margin-bottom:0.5rem">
+                                    <p><strong>Q@(qa.QuestionNumber): @qa.Question</strong></p>
+                                    <p>@qa.Answer</p>
+                                    @if (!string.IsNullOrWhiteSpace(qa.Basis))
+                                    {
+                                        <p><small>Basis: @qa.Basis</small></p>
+                                    }
+                                </div>
+                            }
+                        </section>
+                    }
+
+                    @if (Model.AnalysisResponse.DeckVersions.Count > 0)
+                    {
+                        <section class="result-panel nested-panel">
+                            <h4>Deck Versions</h4>
+                            @foreach (var version in Model.AnalysisResponse.DeckVersions)
+                            {
+                                <details class="result-panel nested-panel" style="margin-bottom:0.5rem">
+                                    <summary>@version.VersionName</summary>
+                                    @if (version.CardsAdded.Count > 0)
+                                    {
+                                        <p><strong>Cards added:</strong></p>
+                                        <ul>
+                                            @foreach (var card in version.CardsAdded)
+                                            {
+                                                <li>@card</li>
+                                            }
+                                        </ul>
+                                    }
+                                    @if (version.CardsCut.Count > 0)
+                                    {
+                                        <p><strong>Cards cut:</strong></p>
+                                        <ul>
+                                            @foreach (var card in version.CardsCut)
+                                            {
+                                                <li>@card</li>
+                                            }
+                                        </ul>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(version.Decklist))
+                                    {
+                                        <p><strong>Decklist:</strong></p>
+                                        <pre spellcheck="false">@version.Decklist</pre>
+                                    }
+                                </details>
+                            }
+                        </section>
+                    }
+                </div>
+            </section>
+        }
+
+        <div class="chatgpt-step-footer">
+            <button type="button" class="clear-cache-button" data-chatgpt-show-step="2">Back: Analysis</button>
+            <button type="button" class="run-button" data-chatgpt-next-step="4">Next: Set Upgrades</button>
+        </div>
+    </section>
+
+    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-step-panel-4" aria-labelledby="chatgpt-step-tab-4" data-chatgpt-step="4">
+        <div class="chatgpt-step-heading">
+            <div>
+                <p class="chatgpt-step-eyebrow">Step 4</p>
+                <h2>Optional: Build the set-upgrade packet</h2>
+                <p>This step is optional. Use it only when you want set-specific upgrade analysis after the main deck analysis is complete. The deck profile JSON from Step 3 is used automatically.</p>
             </div>
             <span class="chatgpt-step-badge">Optional final step</span>
         </div>
@@ -379,18 +546,12 @@ Do not omit any fields from the schema.
         <div class="chatgpt-instructions">
             <strong>What you do:</strong>
             <ol>
-                <li>Paste only the <code>deck_profile</code> JSON into <code>Deck profile JSON</code>.</li>
                 <li>Select one or more sets, or paste a condensed set packet.</li>
                 <li>Click <code>Generate Set Upgrade Packet</code>.</li>
                 <li>Paste the returned <code>set-upgrade-analysis.txt</code> into ChatGPT.</li>
                 <li>Have ChatGPT return both a fenced <code>```json</code> block for the set analysis data and a fenced <code>```text</code> block named <code>discussion_summary.txt</code> with condensed per-set notes, recommendations, and answers.</li>
             </ol>
         </div>
-
-        <label class="field">
-            <span>Deck profile JSON</span>
-            <textarea name="DeckProfileJson" spellcheck="false">@Model.Request.DeckProfileJson</textarea>
-        </label>
         <label class="field">
             <span>Select sets to generate a set packet</span>
             <select name="SelectedSetCodes" multiple size="12" data-set-options-select data-selected-codes="@string.Join(",", Model.Request.SelectedSetCodes)">
@@ -417,7 +578,7 @@ Do not omit any fields from the schema.
             </label>
         </details>
         <div class="toolbar chatgpt-step-actions">
-            <button type="submit" class="run-button" data-chatgpt-submit-step="3">Generate Set Upgrade Packet</button>
+            <button type="submit" class="run-button" data-chatgpt-submit-step="4">Generate Set Upgrade Packet</button>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.SetUpgradePromptText))
@@ -434,7 +595,7 @@ Do not omit any fields from the schema.
             </section>
         }
         <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-chatgpt-show-step="2">Back: Analysis</button>
+            <button type="button" class="clear-cache-button" data-chatgpt-show-step="3">Back: Analysis Results</button>
         </div>
     </section>
 </form>

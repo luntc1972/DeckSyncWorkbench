@@ -29,7 +29,7 @@ MTG Deck Studio helps deck builders translate decks between Moxfield and Archide
 
 ## ChatGPT Packets Workflow
 
-The ChatGPT Packets page (`/Deck/ChatGptPackets`) guides you through a 3-step prompt-building flow. Each step produces text to send to ChatGPT and tells you what to paste back.
+The ChatGPT Packets page (`/Deck/ChatGptPackets`) guides you through a 4-step workflow. Step 2 generates the analysis prompt, Step 3 parses and renders the returned `deck_profile` JSON, and Step 4 optionally generates a set-upgrade prompt using that parsed profile.
 
 ### Workflow layout modes
 Three layouts are available via the toolbar: **Guided**, **Focused**, and **Expert**. They present the same underlying steps with different amounts of context and guidance text.
@@ -61,17 +61,27 @@ Click **Generate Analysis Packet** to build the reference data and analysis prom
 - Fires the banned-list fetch, set-packet fetch, and Spellbook combo lookup concurrently to minimize wait time.
 - Generates a suggested ChatGPT conversation title displayed in the UI with a copy button.
 
-The generated prompt uses `##` section headings (DECK CONTEXT, EVIDENCE RULES, BRACKET GUIDANCE, ANALYSIS QUESTIONS, OUTPUT FORMAT, REFERENCE DATA, DECKLIST) to help ChatGPT's attention on long prompts.
+The generated prompt uses `##` section headings (TASK, EVIDENCE RULES, BRACKET GUIDANCE, ANALYSIS QUESTIONS, OUTPUT FORMAT, REFERENCE DATA, DECKLIST) to keep long prompts structured.
 
-### Step 3 — Set Upgrade (optional)
-Select one or more recent MTG sets. The page generates a set-upgrade prompt that references the deck profile and asks ChatGPT to evaluate new cards from each set as potential inclusions, with suggested cuts and traps called out per set. The set dropdown loads asynchronously from `/api/set-options` so the page renders immediately.
+### Step 3 — Analysis Results
+Paste the fenced `deck_profile` JSON block or raw JSON payload returned from ChatGPT. The page validates the payload, parses it into a strongly typed model, and renders a readable summary of:
+- Format and commander
+- Game plan, speed, primary axes, and synergy tags
+- Strengths, weaknesses, deck needs, and weak slots
+- Per-question answers with basis notes
+- Full deck versions when versioning questions were requested
+
+This step is local to the returned JSON. It does not regenerate the analysis packet or call upstream services again.
+
+### Step 4 — Set Upgrade (optional)
+Select one or more recent MTG sets, or paste a condensed set packet override. The page generates a set-upgrade prompt that references the parsed deck profile and asks ChatGPT to evaluate new cards from each set as potential inclusions, with suggested cuts, bracket-fit notes, speculative tests, and traps called out per set. The set dropdown loads asynchronously from `/api/set-options` so the page renders immediately.
 
 ### Artifact saving
 Check **Save artifacts to disk** to write all generated prompts and reference files to:
 ```
 Documents\MTG Deck Studio\ChatGPT Packets\<commander-name>\<timestamp>\
 ```
-Files saved: `input-summary.txt`, `reference.txt`, `analysis.txt`, `deck-profile-schema.json`, `set-upgrade-prompt.txt` (when applicable).
+Files saved: `input-summary.txt`, `reference.txt`, `analysis.txt`, `deck-profile-schema.json`, `set-upgrade-prompt.txt` (when applicable). The pasted Step 3 analysis summary is rendered from the submitted JSON and is not saved as a separate artifact.
 
 ---
 
@@ -121,7 +131,7 @@ When either combo question is selected, the service calls the Commander Spellboo
 
 ## ChatGPT Deck Comparison
 
-The Deck Comparison page (`/Deck/ChatGptDeckComparison`) generates structured ChatGPT prompts for comparing two Commander decklists side by side. It lives under the **ChatGPT** dropdown alongside the Analysis and Response Formatter pages.
+The Deck Comparison page (`/Deck/ChatGptDeckComparison`) generates structured ChatGPT prompts for comparing two Commander decklists side by side. It lives under the **ChatGPT** dropdown alongside the Analysis page.
 
 ### Step 1 — Deck Setup
 Paste two decklists (Moxfield/Archidekt URL or plain-text export) and select a Commander Bracket for each deck. Optionally name each deck — the service falls back to the commander name if left blank.
@@ -129,9 +139,10 @@ Paste two decklists (Moxfield/Archidekt URL or plain-text export) and select a C
 ### Step 2 — Generate Comparison Packet
 The service:
 - Parses both decklists, resolving cards via Scryfall `POST /cards/collection` in batches of 75.
+- Falls back to per-card Scryfall search when a submitted name is an alternate-art or Universes Beyond printing that does not round-trip through the collection endpoint cleanly, then labels rendered decklists as `resolved name [printed as: submitted name]`.
 - Queries Commander Spellbook for combos in each deck.
 - Builds a comparison context document with bracket definitions, role counts (ramp, draw, interaction, wipes, recursion, closing power), mana curves, color identity, category overlap, and combo gaps.
-- Generates a structured comparison prompt with `### Task`, `### Rules`, `### Comparison Axes`, `### Output Format`, deck sections, and comparison context. The prompt instructs ChatGPT to produce both a human-readable comparison and a fenced `json` block matching a `deck_comparison` schema.
+- Generates a structured comparison prompt with `## TASK`, `## RULES`, `## COMPARISON AXES`, `## OUTPUT FORMAT`, deck sections, and comparison context. The prompt instructs ChatGPT to produce both a human-readable comparison and a fenced `json` block matching a `deck_comparison` schema.
 - Generates a follow-up prompt for iterative refinement of the comparison.
 
 Comparison axes include: commander role and game plan, speed and setup tempo, ramp, draw, spot interaction, sweepers, recursion, closing power (including combos), resilience, consistency, mana stability, commander dependence, table fit, major overlap/differences, and five concrete cards or packages that best explain the gap.

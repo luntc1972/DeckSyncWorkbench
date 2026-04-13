@@ -4,6 +4,7 @@
   let backToTopInitialized = false;
   let themePickerInitialized = false;
   const themeStorageKey = 'mtg-deck-studio-theme';
+  const themeCookieMaxAgeSeconds = 60 * 60 * 24 * 365;
 
   const attachBackToTop = (): void => {
     if (backToTopInitialized) {
@@ -46,9 +47,29 @@
       return;
     }
 
+    const themeCookieName = themeLink.dataset.cookieName ?? themeStorageKey;
+
     const getStoredTheme = (): string | null => {
       try {
         return window.localStorage.getItem(themeStorageKey);
+      } catch {
+        return null;
+      }
+    };
+
+    const getCookieTheme = (): string | null => {
+      const cookiePrefix = `${encodeURIComponent(themeCookieName)}=`;
+      const cookieValue = document.cookie
+        .split(';')
+        .map((value) => value.trim())
+        .find((value) => value.startsWith(cookiePrefix));
+
+      if (!cookieValue) {
+        return null;
+      }
+
+      try {
+        return decodeURIComponent(cookieValue.substring(cookiePrefix.length));
       } catch {
         return null;
       }
@@ -60,6 +81,10 @@
       } catch {
         // Ignore storage failures and keep the current session theme applied.
       }
+    };
+
+    const setCookieTheme = (value: string): void => {
+      document.cookie = `${encodeURIComponent(themeCookieName)}=${encodeURIComponent(value)}; max-age=${themeCookieMaxAgeSeconds}; path=/; samesite=lax`;
     };
 
     const getThemeHref = (value: string): string | null => {
@@ -75,10 +100,11 @@
 
       if (persistSelection) {
         setStoredTheme(selectedValue);
+        setCookieTheme(selectedValue);
       }
     };
 
-    applyTheme(getStoredTheme() ?? themeLink.dataset.defaultTheme ?? 'site.css', false);
+    applyTheme(getStoredTheme() ?? getCookieTheme() ?? themeLink.dataset.defaultTheme ?? 'site.css', false);
     themeSelect.addEventListener('change', () => {
       applyTheme(themeSelect.value, true);
     });

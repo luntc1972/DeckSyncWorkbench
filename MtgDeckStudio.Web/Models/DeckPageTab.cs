@@ -8,7 +8,6 @@ public enum DeckPageTab
     CardLookup = 3,
     MechanicLookup = 4,
     ChatGptPackets = 5,
-    ChatGptJsonToText = 6,
     Convert = 7,
     ChatGptDeckComparison = 8,
 }

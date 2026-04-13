@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <!--
+      Keep restore portable across Windows, WSL, and Linux by ignoring machine-specific
+      fallback caches such as Visual Studio's shared NuGetPackages folder.
+    -->
+    <RestoreFallbackFolders></RestoreFallbackFolders>
+    <RestoreAdditionalProjectFallbackFolders></RestoreAdditionalProjectFallbackFolders>
+  </PropertyGroup>
+</Project>

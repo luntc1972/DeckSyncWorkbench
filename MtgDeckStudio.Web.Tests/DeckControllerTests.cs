@@ -49,7 +49,6 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
             new FakeChatGptDeckComparisonService(),
-            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -80,7 +79,6 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
             new FakeChatGptDeckComparisonService(),
-            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -109,7 +107,6 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
             new FakeChatGptDeckComparisonService(),
-            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -141,7 +138,6 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
             new FakeChatGptDeckComparisonService(),
-            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -173,7 +169,6 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
             new FakeChatGptDeckComparisonService(),
-            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -207,7 +202,6 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
             new FakeChatGptDeckComparisonService(),
-            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -236,7 +230,6 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
             new FakeChatGptDeckComparisonService(),
-            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -270,7 +263,6 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new ThrowingChatGptDeckPacketService(new InvalidOperationException("Choose a target Commander bracket before generating the analysis packet.")),
             new FakeChatGptDeckComparisonService(),
-            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -304,7 +296,6 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new ThrowingChatGptDeckPacketService(new InvalidOperationException("Select at least one analysis question before generating the analysis packet.")),
             new FakeChatGptDeckComparisonService(),
-            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -339,7 +330,6 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new ThrowingChatGptDeckPacketService(new InvalidOperationException("Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.")),
             new FakeChatGptDeckComparisonService(),
-            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -377,7 +367,6 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             capturingService,
             new FakeChatGptDeckComparisonService(),
-            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -423,7 +412,6 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
             new FakeChatGptDeckComparisonService(),
-            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance);
 
@@ -446,7 +434,6 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
             new FakeChatGptDeckComparisonService(),
-            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -484,7 +471,6 @@ public sealed class DeckControllerTests
             new FakeCategorySuggestionService(),
             new FakeChatGptDeckPacketService(),
             new FakeChatGptDeckComparisonService(),
-            new FakeChatGptJsonTextFormatterService(),
             new FakeScryfallSetService(),
             NullLogger<DeckController>.Instance)
         {
@@ -589,12 +575,6 @@ public sealed class DeckControllerTests
 
         public Task<string> BuildSetPacketAsync(IReadOnlyList<string> setCodes, IReadOnlyList<string>? commanderColorIdentity = null, CancellationToken cancellationToken = default)
             => Task.FromResult(string.Empty);
-    }
-
-    private sealed class FakeChatGptJsonTextFormatterService : IChatGptJsonTextFormatterService
-    {
-        public string FormatAsText(string input)
-            => string.IsNullOrWhiteSpace(input) ? string.Empty : $"formatted:{input}";
     }
 
     private sealed class ThrowingCardSearchService : ICardSearchService

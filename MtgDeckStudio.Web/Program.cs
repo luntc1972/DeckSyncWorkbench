@@ -63,7 +63,6 @@ public class Program
         builder.Services.AddSingleton<ICardSearchService, ScryfallCardSearchService>();
         builder.Services.AddSingleton<ICardLookupService, ScryfallCardLookupService>();
         builder.Services.AddSingleton<IMechanicLookupService, WotcMechanicLookupService>();
-        builder.Services.AddSingleton<IChatGptJsonTextFormatterService, ChatGptJsonTextFormatterService>();
         builder.Services.AddSingleton<ICommanderBanListService, CommanderBanListService>();
         builder.Services.AddSingleton<ICommanderSpellbookService, CommanderSpellbookService>();
         builder.Services.AddSingleton<IScryfallSetService, ScryfallSetService>();

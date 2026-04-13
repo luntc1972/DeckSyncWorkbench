@@ -27,7 +27,6 @@ public sealed class DeckController : Controller
     private readonly ICategorySuggestionService _categorySuggestionService;
     private readonly IChatGptDeckPacketService _chatGptDeckPacketService;
     private readonly IChatGptDeckComparisonService _chatGptDeckComparisonService;
-    private readonly IChatGptJsonTextFormatterService _chatGptJsonTextFormatterService;
     private readonly IScryfallSetService _scryfallSetService;
     private readonly ILogger<DeckController> _logger;
 
@@ -43,7 +42,6 @@ public sealed class DeckController : Controller
         ICategorySuggestionService categorySuggestionService,
         IChatGptDeckPacketService chatGptDeckPacketService,
         IChatGptDeckComparisonService chatGptDeckComparisonService,
-        IChatGptJsonTextFormatterService chatGptJsonTextFormatterService,
         IScryfallSetService scryfallSetService,
         ILogger<DeckController> logger)
     {
@@ -55,7 +53,6 @@ public sealed class DeckController : Controller
         _categorySuggestionService = categorySuggestionService;
         _chatGptDeckPacketService = chatGptDeckPacketService;
         _chatGptDeckComparisonService = chatGptDeckComparisonService;
-        _chatGptJsonTextFormatterService = chatGptJsonTextFormatterService;
         _scryfallSetService = scryfallSetService;
         _logger = logger;
     }
@@ -143,19 +140,6 @@ public sealed class DeckController : Controller
     {
         var sets = await TryGetSetOptionsAsync();
         return Json(sets.Select(s => new { s.Code, s.DisplayLabel }));
-    }
-
-    [HttpGet("/chatgpt-json-to-text")]
-    /// <summary>
-    /// Renders the helper page that converts ChatGPT JSON output into readable text.
-    /// </summary>
-    public IActionResult ChatGptJsonToText()
-    {
-        return View("ChatGptJsonToText", new ChatGptJsonTextViewModel
-        {
-            ActiveTab = DeckPageTab.ChatGptJsonToText,
-            Request = new ChatGptJsonTextRequest(),
-        });
     }
 
     [HttpGet("/convert")]
@@ -370,6 +354,7 @@ public sealed class DeckController : Controller
                 SetUpgradePromptText = result.SetUpgradePromptText,
                 SavedArtifactsDirectory = result.SavedArtifactsDirectory,
                 TimingSummary = result.TimingSummary,
+                AnalysisResponse = result.AnalysisResponse,
             });
         }
         catch (InvalidOperationException exception)
@@ -457,60 +442,6 @@ public sealed class DeckController : Controller
                 ActiveTab = DeckPageTab.ChatGptDeckComparison,
                 Request = request,
                 ErrorMessage = errorMessage
-            });
-        }
-    }
-
-    [HttpPost("/chatgpt-json-to-text")]
-    [ValidateAntiForgeryToken]
-    /// <summary>
-    /// Converts a JSON payload or fenced JSON response into plain text for copying.
-    /// </summary>
-    /// <param name="request">JSON formatting request.</param>
-    public IActionResult ChatGptJsonToText(ChatGptJsonTextRequest request)
-    {
-        request ??= new ChatGptJsonTextRequest();
-
-        if (string.IsNullOrWhiteSpace(request.JsonInput))
-        {
-            return View("ChatGptJsonToText", new ChatGptJsonTextViewModel
-            {
-                ActiveTab = DeckPageTab.ChatGptJsonToText,
-                Request = request,
-                ErrorMessage = "Paste ChatGPT JSON before converting it to text."
-            });
-        }
-
-        try
-        {
-            var prettyJson = ChatGptJsonTextFormatterService.ExtractJsonPayload(request.JsonInput);
-            var formattedText = _chatGptJsonTextFormatterService.FormatAsText(request.JsonInput);
-            return View("ChatGptJsonToText", new ChatGptJsonTextViewModel
-            {
-                ActiveTab = DeckPageTab.ChatGptJsonToText,
-                Request = request,
-                PrettyJson = prettyJson,
-                FormattedText = formattedText
-            });
-        }
-        catch (JsonException exception)
-        {
-            _logger.LogInformation(exception, "ChatGPT JSON-to-text conversion failed due to invalid JSON.");
-            return View("ChatGptJsonToText", new ChatGptJsonTextViewModel
-            {
-                ActiveTab = DeckPageTab.ChatGptJsonToText,
-                Request = request,
-                ErrorMessage = "The submitted ChatGPT response did not contain valid JSON."
-            });
-        }
-        catch (InvalidOperationException exception)
-        {
-            _logger.LogInformation(exception, "ChatGPT JSON-to-text conversion failed validation.");
-            return View("ChatGptJsonToText", new ChatGptJsonTextViewModel
-            {
-                ActiveTab = DeckPageTab.ChatGptJsonToText,
-                Request = request,
-                ErrorMessage = exception.Message
             });
         }
     }

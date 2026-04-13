@@ -37,7 +37,8 @@ public sealed record ChatGptDeckPacketResult(
     string? AnalysisPromptText,
     string? SetUpgradePromptText,
     string? SavedArtifactsDirectory,
-    string? TimingSummary);
+    string? TimingSummary,
+    ChatGptDeckAnalysisResponse? AnalysisResponse = null);
 
 /// <summary>
 /// Builds analysis and set-upgrade prompts plus supporting reference data for ChatGPT.
@@ -227,20 +228,28 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
         var inputSummary = BuildInputSummary(request, deckEntries, possibleIncludeEntries, commanderName);
         var decklistText = BuildDecklistText(deckEntries, possibleIncludeEntries);
-        var deckProfileSchemaJson = BuildDeckProfileSchemaJson(commanderName, request.Format);
+        var requiresFullDecklists = AnalysisQuestionCatalog.RequiresFullDecklistOutput(request.SelectedAnalysisQuestions);
+        var deckProfileSchemaJson = BuildDeckProfileSchemaJson(commanderName, request.Format, requiresFullDecklists);
 
         string? referenceText = null;
         string? analysisPromptText = null;
         string? setUpgradePromptText = null;
         string? savedArtifactsDirectory = null;
+        ChatGptDeckAnalysisResponse? analysisResponse = null;
+
+        if (request.WorkflowStep >= 3 && !string.IsNullOrWhiteSpace(request.DeckProfileJson))
+        {
+            analysisResponse = ParseAnalysisResponse(request.DeckProfileJson);
+        }
 
         var deckProfileText = string.IsNullOrWhiteSpace(request.DeckProfileJson)
             ? deckProfileSchemaJson
             : ExtractJsonObject(request.DeckProfileJson);
         var selectedQuestions = AnalysisQuestionCatalog.NormalizeSelections(request.SelectedAnalysisQuestions);
-        var wantsAnalysisPacket = request.WorkflowStep >= 2;
-        var wantsSetUpgradeOnly = !wantsAnalysisPacket
+        var wantsAnalysisPacket = request.WorkflowStep == 2;
+        var wantsSetUpgradeOnly = request.WorkflowStep < 2
             && (!string.IsNullOrWhiteSpace(request.DeckProfileJson) || !string.IsNullOrWhiteSpace(request.SetPacketText));
+        var wantsSetUpgradePacket = request.WorkflowStep >= 4 || wantsSetUpgradeOnly;
 
         if (wantsAnalysisPacket && CommanderBracketCatalog.Find(request.TargetCommanderBracket) is null)
         {
@@ -274,7 +283,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         }
 
         // Only fetch banned list and set packet when the analysis or set-upgrade step actually needs them.
-        if (wantsAnalysisPacket || wantsSetUpgradeOnly)
+        if (wantsAnalysisPacket || wantsSetUpgradePacket)
         {
             // Fire banned-list and set-packet fetches in parallel — neither depends on the other.
             var parallelStopwatch = Stopwatch.StartNew();
@@ -330,14 +339,24 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                     comboResult?.IncludedCombos.Count ?? 0,
                     comboResult?.AlmostIncludedCombos.Count ?? 0);
 
+                // Resolve commander name to oracle name if the deck used a renamed printing.
+                if (commanderName is not null && cardReferenceBundle.OracleNameMap.TryGetValue(commanderName, out var oracleCommanderName))
+                {
+                    commanderName = oracleCommanderName;
+                }
+
                 var includeCardVersions = AnalysisQuestionCatalog.RequiresFullDecklistOutput(selectedQuestions) && request.IncludeCardVersions;
                 var analysisDecklistText = includeCardVersions
-                    ? BuildDecklistText(deckEntries, analysisPossibleIncludeEntries, includeVersions: true)
-                    : BuildDecklistText(deckEntries, analysisPossibleIncludeEntries);
+                    ? BuildDecklistText(deckEntries, analysisPossibleIncludeEntries, includeVersions: true, oracleNameMap: cardReferenceBundle.OracleNameMap)
+                    : BuildDecklistText(deckEntries, analysisPossibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
                 analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, comboResult, includeCardVersions);
-                setUpgradePromptText = BuildSetUpgradePrompt(request, decklistText, deckProfileText, commanderName, generatedSetPacket, bannedCards);
+                if (wantsSetUpgradePacket)
+                {
+                    var oracleResolvedDecklistText = BuildDecklistText(deckEntries, possibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
+                    setUpgradePromptText = BuildSetUpgradePrompt(request, oracleResolvedDecklistText, deckProfileText, commanderName, generatedSetPacket, bannedCards);
+                }
             }
-            else
+            else if (wantsSetUpgradePacket)
             {
                 setUpgradePromptText = BuildSetUpgradePrompt(request, decklistText, deckProfileText, commanderName, generatedSetPacket, bannedCards);
             }
@@ -377,8 +396,79 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             analysisPromptText,
             setUpgradePromptText,
             savedArtifactsDirectory,
-            timingSummary);
+            timingSummary,
+            analysisResponse);
     }
+
+    internal static ChatGptDeckAnalysisResponse ParseAnalysisResponse(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            throw new InvalidOperationException("Paste the deck_profile JSON returned from ChatGPT into Step 3.");
+        }
+
+        var json = ChatGptJsonTextFormatterService.ExtractJsonPayload(input);
+        using var document = JsonDocument.Parse(json);
+
+        JsonElement payload = document.RootElement;
+        if (payload.ValueKind == JsonValueKind.Object
+            && payload.TryGetProperty("deck_profile", out var profileElement))
+        {
+            payload = profileElement;
+        }
+
+        if (payload.ValueKind != JsonValueKind.Object || !LooksLikeDeckProfile(payload))
+        {
+            throw new InvalidOperationException("The submitted ChatGPT response did not contain a valid deck_profile payload.");
+        }
+
+        var result = JsonSerializer.Deserialize<ChatGptDeckAnalysisResponse>(payload.GetRawText(), new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        if (result is null || !HasMeaningfulDeckProfileContent(result))
+        {
+            throw new InvalidOperationException("The submitted ChatGPT response did not contain a valid deck_profile payload.");
+        }
+
+        return result;
+    }
+
+    private static bool LooksLikeDeckProfile(JsonElement payload)
+    {
+        string[] knownProperties =
+        [
+            "format",
+            "commander",
+            "game_plan",
+            "primary_axes",
+            "speed",
+            "strengths",
+            "weaknesses",
+            "deck_needs",
+            "weak_slots",
+            "synergy_tags",
+            "question_answers",
+            "deck_versions"
+        ];
+
+        return knownProperties.Any(propertyName => payload.TryGetProperty(propertyName, out _));
+    }
+
+    private static bool HasMeaningfulDeckProfileContent(ChatGptDeckAnalysisResponse response)
+        => !string.IsNullOrWhiteSpace(response.Format)
+            || !string.IsNullOrWhiteSpace(response.Commander)
+            || !string.IsNullOrWhiteSpace(response.GamePlan)
+            || !string.IsNullOrWhiteSpace(response.Speed)
+            || response.PrimaryAxes.Count > 0
+            || response.Strengths.Count > 0
+            || response.Weaknesses.Count > 0
+            || response.DeckNeeds.Count > 0
+            || response.WeakSlots.Count > 0
+            || response.SynergyTags.Count > 0
+            || response.QuestionAnswers.Count > 0
+            || response.DeckVersions.Count > 0;
 
     /// <summary>
     /// Loads deck entries from a public URL or pasted export text.
@@ -477,9 +567,16 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         return builder.ToString().TrimEnd();
     }
 
-    private static string FormatDecklistLine(DeckEntry entry, bool includeVersions)
+    private static string FormatDecklistLine(DeckEntry entry, bool includeVersions, IReadOnlyDictionary<string, string>? oracleNameMap = null)
     {
         var name = entry.Name;
+        string? printedAs = null;
+        if (oracleNameMap is not null && oracleNameMap.TryGetValue(entry.Name, out var oracleName)
+            && !string.Equals(oracleName, entry.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            printedAs = entry.Name;
+            name = oracleName;
+        }
         if (includeVersions)
         {
             var slash = name.IndexOf(" // ", StringComparison.Ordinal);
@@ -492,6 +589,10 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             if (!string.IsNullOrWhiteSpace(entry.CollectorNumber))
                 line += $" {entry.CollectorNumber}";
         }
+        if (printedAs is not null)
+        {
+            line += $" [printed as: {printedAs}]";
+        }
         return line;
     }
 
@@ -500,17 +601,17 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     /// When <paramref name="includeVersions"/> is <see langword="true"/>, each commander and mainboard
     /// line includes the set code and collector number when available.
     /// </summary>
-    private static string BuildDecklistText(IReadOnlyList<DeckEntry> entries, IReadOnlyList<DeckEntry> possibleIncludeEntries, bool includeVersions = false)
+    private static string BuildDecklistText(IReadOnlyList<DeckEntry> entries, IReadOnlyList<DeckEntry> possibleIncludeEntries, bool includeVersions = false, IReadOnlyDictionary<string, string>? oracleNameMap = null)
     {
         var commanderLines = entries
             .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => FormatDecklistLine(entry, includeVersions))
+            .Select(entry => FormatDecklistLine(entry, includeVersions, oracleNameMap))
             .ToList();
         var mainboardLines = entries
             .Where(entry => !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => FormatDecklistLine(entry, includeVersions))
+            .Select(entry => FormatDecklistLine(entry, includeVersions, oracleNameMap))
             .ToList();
 
         var builder = new StringBuilder();
@@ -537,7 +638,15 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             builder.AppendLine("Possible Includes");
             foreach (var line in possibleIncludeEntries
                          .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-                         .Select(entry => $"{entry.Quantity} {entry.Name}"))
+                         .Select(entry =>
+                         {
+                             if (oracleNameMap is not null && oracleNameMap.TryGetValue(entry.Name, out var oracleName)
+                                 && !string.Equals(oracleName, entry.Name, StringComparison.OrdinalIgnoreCase))
+                             {
+                                 return $"{entry.Quantity} {oracleName} [printed as: {entry.Name}]";
+                             }
+                             return $"{entry.Quantity} {entry.Name}";
+                         }))
             {
                 builder.AppendLine(line);
             }
@@ -697,7 +806,16 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         var requiresFullDecklists = AnalysisQuestionCatalog.RequiresFullDecklistOutput(selectedQuestionIds);
         var requiresCategoryOutput = AnalysisQuestionCatalog.RequiresCategoryOutput(selectedQuestionIds);
         var builder = new StringBuilder();
-        builder.AppendLine("Analyze this Magic: The Gathering deck.");
+
+        if (!string.IsNullOrWhiteSpace(commanderName))
+        {
+            builder.AppendLine($"Title this chat: {commanderName} | Deck Analysis");
+            builder.AppendLine();
+        }
+
+        builder.AppendLine("You are an expert Magic: The Gathering deck analyst specializing in Commander.");
+        builder.AppendLine();
+        builder.AppendLine("Analyze this Magic: The Gathering deck. Read all supplied card reference, bracket guidance, and decklist data before beginning.");
         builder.AppendLine();
 
         // --- Deck context first — grounds the model before instructions ---
@@ -736,6 +854,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine("- When a conclusion is based on supplied card text, rules text, or bracket guidance, say so briefly.");
         builder.AppendLine("- When a conclusion is based on inference from deck construction, curve, redundancy, or play patterns, label it as an inference.");
         builder.AppendLine("- If the supplied data is insufficient to support a claim, say that directly instead of overstating confidence.");
+        builder.AppendLine("- If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
         builder.AppendLine("- Cards labeled candidate_include in the reference are not part of the current deck. Treat them only as candidate additions.");
         builder.AppendLine("- Do not recommend cards from the official Commander banned list (see banned list in the reference section below).");
         builder.AppendLine();
@@ -771,7 +890,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine();
         builder.AppendLine("A. Start with a section titled Requested Question Answers.");
         builder.AppendLine("   - Answer every question using the same numbering from the ANALYSIS QUESTIONS section.");
-        builder.AppendLine("   - For each answer, state the conclusion first, then give 2-4 sentences of reasoning.");
+        builder.AppendLine("   - For each answer, state the conclusion first, then give 6-12 sentences of detailed reasoning that cites specific card names, interactions, and strategic rationale.");
         builder.AppendLine("   - Do not skip, merge, or partially answer any question.");
         builder.AppendLine();
         builder.AppendLine("B. After the question answers, include these recommendation sections:");
@@ -841,6 +960,21 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine("D. After the full analysis, return a JSON object named deck_profile matching the schema below.");
         builder.AppendLine("   Return it inside a ```json fenced code block so it can be copied cleanly.");
         builder.AppendLine("   The question_answers array must contain one entry per question, in the same order as the numbered list above.");
+        builder.AppendLine("   Each answer field must be a thorough response (6-12 sentences minimum) — not a brief summary. Cite specific card names and interactions.");
+        if (requiresFullDecklists)
+        {
+            builder.AppendLine("   The deck_versions array must contain one entry per requested deck version or upgrade path.");
+            builder.AppendLine("   Each entry's decklist field must contain the complete 100-card list (one card per line, same format as the text code blocks above).");
+            builder.AppendLine("   Do not abbreviate or truncate any decklist in the JSON — every card must be present.");
+        }
+        builder.AppendLine();
+        builder.AppendLine("   Field-level detail requirements for the deck_profile JSON:");
+        builder.AppendLine("   - game_plan: 2-4 sentences describing the deck's primary win condition, game plan, and how it closes games.");
+        builder.AppendLine("   - speed: 2-3 sentences characterizing the deck's speed, threat deployment, and typical turn progression.");
+        builder.AppendLine("   - strengths: each item should be 1-2 sentences with a specific card or interaction reference.");
+        builder.AppendLine("   - weaknesses: each item should be 1-2 sentences with a specific card or interaction reference.");
+        builder.AppendLine("   - deck_needs: each item should be 1-2 sentences identifying a gap and what kind of card fills it.");
+        builder.AppendLine("   - weak_slots.reason: 2-3 sentences explaining why this slot is weak and what would improve it.");
         builder.AppendLine();
         builder.AppendLine(deckProfileSchemaJson);
 
@@ -874,8 +1008,12 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         var isLateralOnly = string.Equals(upgradeFocus, "lateral-moves", StringComparison.OrdinalIgnoreCase);
         var isStrictOnly = string.Equals(upgradeFocus, "strict-upgrades", StringComparison.OrdinalIgnoreCase);
         var isBoth = string.Equals(upgradeFocus, "both", StringComparison.OrdinalIgnoreCase);
+        var bracket = CommanderBracketCatalog.Find(request.TargetCommanderBracket);
 
+        builder.AppendLine("You are an expert Magic: The Gathering deck analyst specializing in Commander set reviews and upgrade evaluation.");
+        builder.AppendLine();
         builder.AppendLine("Analyze each selected set for possible additions to this deck, suggested removals for those additions, and any traps.");
+        builder.AppendLine("Read all supplied deck profile, decklist, and set packet data before beginning.");
         builder.AppendLine();
 
         // --- Deck context first ---
@@ -885,14 +1023,33 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         {
             builder.AppendLine($"commander: {commanderName}");
         }
+        if (bracket is not null)
+        {
+            builder.AppendLine($"target_bracket: {bracket.Label}");
+        }
 
         builder.AppendLine();
+
+        // --- Bracket guidance ---
+        if (bracket is not null)
+        {
+            builder.AppendLine("## BRACKET GUIDANCE");
+            builder.AppendLine($"Target the Commander experience of {bracket.Label}.");
+            builder.AppendLine($"Bracket summary: {bracket.Summary}");
+            builder.AppendLine($"Turn expectation: {bracket.TurnsExpectation}");
+            builder.AppendLine("Evaluate all recommended additions and cuts against this bracket target. Flag any card that would push the deck above or below the target bracket as a trap.");
+            builder.AppendLine();
+        }
 
         // --- Evidence rules ---
         builder.AppendLine("## EVIDENCE RULES");
         builder.AppendLine("- Use the deck profile as authoritative for the deck's plan, strengths, weaknesses, and replaceable slots.");
         builder.AppendLine("- Use the set mechanics and card reference as authoritative for set cards.");
         builder.AppendLine("- Do not invent card text or rules.");
+        builder.AppendLine("- When a conclusion is based on the deck profile or set card text, say so briefly.");
+        builder.AppendLine("- When a conclusion is based on inference from deck construction or play patterns, label it as an inference.");
+        builder.AppendLine("- If the supplied data is insufficient to support a claim, say that directly instead of overstating confidence.");
+        builder.AppendLine("- If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
         builder.AppendLine("- Cards listed under Possible Includes are not part of the current deck. Treat them only as candidate additions.");
         builder.AppendLine($"- Do not recommend cards from the official Commander banned list: {FormatBannedCardsLine(bannedCards)}");
 
@@ -929,10 +1086,10 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine("Structure your response as follows:");
         builder.AppendLine();
         builder.AppendLine("A. Per-set analysis — for each selected set, include:");
-        builder.AppendLine("   - Top adds from that set (with one sentence of reasoning each)");
-        builder.AppendLine("   - Suggested removals for each add");
-        builder.AppendLine("   - Traps from that set");
-        builder.AppendLine("   - Speculative tests from that set");
+        builder.AppendLine("   - Top adds from that set (with one sentence of reasoning each, tied to the deck profile)");
+        builder.AppendLine("   - Suggested removals for each add (name the card being cut and why it is the weakest slot)");
+        builder.AppendLine("   - Traps from that set (cards that look appealing but would hurt the deck's plan, bracket target, or consistency)");
+        builder.AppendLine("   - Speculative tests from that set (cards worth trying that lack enough data to confidently recommend — e.g. novel mechanics, unproven synergies, or meta-dependent value)");
         builder.AppendLine();
         builder.AppendLine("B. Final cross-set ranked shortlist with must-test, optional, and skip.");
         builder.AppendLine("   For every recommended add or cut, explain the reasoning briefly and connect it to the deck profile.");
@@ -1063,19 +1220,19 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     /// <summary>
     /// Returns the deck-profile schema that ChatGPT should follow during analysis.
     /// </summary>
-    private static string BuildDeckProfileSchemaJson(string? commanderName, string format)
+    private static string BuildDeckProfileSchemaJson(string? commanderName, string format, bool includeFullDecklists = false)
     {
-        var payload = new
+        var payload = new Dictionary<string, object>
         {
-            format = NormalizeSingleLine(format, "Commander"),
-            commander = commanderName ?? string.Empty,
-            game_plan = string.Empty,
-            primary_axes = Array.Empty<string>(),
-            speed = string.Empty,
-            strengths = Array.Empty<string>(),
-            weaknesses = Array.Empty<string>(),
-            deck_needs = Array.Empty<string>(),
-            weak_slots = new[]
+            ["format"] = NormalizeSingleLine(format, "Commander"),
+            ["commander"] = commanderName ?? string.Empty,
+            ["game_plan"] = string.Empty,
+            ["primary_axes"] = Array.Empty<string>(),
+            ["speed"] = string.Empty,
+            ["strengths"] = Array.Empty<string>(),
+            ["weaknesses"] = Array.Empty<string>(),
+            ["deck_needs"] = Array.Empty<string>(),
+            ["weak_slots"] = new[]
             {
                 new
                 {
@@ -1083,8 +1240,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                     reason = string.Empty
                 }
             },
-            synergy_tags = Array.Empty<string>(),
-            question_answers = new[]
+            ["synergy_tags"] = Array.Empty<string>(),
+            ["question_answers"] = new[]
             {
                 new
                 {
@@ -1096,6 +1253,20 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             }
         };
 
+        if (includeFullDecklists)
+        {
+            payload["deck_versions"] = new[]
+            {
+                new
+                {
+                    version_name = string.Empty,
+                    decklist = "complete 100-card decklist, one card per line, same format as the text code blocks",
+                    cards_added = Array.Empty<string>(),
+                    cards_cut = Array.Empty<string>()
+                }
+            };
+        }
+
         return JsonSerializer.Serialize(payload, new JsonSerializerOptions
         {
             WriteIndented = true
@@ -1106,10 +1277,11 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     {
         if (cardRequests.Count == 0)
         {
-            return new CardReferenceBundle(Array.Empty<CardReference>(), Array.Empty<string>());
+            return new CardReferenceBundle(Array.Empty<CardReference>(), Array.Empty<string>(), new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
         }
 
         var resolvedCards = new Dictionary<string, CardReference>(StringComparer.OrdinalIgnoreCase);
+        var oracleNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var mechanicNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var chunk in Chunk(cardRequests, ScryfallBatchSize))
         {
@@ -1136,6 +1308,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                     continue;
                 }
 
+                oracleNameMap[matchingRequest.Name] = card.Name;
                 resolvedCards[matchingRequest.Name] = new CardReference(
                     matchingRequest.Scope,
                     card.Name,
@@ -1157,6 +1330,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
                     continue;
                 }
 
+                oracleNameMap[unresolvedRequest.Name] = fallbackCard.Name;
                 var displayName = NormalizeLookupName(unresolvedRequest.Name) == NormalizeLookupName(fallbackCard.Name)
                     ? fallbackCard.Name
                     : $"submitted_name: {unresolvedRequest.Name} | resolved_card: {fallbackCard.Name}";
@@ -1182,7 +1356,8 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
         return new CardReferenceBundle(
             cardReferences,
-            mechanicNames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList());
+            mechanicNames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList(),
+            oracleNameMap);
     }
 
     private async Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
@@ -1612,7 +1787,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
     private sealed record CardReferenceRequest(string Name, string Scope);
     private sealed record CardReference(string Scope, string Name, string ManaCost, string TypeLine, string OracleText);
 
-    private sealed record CardReferenceBundle(IReadOnlyList<CardReference> CardReferences, IReadOnlyList<string> MechanicNames);
+    private sealed record CardReferenceBundle(IReadOnlyList<CardReference> CardReferences, IReadOnlyList<string> MechanicNames, IReadOnlyDictionary<string, string> OracleNameMap);
 
     private sealed record MechanicReference(string Name, string Description, string? RuleReference);
 }

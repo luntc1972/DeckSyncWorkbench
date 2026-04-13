@@ -274,6 +274,45 @@ Commander
         Assert.Null(result.AnalysisPromptText);
     }
 
+    [Fact]
+    public async Task BuildAsync_RendersAnalysisSummaryWithoutAnalysisDependencies_WhenOnResultsStep()
+    {
+        var service = CreateService(
+            executeCollectionAsync: (_, _) => throw new InvalidOperationException("Scryfall lookup should not run for Step 3."));
+
+        var result = await service.BuildAsync(new ChatGptDeckRequest
+        {
+            WorkflowStep = 3,
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            DeckProfileJson = """
+{
+  "format": "Commander",
+  "commander": "Atraxa, Praetors' Voice",
+  "game_plan": "Midrange value",
+  "primary_axes": ["counters"],
+  "speed": "medium",
+  "strengths": ["Resilient board presence"],
+  "weaknesses": [],
+  "deck_needs": [],
+  "weak_slots": [],
+  "synergy_tags": []
+}
+"""
+        });
+
+        Assert.NotNull(result.AnalysisResponse);
+        Assert.Equal("Atraxa, Praetors' Voice", result.AnalysisResponse!.Commander);
+        Assert.Null(result.AnalysisPromptText);
+        Assert.Null(result.ReferenceText);
+        Assert.Null(result.SetUpgradePromptText);
+    }
+
     /// <summary>
     /// Requires at least one selected analysis question before the analysis packet can be generated.
     /// </summary>
@@ -296,6 +335,31 @@ Commander
         }));
 
         Assert.Equal("Select at least one analysis question before generating the analysis packet.", exception.Message);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ThrowsValidationError_WhenDeckProfileJsonDoesNotMatchSchema()
+    {
+        var service = CreateService();
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        {
+            WorkflowStep = 3,
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            DeckProfileJson = """
+{
+  "foo": "bar"
+}
+"""
+        }));
+
+        Assert.Equal("The submitted ChatGPT response did not contain a valid deck_profile payload.", exception.Message);
     }
 
     /// <summary>

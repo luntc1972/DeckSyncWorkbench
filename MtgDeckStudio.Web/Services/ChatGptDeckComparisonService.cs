@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using MtgDeckStudio.Core.Integration;
@@ -41,6 +42,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
     private readonly ArchidektParser _archidektParser;
     private readonly ICommanderSpellbookService _commanderSpellbookService;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
+    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
     private readonly string _artifactsPath;
     private readonly ILogger<ChatGptDeckComparisonService> _logger;
 
@@ -54,6 +56,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         ILogger<ChatGptDeckComparisonService>? logger = null,
         RestClient? scryfallRestClient = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
         string? artifactsPath = null)
     {
         _moxfieldDeckImporter = moxfieldDeckImporter;
@@ -71,6 +74,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
 
         var client = scryfallRestClient ?? ScryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallCollectionResponse>(request, cancellationToken));
+        _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallSearchResponse>(request, cancellationToken));
     }
 
     public async Task<ChatGptDeckComparisonResult> BuildAsync(ChatGptDeckComparisonRequest request, CancellationToken cancellationToken = default)
@@ -105,13 +109,16 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         var deckAName = ResolveDeckName(request.DeckAName, deckA.CommanderName, "Deck A");
         var deckBName = ResolveDeckName(request.DeckBName, deckB.CommanderName, "Deck B");
 
-        var deckAListText = BuildDecklistText(deckA.PlayableEntries, deckA.OptionalEntries);
-        var deckBListText = BuildDecklistText(deckB.PlayableEntries, deckB.OptionalEntries);
-
         var lookupStopwatch = Stopwatch.StartNew();
-        var deckACards = await LookupCardDetailsAsync("Deck A", deckA.PlayableEntries, cancellationToken).ConfigureAwait(false);
-        var deckBCards = await LookupCardDetailsAsync("Deck B", deckB.PlayableEntries, cancellationToken).ConfigureAwait(false);
-        timings.Add(("Scryfall card lookup", lookupStopwatch.ElapsedMilliseconds, $"Deck A {deckACards.Count} cards | Deck B {deckBCards.Count} cards"));
+        var deckALookup = await LookupCardDetailsAsync("Deck A", deckA.PlayableEntries, cancellationToken).ConfigureAwait(false);
+        var deckBLookup = await LookupCardDetailsAsync("Deck B", deckB.PlayableEntries, cancellationToken).ConfigureAwait(false);
+        timings.Add(("Scryfall card lookup", lookupStopwatch.ElapsedMilliseconds, $"Deck A {deckALookup.Cards.Count} cards | Deck B {deckBLookup.Cards.Count} cards"));
+
+        var deckACards = deckALookup.Cards;
+        var deckBCards = deckBLookup.Cards;
+
+        var deckAListText = BuildDecklistText(deckA.PlayableEntries, deckA.OptionalEntries, deckALookup.OracleNameMap);
+        var deckBListText = BuildDecklistText(deckB.PlayableEntries, deckB.OptionalEntries, deckBLookup.OracleNameMap);
 
         var comboLookupStopwatch = Stopwatch.StartNew();
         var deckACombos = await _commanderSpellbookService.FindCombosAsync(deckA.PlayableEntries, cancellationToken).ConfigureAwait(false);
@@ -269,7 +276,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         throw new InvalidOperationException("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, Moxfield export, or Archidekt export.");
     }
 
-    private async Task<IReadOnlyList<ScryfallCard>> LookupCardDetailsAsync(string deckLabel, IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)
+    private async Task<CardLookupResult> LookupCardDetailsAsync(string deckLabel, IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)
     {
         var uniqueNames = entries
             .Where(entry => !string.IsNullOrWhiteSpace(entry.Name))
@@ -279,6 +286,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
             .ToList();
 
         var resolvedCards = new List<ScryfallCard>();
+        var oracleNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var chunk in Chunk(uniqueNames, ScryfallBatchSize))
         {
             var request = new RestRequest("cards/collection", Method.Post)
@@ -296,11 +304,71 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
                     response.StatusCode);
             }
 
+            foreach (var card in response.Data.Data)
+            {
+                var submittedName = chunk.FirstOrDefault(name => string.Equals(name, card.Name, StringComparison.OrdinalIgnoreCase));
+                if (submittedName is not null)
+                {
+                    oracleNameMap[submittedName] = card.Name;
+                }
+            }
+
             resolvedCards.AddRange(response.Data.Data);
+
+            var unresolvedNames = chunk
+                .Where(name => !oracleNameMap.ContainsKey(name))
+                .ToList();
+
+            foreach (var unresolvedName in unresolvedNames)
+            {
+                var fallbackCard = await SearchFallbackCardAsync(unresolvedName, cancellationToken).ConfigureAwait(false);
+                if (fallbackCard is null)
+                {
+                    continue;
+                }
+
+                oracleNameMap[unresolvedName] = fallbackCard.Name;
+                if (!resolvedCards.Any(card => string.Equals(card.Name, fallbackCard.Name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    resolvedCards.Add(fallbackCard);
+                }
+            }
         }
 
-        return resolvedCards;
+        return new CardLookupResult(resolvedCards, oracleNameMap);
     }
+
+    private async Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+    {
+        var normalizedName = cardName.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedName))
+        {
+            return null;
+        }
+
+        var request = new RestRequest("cards/search", Method.Get);
+        request.AddQueryParameter("q", $"!\"{normalizedName}\"");
+        request.AddQueryParameter("unique", "cards");
+        request.AddQueryParameter("order", "name");
+
+        var response = await _executeSearchAsync(request, cancellationToken).ConfigureAwait(false);
+        if ((int)response.StatusCode >= 200 && (int)response.StatusCode < 300)
+        {
+            return response.Data?.Data.FirstOrDefault();
+        }
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        throw new HttpRequestException(
+            $"Scryfall fallback lookup failed while resolving {cardName} with HTTP {(int)response.StatusCode}.",
+            null,
+            response.StatusCode);
+    }
+
+    private sealed record CardLookupResult(IReadOnlyList<ScryfallCard> Cards, IReadOnlyDictionary<string, string> OracleNameMap);
 
     private static DeckComparisonDeckSummary BuildDeckSummary(
         string deckName,
@@ -554,22 +622,30 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         string comparisonSchemaJson)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("### Task");
+        builder.AppendLine($"Title this chat: {deckA.CommanderName} vs {deckB.CommanderName} | Deck Comparison");
+        builder.AppendLine();
+        builder.AppendLine("You are an expert Magic: The Gathering deck analyst specializing in Commander.");
+        builder.AppendLine();
+        builder.AppendLine("## TASK");
         builder.AppendLine("Based only on the provided deck contents and supplied context, compare the decks in a typical multiplayer Commander environment.");
         builder.AppendLine("Provide a grounded, evidence-based comparison instead of a speculative matchup prediction.");
+        builder.AppendLine("Read all supplied deck data and context before beginning the comparison.");
         builder.AppendLine();
-        builder.AppendLine("### Rules");
+        builder.AppendLine("## RULES");
         builder.AppendLine("- Treat the supplied decklists, commander names, bracket selections, combo findings, and derived comparison context as the source of truth.");
         builder.AppendLine("- Do not invent cards, colors, commander identities, or card text not supported by the provided context.");
         builder.AppendLine("- Do not assume a card's role unless it is supported by the deck contents or provided context.");
         builder.AppendLine("- Do not claim exact card text unless it is included in the packet.");
         builder.AppendLine("- If a conclusion is not well-supported by the provided deck contents, say that explicitly instead of guessing.");
+        builder.AppendLine("- If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
         builder.AppendLine("- When uncertain, mark the statement as low-confidence and add the reason to confidence_notes.");
         builder.AppendLine("- For each major conclusion, reference the deck patterns, card packages, or commander incentives that support it.");
         builder.AppendLine("- Base conclusions on observable deck construction rather than vague impressions.");
         builder.AppendLine("- Do not make claims about exact metagames unless explicitly provided.");
+        builder.AppendLine("- If the two decks target different brackets, note the mismatch prominently and explain how it affects the comparison.");
         builder.AppendLine();
-        builder.AppendLine("### Comparison Axes");
+        builder.AppendLine("## COMPARISON AXES");
+        builder.AppendLine("For each axis, write 2-4 sentences comparing the two decks. State the conclusion first, then the evidence.");
         builder.AppendLine($"- Commander role and game plan for {deckA.Name}");
         builder.AppendLine($"- Commander role and game plan for {deckB.Name}");
         builder.AppendLine("- Speed and setup tempo");
@@ -585,12 +661,16 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("- Dependence on commander");
         builder.AppendLine("- Likely table fit");
         builder.AppendLine("- Major overlap and major differences");
-        builder.AppendLine("- Five concrete cards or packages that best explain the gap");
         builder.AppendLine();
-        builder.AppendLine("### Output Format");
-        builder.AppendLine("- First return a readable comparison section for humans.");
-        builder.AppendLine("- Include a concise summary, a side-by-side comparison structure, and a final verdict.");
-        builder.AppendLine("- Then return a fenced ```json block whose top-level object is named deck_comparison.");
+        builder.AppendLine("## OUTPUT FORMAT");
+        builder.AppendLine("Structure your response as follows:");
+        builder.AppendLine();
+        builder.AppendLine("A. Readable comparison — one subsection per axis above, then a concise side-by-side summary.");
+        builder.AppendLine("B. Five concrete cards or packages that best explain the gap between the two decks, with one sentence of reasoning each.");
+        builder.AppendLine("C. Final verdict — which deck is stronger overall and why, in 2-4 sentences.");
+        builder.AppendLine("D. A fenced ```json block whose top-level object is named deck_comparison.");
+        builder.AppendLine();
+        builder.AppendLine("JSON requirements:");
         builder.AppendLine("- Return valid JSON only inside the fenced block.");
         builder.AppendLine("- Do not include comments in the JSON.");
         builder.AppendLine("- Do not omit required fields.");
@@ -603,13 +683,13 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         builder.AppendLine("}");
         builder.AppendLine("```");
         builder.AppendLine();
-        builder.AppendLine("### Deck A");
+        builder.AppendLine("## DECK A");
         AppendPromptDeckSection(builder, deckA, deckAListText, deckAComboText);
         builder.AppendLine();
-        builder.AppendLine("### Deck B");
+        builder.AppendLine("## DECK B");
         AppendPromptDeckSection(builder, deckB, deckBListText, deckBComboText);
         builder.AppendLine();
-        builder.AppendLine("### Comparison Context");
+        builder.AppendLine("## COMPARISON CONTEXT");
         builder.AppendLine(comparisonContextText);
         return builder.ToString().TrimEnd();
     }
@@ -635,19 +715,28 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
     private static string BuildFollowUpPrompt(string comparisonSchemaJson)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("Use this follow-up prompt after the initial comparison when the user asks extra questions.");
+        builder.AppendLine("You are an expert Magic: The Gathering deck analyst specializing in Commander.");
         builder.AppendLine();
-        builder.AppendLine("### Task");
+        builder.AppendLine("## TASK");
         builder.AppendLine("Revise the existing deck comparison using the follow-up questions and answers in this chat.");
+        builder.AppendLine("Re-read the original decklists and packet context before revising.");
         builder.AppendLine();
-        builder.AppendLine("### Rules");
-        builder.AppendLine("- Preserve the original comparison structure.");
+        builder.AppendLine("## RULES");
+        builder.AppendLine("- Preserve the original comparison structure: readable summary, side-by-side comparison, verdict, then JSON.");
         builder.AppendLine("- Incorporate the new follow-up Q&A without contradicting the supplied deck contents or packet context.");
         builder.AppendLine("- Keep using the decklists and packet context as the source of truth.");
+        builder.AppendLine("- Do not invent cards, colors, or card text not supported by the provided context.");
+        builder.AppendLine("- If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
         builder.AppendLine("- If a new conclusion is uncertain, mark it as low-confidence and explain why in confidence_notes.");
+        builder.AppendLine("- For each revised conclusion, reference the deck patterns, card packages, or commander incentives that support it.");
         builder.AppendLine();
-        builder.AppendLine("### Output Format");
-        builder.AppendLine("- Return the updated readable comparison.");
+        builder.AppendLine("## COMPARISON AXES");
+        builder.AppendLine("Re-evaluate every axis from the original comparison where the follow-up information is relevant:");
+        builder.AppendLine("commander role, game plan, speed, ramp, draw, spot interaction, sweepers, recursion, closing power, resilience, consistency, mana stability, commander dependence, and table fit.");
+        builder.AppendLine();
+        builder.AppendLine("## OUTPUT FORMAT");
+        builder.AppendLine("- Return the updated readable comparison with 2-4 sentences per axis that changed.");
+        builder.AppendLine("- Include a revised verdict.");
         builder.AppendLine("- Then regenerate the full fenced ```json block with the top-level object named deck_comparison.");
         builder.AppendLine("- Keep the JSON valid and include every required field from this schema:");
         builder.AppendLine();
@@ -810,13 +899,13 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
     private static string FallbackText(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 
-    private static string BuildDecklistText(IReadOnlyList<DeckEntry> entries, IReadOnlyList<DeckEntry> optionalEntries)
+    private static string BuildDecklistText(IReadOnlyList<DeckEntry> entries, IReadOnlyList<DeckEntry> optionalEntries, IReadOnlyDictionary<string, string>? oracleNameMap = null)
     {
         var builder = new StringBuilder();
         var commanderLines = entries
             .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => $"{entry.Quantity} {entry.Name}")
+            .Select(entry => FormatDecklistLine(entry, oracleNameMap))
             .ToList();
 
         if (commanderLines.Count > 0)
@@ -834,7 +923,7 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
         foreach (var line in entries
                      .Where(entry => !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
                      .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-                     .Select(entry => $"{entry.Quantity} {entry.Name}"))
+                     .Select(entry => FormatDecklistLine(entry, oracleNameMap)))
         {
             builder.AppendLine(line);
         }
@@ -845,13 +934,24 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
             builder.AppendLine("Possible Includes");
             foreach (var line in optionalEntries
                          .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-                         .Select(entry => $"{entry.Quantity} {entry.Name}"))
+                         .Select(entry => FormatDecklistLine(entry, oracleNameMap)))
             {
                 builder.AppendLine(line);
             }
         }
 
         return builder.ToString().TrimEnd();
+    }
+
+    private static string FormatDecklistLine(DeckEntry entry, IReadOnlyDictionary<string, string>? oracleNameMap)
+    {
+        if (oracleNameMap is not null && oracleNameMap.TryGetValue(entry.Name, out var resolvedName)
+            && !string.Equals(resolvedName, entry.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{entry.Quantity} {resolvedName} [printed as: {entry.Name}]";
+        }
+
+        return $"{entry.Quantity} {entry.Name}";
     }
 
     private static string NormalizeOracleText(ScryfallCard card)

@@ -93,11 +93,11 @@ Deck
 """
         });
 
-        var taskIndex = result.ComparisonPromptText.IndexOf("### Task", StringComparison.Ordinal);
-        var rulesIndex = result.ComparisonPromptText.IndexOf("### Rules", StringComparison.Ordinal);
-        var deckAIndex = result.ComparisonPromptText.IndexOf("### Deck A", StringComparison.Ordinal);
-        var deckBIndex = result.ComparisonPromptText.IndexOf("### Deck B", StringComparison.Ordinal);
-        var contextIndex = result.ComparisonPromptText.IndexOf("### Comparison Context", StringComparison.Ordinal);
+        var taskIndex = result.ComparisonPromptText.IndexOf("## TASK", StringComparison.Ordinal);
+        var rulesIndex = result.ComparisonPromptText.IndexOf("## RULES", StringComparison.Ordinal);
+        var deckAIndex = result.ComparisonPromptText.IndexOf("## DECK A", StringComparison.Ordinal);
+        var deckBIndex = result.ComparisonPromptText.IndexOf("## DECK B", StringComparison.Ordinal);
+        var contextIndex = result.ComparisonPromptText.IndexOf("## COMPARISON CONTEXT", StringComparison.Ordinal);
 
         Assert.True(taskIndex >= 0);
         Assert.True(rulesIndex > taskIndex);
@@ -118,7 +118,7 @@ Deck
         Assert.Contains("\"mana_consistency_comparison\": \"\"", result.ComparisonPromptText);
         Assert.Contains("commander_bracket_definitions:", result.ComparisonContextText);
         Assert.Contains("combo_gap:", result.ComparisonContextText);
-        Assert.Contains("Preserve the original comparison structure.", result.FollowUpPromptText);
+        Assert.Contains("Preserve the original comparison structure: readable summary, side-by-side comparison, verdict, then JSON.", result.FollowUpPromptText);
     }
 
     [Fact]
@@ -265,7 +265,49 @@ Deck
         Assert.Contains("Battlecruiser tables", result.ComparisonResponse.RecommendedFor.DeckA);
     }
 
-    private static ChatGptDeckComparisonService CreateService(string? rootPath = null)
+    [Fact]
+    public async Task BuildAsync_UsesPerCardFallbackForMultipleRenamedCards()
+    {
+        var service = CreateService(
+            executeCollectionAsync: (request, _) => Task.FromResult(CreateCollectionResponseForRequestedCardsOnly(request)),
+            executeSearchAsync: (request, _) => Task.FromResult(CreateFallbackSearchResponse(request)));
+
+        var result = await service.BuildAsync(new ChatGptDeckComparisonRequest
+        {
+            WorkflowStep = 2,
+            DeckAName = "Renamed Cards",
+            DeckABracket = "Upgraded",
+            DeckASource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Ya viene el coco
+1 El Senor Presidente
+1 Sol Ring
+""",
+            DeckBName = "Partners",
+            DeckBBracket = "Optimized",
+            DeckBSource = """
+Commander
+1 Tymna the Weaver
+1 Thrasios, Triton Hero
+
+Deck
+1 Sol Ring
+1 Counterspell
+"""
+        });
+
+        Assert.Contains("1 Perfect Defense // Denting Blows [printed as: Ya viene el coco]", result.DeckAListText);
+        Assert.Contains("1 Commander's Authority [printed as: El Senor Presidente]", result.DeckAListText);
+        Assert.DoesNotContain("Perfect Defense // Denting Blows [printed as: El Senor Presidente]", result.DeckAListText);
+    }
+
+    private static ChatGptDeckComparisonService CreateService(
+        string? rootPath = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
     {
         var contentRootPath = rootPath ?? Path.Combine(Path.GetTempPath(), "MtgDeckStudioComparisonTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(contentRootPath);
@@ -277,7 +319,8 @@ Deck
             new ArchidektParser(),
             new FakeCommanderSpellbookService(),
             new FakeWebHostEnvironment(contentRootPath),
-            executeCollectionAsync: (request, _) => Task.FromResult(CreateCollectionResponse(request)),
+            executeCollectionAsync: executeCollectionAsync ?? ((request, _) => Task.FromResult(CreateCollectionResponse(request))),
+            executeSearchAsync: executeSearchAsync ?? ((request, _) => Task.FromResult(CreateSearchResponse(request))),
             artifactsPath: contentRootPath);
     }
 
@@ -287,6 +330,58 @@ Deck
         {
             StatusCode = HttpStatusCode.OK,
             Data = new ScryfallCollectionResponse(GetDefaultCards().ToList(), [])
+        };
+    }
+
+    private static RestResponse<ScryfallCollectionResponse> CreateCollectionResponseForRequestedCardsOnly(RestRequest request)
+    {
+        var body = request.Parameters
+            .FirstOrDefault(parameter => string.Equals(parameter.Name?.ToString(), "application/json", StringComparison.OrdinalIgnoreCase))
+            ?.Value?
+            .ToString() ?? string.Empty;
+
+        var exactMatches = GetDefaultCards()
+            .Where(card => body.Contains($"\"{card.Name}\"", StringComparison.Ordinal))
+            .ToList();
+
+        return new RestResponse<ScryfallCollectionResponse>(request)
+        {
+            StatusCode = HttpStatusCode.OK,
+            Data = new ScryfallCollectionResponse(exactMatches, [])
+        };
+    }
+
+    private static RestResponse<ScryfallSearchResponse> CreateSearchResponse(RestRequest request)
+    {
+        var query = request.Parameters.FirstOrDefault(parameter => parameter.Name?.ToString() == "q")?.Value?.ToString() ?? string.Empty;
+        var match = FindDefaultCard(query);
+        return new RestResponse<ScryfallSearchResponse>(request)
+        {
+            StatusCode = HttpStatusCode.OK,
+            Data = new ScryfallSearchResponse(match is null ? [] : [match])
+        };
+    }
+
+    private static RestResponse<ScryfallSearchResponse> CreateFallbackSearchResponse(RestRequest request)
+    {
+        var query = request.Parameters.FirstOrDefault(parameter => parameter.Name?.ToString() == "q")?.Value?.ToString() ?? string.Empty;
+        var match = query switch
+        {
+            var value when value.Contains("Ya viene el coco", StringComparison.OrdinalIgnoreCase)
+                => new ScryfallCard("Perfect Defense // Denting Blows", "{2}{W}", "Instant", "Choose one.", null, null, [], ["W"], null,
+                    [
+                        new ScryfallCardFace("Perfect Defense", "{2}{W}", "Instant", "Prevent all combat damage that would be dealt this turn.", null, null),
+                        new ScryfallCardFace("Denting Blows", "{2}{R}", "Instant", "Denting Blows deals 4 damage to target creature.", null, null)
+                    ], null),
+            var value when value.Contains("El Senor Presidente", StringComparison.OrdinalIgnoreCase)
+                => new ScryfallCard("Commander's Authority", "{3}{W}", "Enchantment — Aura", "Enchant creature\nEnchanted creature has vigilance.", null, null, [], ["W"], null, null, null),
+            _ => FindDefaultCard(query)
+        };
+
+        return new RestResponse<ScryfallSearchResponse>(request)
+        {
+            StatusCode = HttpStatusCode.OK,
+            Data = new ScryfallSearchResponse(match is null ? [] : [match])
         };
     }
 
@@ -302,6 +397,23 @@ Deck
         new("Counterspell", "{U}{U}", "Instant", "Counter target spell.", null, null, [], ["U"], null, null, null),
         new("Wrath of God", "{2}{W}{W}", "Sorcery", "Destroy all creatures. They can't be regenerated.", null, null, [], ["W"], null, null, null)
     ];
+
+    private static ScryfallCard? FindDefaultCard(string query)
+    {
+        var normalizedQuery = NormalizeLookup(query);
+        return GetDefaultCards().FirstOrDefault(card =>
+            normalizedQuery.Contains(NormalizeLookup(card.Name), StringComparison.Ordinal)
+            || (card.CardFaces?.Any(face => normalizedQuery.Contains(NormalizeLookup(face.Name), StringComparison.Ordinal)) ?? false));
+    }
+
+    private static string NormalizeLookup(string value)
+        => value
+            .Trim()
+            .Replace("\"", string.Empty, StringComparison.Ordinal)
+            .Replace("'", string.Empty, StringComparison.Ordinal)
+            .Replace("(", string.Empty, StringComparison.Ordinal)
+            .Replace(")", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
 
     private sealed class FakeMoxfieldDeckImporter : IMoxfieldDeckImporter
     {
