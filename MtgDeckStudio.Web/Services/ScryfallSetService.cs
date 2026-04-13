@@ -20,6 +20,8 @@ public sealed partial class ScryfallSetService : IScryfallSetService
 {
     private const string SetCacheKey = "scryfall-set-options";
     private static readonly TimeSpan SetCacheDuration = TimeSpan.FromHours(6);
+    private const int MaxCardsPerSetPacket = 60;
+    private const int MaxMechanicsPerSetPacket = 12;
     private static readonly Regex AbilityWordRegex = AbilityWordPattern();
     private readonly IMemoryCache _cache;
     private readonly IMechanicLookupService _mechanicLookupService;
@@ -93,7 +95,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         }
 
         var knownSets = await GetSetsAsync(cancellationToken).ConfigureAwait(false);
-        var cardsBySet = new List<(ScryfallSetOption Set, IReadOnlyList<ScryfallCard> Cards)>();
+        var cardsBySet = new List<(ScryfallSetOption Set, IReadOnlyList<ScryfallCard> Cards, int LegalCardCount)>();
         var mechanicNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var setCode in normalizedCodes)
@@ -108,9 +110,10 @@ public sealed partial class ScryfallSetService : IScryfallSetService
                     .ToList();
             }
 
-            cardsBySet.Add((set, cards));
+            var compactCards = BuildCompactCardPacket(cards);
+            cardsBySet.Add((set, compactCards, cards.Count));
 
-            foreach (var card in cards)
+            foreach (var card in compactCards)
             {
                 foreach (var keyword in card.Keywords ?? Array.Empty<string>())
                 {
@@ -134,6 +137,11 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         }
 
         builder.AppendLine();
+        builder.AppendLine("selection_notes:");
+        builder.AppendLine("- This is a compact candidate packet, not a full set dump.");
+        builder.AppendLine($"- Each set is trimmed to the top {MaxCardsPerSetPacket} color-legal candidate cards by heuristic relevance.");
+        builder.AppendLine("- Basic lands and low-signal generic mana-fixing cards are excluded to keep the prompt small enough to send reliably.");
+        builder.AppendLine();
         builder.AppendLine("mechanics:");
         var mechanics = await BuildMechanicLinesAsync(mechanicNames, cancellationToken).ConfigureAwait(false);
         if (mechanics.Count == 0)
@@ -152,6 +160,8 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         {
             builder.AppendLine();
             builder.AppendLine($"set: {item.Set.Name} ({item.Set.Code.ToUpperInvariant()})");
+            builder.AppendLine($"candidate_cards_included: {item.Cards.Count}");
+            builder.AppendLine($"color_legal_cards_scanned: {item.LegalCardCount}");
             builder.AppendLine("cards:");
             foreach (var card in item.Cards)
             {
@@ -199,7 +209,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
     private async Task<IReadOnlyList<string>> BuildMechanicLinesAsync(IReadOnlyCollection<string> mechanicNames, CancellationToken cancellationToken)
     {
         var lines = new List<string>();
-        foreach (var mechanicName in mechanicNames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase))
+        foreach (var mechanicName in mechanicNames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).Take(MaxMechanicsPerSetPacket))
         {
             var result = await _mechanicLookupService.LookupAsync(mechanicName, cancellationToken).ConfigureAwait(false);
             if (!result.Found)
@@ -250,6 +260,178 @@ public sealed partial class ScryfallSetService : IScryfallSetService
     private static string CollapseWhitespace(string value)
         => string.Join(" ", value.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
+    private static IReadOnlyList<ScryfallCard> BuildCompactCardPacket(IReadOnlyList<ScryfallCard> cards)
+    {
+        return cards
+            .Select(card => new { Card = card, Score = ScoreSetCard(card) })
+            .Where(entry => entry.Score > 0)
+            .OrderByDescending(entry => entry.Score)
+            .ThenBy(entry => ParseManaValue(entry.Card.ManaCost))
+            .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(MaxCardsPerSetPacket)
+            .Select(entry => entry.Card)
+            .ToList();
+    }
+
+    private static int ScoreSetCard(ScryfallCard card)
+    {
+        var typeLine = card.TypeLine ?? string.Empty;
+        var oracleText = NormalizeOracleText(card);
+        var score = 0;
+
+        if (typeLine.Contains("Basic Land", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        if (typeLine.Contains("Land", StringComparison.OrdinalIgnoreCase) && !HasHighSignalLandText(oracleText))
+        {
+            return 0;
+        }
+
+        if (typeLine.Contains("Creature", StringComparison.OrdinalIgnoreCase))
+        {
+            score += 5;
+        }
+
+        if (typeLine.Contains("Instant", StringComparison.OrdinalIgnoreCase)
+            || typeLine.Contains("Sorcery", StringComparison.OrdinalIgnoreCase))
+        {
+            score += 4;
+        }
+
+        if (typeLine.Contains("Artifact", StringComparison.OrdinalIgnoreCase)
+            || typeLine.Contains("Enchantment", StringComparison.OrdinalIgnoreCase))
+        {
+            score += 3;
+        }
+
+        if (typeLine.Contains("Legendary", StringComparison.OrdinalIgnoreCase))
+        {
+            score += 1;
+        }
+
+        score += ScoreTextSignals(oracleText);
+
+        var manaValue = ParseManaValue(card.ManaCost);
+        if (manaValue <= 2)
+        {
+            score += 3;
+        }
+        else if (manaValue <= 4)
+        {
+            score += 1;
+        }
+        else if (manaValue >= 7)
+        {
+            score -= 1;
+        }
+
+        return score;
+    }
+
+    private static int ScoreTextSignals(string oracleText)
+    {
+        var score = 0;
+
+        string[] graveyardSignals =
+        [
+            "graveyard",
+            "mill",
+            "discard",
+            "sacrifice",
+            "dies",
+            "died",
+            "return target",
+            "from your graveyard",
+            "flashback",
+            "escape",
+            "surveil",
+            "reanimate"
+        ];
+        string[] pressureSignals =
+        [
+            "create",
+            "token",
+            "attack",
+            "combat",
+            "haste",
+            "trample",
+            "double strike",
+            "deals",
+            "damage"
+        ];
+        string[] selectionSignals =
+        [
+            "draw",
+            "search your library",
+            "look at the top",
+            "scry",
+            "surveil"
+        ];
+        string[] interactionSignals =
+        [
+            "destroy target",
+            "exile target",
+            "fight",
+            "counter target",
+            "target player sacrifices"
+        ];
+
+        if (graveyardSignals.Any(signal => oracleText.Contains(signal, StringComparison.OrdinalIgnoreCase)))
+        {
+            score += 6;
+        }
+
+        if (pressureSignals.Any(signal => oracleText.Contains(signal, StringComparison.OrdinalIgnoreCase)))
+        {
+            score += 4;
+        }
+
+        if (selectionSignals.Any(signal => oracleText.Contains(signal, StringComparison.OrdinalIgnoreCase)))
+        {
+            score += 3;
+        }
+
+        if (interactionSignals.Any(signal => oracleText.Contains(signal, StringComparison.OrdinalIgnoreCase)))
+        {
+            score += 2;
+        }
+
+        if (oracleText.Contains("+1/+1 counter", StringComparison.OrdinalIgnoreCase))
+        {
+            score += 1;
+        }
+
+        return score;
+    }
+
+    private static bool HasHighSignalLandText(string oracleText)
+    {
+        if (string.IsNullOrWhiteSpace(oracleText))
+        {
+            return false;
+        }
+
+        string[] highSignalLandPhrases =
+        [
+            "graveyard",
+            "draw",
+            "create",
+            "token",
+            "sacrifice",
+            "attacks",
+            "combat",
+            "return target",
+            "cast",
+            "copy",
+            "destroy target",
+            "exile target"
+        ];
+
+        return highSignalLandPhrases.Any(phrase => oracleText.Contains(phrase, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static bool IsPlayableInCommanderIdentity(ScryfallCard card, IReadOnlySet<string> commanderIdentity)
     {
         var cardIdentity = (card.ColorIdentity ?? Array.Empty<string>())
@@ -279,6 +461,29 @@ public sealed partial class ScryfallSetService : IScryfallSetService
 
         var digits = new string(collectorNumber.Where(char.IsDigit).ToArray());
         return int.TryParse(digits, out var number) ? number : int.MaxValue;
+    }
+
+    private static int ParseManaValue(string? manaCost)
+    {
+        if (string.IsNullOrWhiteSpace(manaCost))
+        {
+            return int.MaxValue;
+        }
+
+        var total = 0;
+        foreach (Match match in Regex.Matches(manaCost, @"\{([^}]+)\}"))
+        {
+            var symbol = match.Groups[1].Value;
+            if (int.TryParse(symbol, out var genericValue))
+            {
+                total += genericValue;
+                continue;
+            }
+
+            total += 1;
+        }
+
+        return total == 0 ? int.MaxValue : total;
     }
 
     [GeneratedRegex(@"^(?<term>[A-Za-z][A-Za-z' -]{1,40})\s+—\s+", RegexOptions.Compiled | RegexOptions.CultureInvariant)]

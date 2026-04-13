@@ -546,17 +546,17 @@ Do not omit any fields from the schema.
         <div class="chatgpt-instructions">
             <strong>What you do:</strong>
             <ol>
-                <li>Select one or more sets, or paste a condensed set packet.</li>
+                <li>Select one set, or paste a condensed set packet.</li>
                 <li>Click <code>Generate Set Upgrade Packet</code>.</li>
                 <li>Paste the returned <code>set-upgrade-analysis.txt</code> into ChatGPT.</li>
                 <li>Have ChatGPT return both a fenced <code>```json</code> block for the set analysis data and a fenced <code>```text</code> block named <code>discussion_summary.txt</code> with condensed per-set notes, recommendations, and answers.</li>
             </ol>
         </div>
         <label class="field">
-            <span>Select sets to generate a set packet</span>
-            <select name="SelectedSetCodes" multiple size="12" data-set-options-select data-selected-codes="@string.Join(",", Model.Request.SelectedSetCodes)">
+            <span>Select one set to generate a compact set packet</span>
+            <select name="SelectedSetCodes" size="12" data-set-options-select data-selected-codes="@string.Join(",", Model.Request.SelectedSetCodes.Take(1))">
             </select>
-            <small class="sync-column__hint">Hold Ctrl or Cmd to choose multiple sets. If you select sets here, the tool generates the condensed set packet for you.</small>
+            <small class="sync-column__hint">Choose a single set here. The tool generates a compact candidate packet instead of a full set dump to keep the ChatGPT prompt sendable.</small>
             <small class="sync-column__hint hidden" data-set-options-error>The Scryfall set catalog could not be loaded right now. You can still paste a condensed set packet manually below.</small>
         </label>
         <label class="field">

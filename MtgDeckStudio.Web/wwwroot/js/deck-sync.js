@@ -699,6 +699,9 @@ const validateChatGptPacketsStep = (form, step) => {
         return 'Paste the deck_profile JSON returned from ChatGPT before rendering the analysis summary.';
     }
     if (step >= 4) {
+        if (!setPacketText && selectedSetCodes.length > 1) {
+            return 'Choose only one set or paste a condensed set packet override before generating the set-upgrade packet.';
+        }
         if (!setPacketText && selectedSetCodes.length === 0) {
             return 'Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.';
         }

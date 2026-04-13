@@ -355,7 +355,7 @@ public sealed class DeckControllerTests
     }
 
     [Fact]
-    public async Task ChatGptPackets_PassesMultipleSelectedQuestionsAndSetsToService()
+    public async Task ChatGptPackets_PassesSelectedQuestionsAndSingleSetToService()
     {
         var capturingService = new CapturingChatGptDeckPacketService();
         var controller = new DeckController(
@@ -384,7 +384,7 @@ public sealed class DeckControllerTests
             SelectedAnalysisQuestions = ["consistency", "strengths-weaknesses", "budget-upgrades"],
             BudgetUpgradeAmount = "75",
             DeckProfileJson = "{\"game_plan\":\"midrange\"}",
-            SelectedSetCodes = ["dsk", "fdn"]
+            SelectedSetCodes = ["dsk"]
         };
 
         await controller.ChatGptPackets(request);
@@ -394,9 +394,8 @@ public sealed class DeckControllerTests
         Assert.Contains("consistency", capturingService.LastRequest.SelectedAnalysisQuestions);
         Assert.Contains("strengths-weaknesses", capturingService.LastRequest.SelectedAnalysisQuestions);
         Assert.Contains("budget-upgrades", capturingService.LastRequest.SelectedAnalysisQuestions);
-        Assert.Equal(2, capturingService.LastRequest.SelectedSetCodes.Count);
+        Assert.Single(capturingService.LastRequest.SelectedSetCodes);
         Assert.Contains("dsk", capturingService.LastRequest.SelectedSetCodes);
-        Assert.Contains("fdn", capturingService.LastRequest.SelectedSetCodes);
         Assert.Equal("75", capturingService.LastRequest.BudgetUpgradeAmount);
     }
 

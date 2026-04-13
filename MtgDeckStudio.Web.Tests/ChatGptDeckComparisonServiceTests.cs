@@ -368,11 +368,11 @@ Deck
         var match = query switch
         {
             var value when value.Contains("Ya viene el coco", StringComparison.OrdinalIgnoreCase)
-                => new ScryfallCard("Perfect Defense // Denting Blows", "{2}{W}", "Instant", "Choose one.", null, null, [], ["W"], null,
+                => new ScryfallCard("Perfect Defense // Denting Blows", "{2}{W}", "Instant", "Choose one.", null, null, [], ["W"], null, null, null,
                     [
                         new ScryfallCardFace("Perfect Defense", "{2}{W}", "Instant", "Prevent all combat damage that would be dealt this turn.", null, null),
                         new ScryfallCardFace("Denting Blows", "{2}{R}", "Instant", "Denting Blows deals 4 damage to target creature.", null, null)
-                    ], null),
+                    ]),
             var value when value.Contains("El Senor Presidente", StringComparison.OrdinalIgnoreCase)
                 => new ScryfallCard("Commander's Authority", "{3}{W}", "Enchantment — Aura", "Enchant creature\nEnchanted creature has vigilance.", null, null, [], ["W"], null, null, null),
             _ => FindDefaultCard(query)

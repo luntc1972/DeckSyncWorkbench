@@ -1081,6 +1081,41 @@ Commander
     }
 
     [Fact]
+    public async Task BuildAsync_ThrowsValidationError_WhenMultipleSetsSelectedForGeneratedPacket()
+    {
+        var service = CreateService();
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync(new ChatGptDeckRequest
+        {
+            WorkflowStep = 4,
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            DeckProfileJson = """
+{
+  "format": "Commander",
+  "commander": "Atraxa, Praetors' Voice",
+  "game_plan": "Midrange value",
+  "primary_axes": ["counters"],
+  "speed": "medium",
+  "strengths": [],
+  "weaknesses": [],
+  "deck_needs": [],
+  "weak_slots": [],
+  "synergy_tags": []
+}
+""",
+            SelectedSetCodes = ["dsk", "fdn"]
+        }));
+
+        Assert.Equal("Choose only one set or paste a condensed set packet override before generating the set-upgrade packet.", exception.Message);
+    }
+
+    [Fact]
     public async Task BuildAsync_SavesArtifactsToDisk_WhenRequested()
     {
         var artifactsRoot = Path.Combine(Path.GetTempPath(), "MtgDeckStudioTests", Guid.NewGuid().ToString("N"));
@@ -1187,6 +1222,9 @@ Commander
         Assert.Contains("1. What are the strengths and weaknesses of this deck?", result.AnalysisPromptText);
         Assert.Contains("2. Would this deck benefit from a dedicated stax package?", result.AnalysisPromptText);
         Assert.Contains("question_answers array must contain one entry per question", result.AnalysisPromptText);
+        Assert.Contains("Do not omit any question. If there are 8 questions, return exactly 8 question_answers entries numbered 1 through 8.", result.AnalysisPromptText);
+        Assert.Contains("The JSON question_answers entries must mirror the readable Requested Question Answers section one-for-one.", result.AnalysisPromptText);
+        Assert.Contains("Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.", result.AnalysisPromptText);
     }
 
     [Fact]

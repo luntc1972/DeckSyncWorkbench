@@ -892,6 +892,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine("   - Answer every question using the same numbering from the ANALYSIS QUESTIONS section.");
         builder.AppendLine("   - For each answer, state the conclusion first, then give 6-12 sentences of detailed reasoning that cites specific card names, interactions, and strategic rationale.");
         builder.AppendLine("   - Do not skip, merge, or partially answer any question.");
+        builder.AppendLine("   - After writing the readable analysis, copy every answer into deck_profile.question_answers with the same numbering and the same full answer text expanded to JSON form.");
         builder.AppendLine();
         builder.AppendLine("B. After the question answers, include these recommendation sections:");
         builder.AppendLine("   - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.");
@@ -960,7 +961,11 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         builder.AppendLine("D. After the full analysis, return a JSON object named deck_profile matching the schema below.");
         builder.AppendLine("   Return it inside a ```json fenced code block so it can be copied cleanly.");
         builder.AppendLine("   The question_answers array must contain one entry per question, in the same order as the numbered list above.");
+        builder.AppendLine("   Do not omit any question. If there are 8 questions, return exactly 8 question_answers entries numbered 1 through 8.");
+        builder.AppendLine("   The JSON question_answers entries must mirror the readable Requested Question Answers section one-for-one.");
         builder.AppendLine("   Each answer field must be a thorough response (6-12 sentences minimum) — not a brief summary. Cite specific card names and interactions.");
+        builder.AppendLine("   Do not collapse multiple questions into one JSON entry, and do not replace full answers with shorthand summaries in the JSON.");
+        builder.AppendLine("   Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.");
         if (requiresFullDecklists)
         {
             builder.AppendLine("   The deck_versions array must contain one entry per requested deck version or upgrade path.");
@@ -1174,9 +1179,14 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             return string.IsNullOrWhiteSpace(request.SetPacketText) ? null : request.SetPacketText.Trim();
         }
 
+        if (request.SelectedSetCodes.Count > 1 && string.IsNullOrWhiteSpace(request.SetPacketText))
+        {
+            throw new InvalidOperationException("Choose only one set or paste a condensed set packet override before generating the set-upgrade packet.");
+        }
+
         var commanderColorIdentity = await LookupCommanderColorIdentityAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
         var generatedPacket = await _scryfallSetService
-            .BuildSetPacketAsync(request.SelectedSetCodes, commanderColorIdentity, cancellationToken)
+            .BuildSetPacketAsync([request.SelectedSetCodes[0]], commanderColorIdentity, cancellationToken)
             .ConfigureAwait(false);
         return string.IsNullOrWhiteSpace(generatedPacket) ? null : generatedPacket;
     }

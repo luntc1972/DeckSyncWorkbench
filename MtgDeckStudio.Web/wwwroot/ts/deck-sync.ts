@@ -892,6 +892,10 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
   }
 
   if (step >= 4) {
+    if (!setPacketText && selectedSetCodes.length > 1) {
+      return 'Choose only one set or paste a condensed set packet override before generating the set-upgrade packet.';
+    }
+
     if (!setPacketText && selectedSetCodes.length === 0) {
       return 'Select at least one set or paste a condensed set packet override before generating the set-upgrade packet.';
     }

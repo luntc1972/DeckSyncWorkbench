@@ -97,6 +97,48 @@ public sealed class ScryfallSetServiceTests
         Assert.DoesNotContain("Rakdos Card", packet);
     }
 
+    [Fact]
+    public async Task BuildSetPacketAsync_ExcludesLowSignalLandsAndAddsSelectionNotes()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = new ScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("tst", "Test Set", "2025-01-01", "expansion", 4, Digital: false)
+                    ])
+                }),
+            executeSearchAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSearchResponse>(new RestRequest("cards/search"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(
+                    [
+                        new ScryfallCard("Basic Plains", null, "Basic Land — Plains", "({T}: Add {W}.)", null, null, [], ["W"], "tst", "Test Set", "1"),
+                        new ScryfallCard("Temple Campus", null, "Land", "This land enters tapped. {T}: Add {W}.", null, null, [], ["W"], "tst", "Test Set", "2"),
+                        new ScryfallCard("Grave Lesson", "{1}{B}", "Sorcery", "Mill three cards, then return target creature card from your graveyard to your hand.", null, null, [], ["B"], "tst", "Test Set", "3"),
+                        new ScryfallCard("Token Lecture", "{2}{G}", "Creature", "When this creature enters, create two 1/1 green tokens.", "3", "3", [], ["G"], "tst", "Test Set", "4")
+                    ],
+                    false,
+                    null)
+                }));
+
+        var packet = await service.BuildSetPacketAsync(["tst"], ["B", "G", "W"]);
+
+        Assert.Contains("selection_notes:", packet);
+        Assert.Contains("candidate_cards_included:", packet);
+        Assert.Contains("color_legal_cards_scanned: 4", packet);
+        Assert.Contains("Grave Lesson", packet);
+        Assert.Contains("Token Lecture", packet);
+        Assert.DoesNotContain("Basic Plains", packet);
+        Assert.DoesNotContain("Temple Campus", packet);
+    }
+
     private sealed class FakeMechanicLookupService : IMechanicLookupService
     {
         public Task<MechanicLookupResult> LookupAsync(string mechanicName, CancellationToken cancellationToken = default)
