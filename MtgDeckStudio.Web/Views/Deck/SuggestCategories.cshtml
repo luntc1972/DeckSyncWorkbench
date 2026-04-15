@@ -36,9 +36,11 @@
     <div class="toolbar">
         <label class="mode-picker">
             <span>Lookup mode</span>
-            <select name="Mode" required data-default-value="@CategorySuggestionMode.CachedData">
+            <select name="Mode" required data-default-value="@CategorySuggestionMode.All">
+                <option value="@CategorySuggestionMode.All" selected="@(suggestionMode == CategorySuggestionMode.All)">All sources</option>
                 <option value="@CategorySuggestionMode.CachedData" selected="@(suggestionMode == CategorySuggestionMode.CachedData)">Use cached data</option>
                 <option value="@CategorySuggestionMode.ReferenceDeck" selected="@(suggestionMode == CategorySuggestionMode.ReferenceDeck)">Use reference deck</option>
+                <option value="@CategorySuggestionMode.ScryfallTagger" selected="@(suggestionMode == CategorySuggestionMode.ScryfallTagger)">Scryfall Tagger</option>
             </select>
         </label>
         <label class="mode-picker flex-grow">
@@ -56,7 +58,7 @@
         <span>Click Suggest to keep scanning Archidekt decks for another 20 seconds and expand the cached category store.</span>
     </div>
     <div class="mode-note">
-        <span>Need a bigger refresh? Start a 10-minute Archidekt harvest in the background and keep using the rest of the app while it runs.</span>
+        <span>Need a bigger refresh? Start a 5-minute Archidekt harvest in the background and keep using the rest of the app while it runs.</span>
     </div>
     <div class="toolbar toolbar--secondary">
         <button
@@ -66,7 +68,7 @@
             data-start-url="@Url.Content("~/api/archidekt-cache-jobs")"
             data-status-base-url="@Url.Content("~/api/archidekt-cache-jobs")"
             data-active-url="@Url.Content("~/api/archidekt-cache-jobs/active")"
-            data-duration-seconds="600">Run 10-Minute Archidekt Harvest</button>
+            data-duration-seconds="300">Run 5-Minute Archidekt Harvest</button>
     </div>
     <div class="info-banner hidden" data-archidekt-cache-status-panel>
         <p data-archidekt-cache-status-text></p>
@@ -163,6 +165,17 @@
             <button type="button" class="copy-button" data-copy-target="inferred-categories-output">Copy</button>
         </div>
         <textarea id="inferred-categories-output" data-api-field="inferred-text" readonly spellcheck="false">@Model.InferredCategoriesText</textarea>
+    </section>
+
+    <section class="result-panel tagger-panel @(string.IsNullOrWhiteSpace(Model.TaggerCategoriesText) ? "hidden" : string.Empty)" data-api-panel="tagger">
+        <div class="panel-heading">
+            <div>
+                <h2>Scryfall Tagger Tags</h2>
+                <p data-api-field="tagger-context">@Model.TaggerSuggestionContextText</p>
+            </div>
+            <button type="button" class="copy-button" data-copy-target="tagger-categories-output">Copy</button>
+        </div>
+        <textarea id="tagger-categories-output" data-api-field="tagger-text" readonly spellcheck="false">@Model.TaggerCategoriesText</textarea>
     </section>
 </section>
 

@@ -1298,6 +1298,201 @@ const attachChatGptComparisonWorkflow = (): void => {
   });
 };
 
+const parseChatGptCedhStep = (value: string | undefined | null): number => {
+  const parsedValue = parseInt(value ?? '1', 10);
+  return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 3 ? 1 : parsedValue;
+};
+
+const parseChatGptCedhPage = (value: string | undefined | null): number => {
+  const parsedValue = parseInt(value ?? '1', 10);
+  return Number.isNaN(parsedValue) || parsedValue < 1 ? 1 : parsedValue;
+};
+
+const maxChatGptCedhReferences = 5;
+
+const setChatGptCedhValidationMessage = (message: string | null): void => {
+  const errorNode = document.querySelector<HTMLElement>('[data-chatgpt-cedh-validation-error]');
+  if (!errorNode) {
+    return;
+  }
+
+  if (!message) {
+    errorNode.textContent = '';
+    errorNode.classList.add('hidden');
+    return;
+  }
+
+  errorNode.textContent = message;
+  errorNode.classList.remove('hidden');
+  errorNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+const showChatGptCedhStep = (form: HTMLFormElement, step: number): void => {
+  form.dataset.chatgptCedhCurrentStep = step.toString();
+  const workflowInput = form.querySelector<HTMLInputElement>('[data-chatgpt-cedh-workflow-step]');
+  if (workflowInput) {
+    workflowInput.value = step.toString();
+  }
+
+  form.querySelectorAll<HTMLElement>('[data-chatgpt-cedh-step]').forEach(panel => {
+    const panelStep = parseChatGptCedhStep(panel.dataset.chatgptCedhStep);
+    panel.classList.toggle('hidden', panelStep !== step);
+    panel.setAttribute('aria-hidden', panelStep === step ? 'false' : 'true');
+  });
+
+  form.querySelectorAll<HTMLElement>('[data-chatgpt-cedh-show-step]').forEach(button => {
+    const buttonStep = parseChatGptCedhStep(button.dataset.chatgptCedhShowStep);
+    button.classList.toggle('is-active', buttonStep === step);
+    button.setAttribute('aria-selected', buttonStep === step ? 'true' : 'false');
+    button.setAttribute('tabindex', buttonStep === step ? '0' : '-1');
+  });
+};
+
+const scrollChatGptCedhResults = (form: HTMLFormElement): void => {
+  const step = parseChatGptCedhStep(form.dataset.chatgptCedhCurrentStep);
+  const activePanel = form.querySelector<HTMLElement>(`[data-chatgpt-cedh-step="${step}"]`);
+  const resultAnchor = activePanel?.querySelector<HTMLElement>('[data-chatgpt-cedh-result-anchor]');
+  if (!resultAnchor) {
+    return;
+  }
+
+  window.setTimeout(() => {
+    resultAnchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 120);
+};
+
+const validateChatGptCedhStep = (form: HTMLFormElement, step: number): string | null => {
+  if (step === 1) {
+    const deckSource = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckSource"]')?.value.trim() ?? '';
+    if (!deckSource) {
+      return 'Paste your deck URL or deck text before fetching EDH Top 16 reference decks.';
+    }
+  }
+
+  if (step === 2) {
+    const checkedReferences = form.querySelectorAll<HTMLInputElement>('[data-chatgpt-cedh-reference-checkbox]:checked').length;
+    if (checkedReferences < 1) {
+      return 'Select at least 1 EDH Top 16 reference deck before generating the prompt.';
+    }
+
+    if (checkedReferences > maxChatGptCedhReferences) {
+      return `Select no more than ${maxChatGptCedhReferences} EDH Top 16 reference decks before generating the prompt.`;
+    }
+  }
+
+  if (step === 3) {
+    const responseJson = form.querySelector<HTMLTextAreaElement>('textarea[name="MetaGapResponseJson"]')?.value.trim() ?? '';
+    if (!responseJson) {
+      return 'Paste the meta_gap JSON returned from ChatGPT into Step 3 before rendering the analysis.';
+    }
+  }
+
+  return null;
+};
+
+const syncChatGptCedhCheckboxState = (form: HTMLFormElement): void => {
+  const checkboxes = Array.from(form.querySelectorAll<HTMLInputElement>('[data-chatgpt-cedh-reference-checkbox]'));
+  const checkedCount = checkboxes.filter(checkbox => checkbox.checked).length;
+  checkboxes.forEach(checkbox => {
+    checkbox.disabled = !checkbox.checked && checkedCount >= maxChatGptCedhReferences;
+  });
+};
+
+const showChatGptCedhReferencePage = (form: HTMLFormElement, page: number): void => {
+  const rowsWithPages = Array.from(form.querySelectorAll<HTMLElement>('[data-chatgpt-cedh-reference-row]')).map(row => ({
+    row,
+    page: parseChatGptCedhPage(row.dataset.chatgptCedhPage)
+  }));
+  if (rowsWithPages.length === 0) {
+    return;
+  }
+
+  const maxPage = Math.max(...rowsWithPages.map(({ page: rowPage }) => rowPage));
+  const nextPage = Math.min(Math.max(page, 1), maxPage);
+
+  rowsWithPages.forEach(({ row, page: rowPage }) => {
+    row.classList.toggle('hidden', rowPage !== nextPage);
+  });
+
+  form.dataset.chatgptCedhReferencePage = nextPage.toString();
+  const status = form.querySelector<HTMLElement>('[data-chatgpt-cedh-page-status]');
+  if (status) {
+    status.textContent = `Page ${nextPage} of ${maxPage}`;
+  }
+
+  const prevButton = form.querySelector<HTMLButtonElement>('[data-chatgpt-cedh-page-nav="prev"]');
+  const nextButton = form.querySelector<HTMLButtonElement>('[data-chatgpt-cedh-page-nav="next"]');
+  if (prevButton) {
+    prevButton.disabled = nextPage <= 1;
+  }
+
+  if (nextButton) {
+    nextButton.disabled = nextPage >= maxPage;
+  }
+};
+
+const attachChatGptCedhWorkflow = (): void => {
+  const form = document.querySelector<HTMLFormElement>('[data-chatgpt-cedh-form]');
+  if (!form) {
+    return;
+  }
+
+  const currentStep = parseChatGptCedhStep(form.dataset.chatgptCedhCurrentStep);
+  showChatGptCedhStep(form, currentStep);
+  setChatGptCedhValidationMessage(null);
+  syncChatGptCedhCheckboxState(form);
+  showChatGptCedhReferencePage(form, parseChatGptCedhPage(form.dataset.chatgptCedhReferencePage));
+  scrollChatGptCedhResults(form);
+
+  form.querySelectorAll<HTMLInputElement>('[data-chatgpt-cedh-reference-checkbox]').forEach(checkbox => {
+    checkbox.addEventListener('change', () => {
+      syncChatGptCedhCheckboxState(form);
+      setChatGptCedhValidationMessage(null);
+    });
+  });
+
+  form.querySelectorAll<HTMLElement>('[data-chatgpt-cedh-show-step]').forEach(button => {
+    button.addEventListener('click', () => {
+      const step = parseChatGptCedhStep(button.dataset.chatgptCedhShowStep);
+      showChatGptCedhStep(form, step);
+      setChatGptCedhValidationMessage(null);
+    });
+  });
+
+  form.querySelectorAll<HTMLElement>('[data-chatgpt-cedh-next-step]').forEach(button => {
+    button.addEventListener('click', () => {
+      const step = parseChatGptCedhStep(button.dataset.chatgptCedhNextStep);
+      showChatGptCedhStep(form, step);
+      setChatGptCedhValidationMessage(null);
+      form.querySelector<HTMLElement>(`[data-chatgpt-cedh-step="${step}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  form.querySelectorAll<HTMLButtonElement>('[data-chatgpt-cedh-page-nav]').forEach(button => {
+    button.addEventListener('click', () => {
+      const currentPage = parseChatGptCedhPage(form.dataset.chatgptCedhReferencePage);
+      const delta = button.dataset.chatgptCedhPageNav === 'next' ? 1 : -1;
+      showChatGptCedhReferencePage(form, currentPage + delta);
+    });
+  });
+
+  form.addEventListener('submit', event => {
+    const submitter = (event as SubmitEvent).submitter as HTMLElement | null;
+    const step = parseChatGptCedhStep(submitter?.dataset.chatgptCedhSubmitStep ?? form.dataset.chatgptCedhCurrentStep);
+    const validationMessage = validateChatGptCedhStep(form, step);
+    if (!validationMessage) {
+      setChatGptCedhValidationMessage(null);
+      showChatGptCedhStep(form, step);
+      return;
+    }
+
+    event.preventDefault();
+    hideBusyIndicator();
+    showChatGptCedhStep(form, step);
+    setChatGptCedhValidationMessage(validationMessage);
+  });
+};
+
 interface Window {
   setAllPrintingChoices?: (value: string) => void;
   hideBusyIndicator?: () => void;
@@ -1321,6 +1516,7 @@ const bootstrapDeckSync = (): void => {
   attachDeckSyncPersistence();
   attachChatGptPacketsWorkflow();
   attachChatGptComparisonWorkflow();
+  attachChatGptCedhWorkflow();
   loadSetOptionsAsync();
   attachToolNav();
   attachConvertForm();

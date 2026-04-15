@@ -1045,6 +1045,173 @@ const attachChatGptComparisonWorkflow = () => {
         setChatGptComparisonValidationMessage(validationMessage);
     });
 };
+const parseChatGptCedhStep = (value) => {
+    const parsedValue = parseInt(value !== null && value !== void 0 ? value : '1', 10);
+    return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 3 ? 1 : parsedValue;
+};
+const parseChatGptCedhPage = (value) => {
+    const parsedValue = parseInt(value !== null && value !== void 0 ? value : '1', 10);
+    return Number.isNaN(parsedValue) || parsedValue < 1 ? 1 : parsedValue;
+};
+const maxChatGptCedhReferences = 5;
+const setChatGptCedhValidationMessage = (message) => {
+    const errorNode = document.querySelector('[data-chatgpt-cedh-validation-error]');
+    if (!errorNode) {
+        return;
+    }
+    if (!message) {
+        errorNode.textContent = '';
+        errorNode.classList.add('hidden');
+        return;
+    }
+    errorNode.textContent = message;
+    errorNode.classList.remove('hidden');
+    errorNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+const showChatGptCedhStep = (form, step) => {
+    form.dataset.chatgptCedhCurrentStep = step.toString();
+    const workflowInput = form.querySelector('[data-chatgpt-cedh-workflow-step]');
+    if (workflowInput) {
+        workflowInput.value = step.toString();
+    }
+    form.querySelectorAll('[data-chatgpt-cedh-step]').forEach(panel => {
+        const panelStep = parseChatGptCedhStep(panel.dataset.chatgptCedhStep);
+        panel.classList.toggle('hidden', panelStep !== step);
+        panel.setAttribute('aria-hidden', panelStep === step ? 'false' : 'true');
+    });
+    form.querySelectorAll('[data-chatgpt-cedh-show-step]').forEach(button => {
+        const buttonStep = parseChatGptCedhStep(button.dataset.chatgptCedhShowStep);
+        button.classList.toggle('is-active', buttonStep === step);
+        button.setAttribute('aria-selected', buttonStep === step ? 'true' : 'false');
+        button.setAttribute('tabindex', buttonStep === step ? '0' : '-1');
+    });
+};
+const scrollChatGptCedhResults = (form) => {
+    const step = parseChatGptCedhStep(form.dataset.chatgptCedhCurrentStep);
+    const activePanel = form.querySelector(`[data-chatgpt-cedh-step="${step}"]`);
+    const resultAnchor = activePanel === null || activePanel === void 0 ? void 0 : activePanel.querySelector('[data-chatgpt-cedh-result-anchor]');
+    if (!resultAnchor) {
+        return;
+    }
+    window.setTimeout(() => {
+        resultAnchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 120);
+};
+const validateChatGptCedhStep = (form, step) => {
+    var _a, _b, _c, _d;
+    if (step === 1) {
+        const deckSource = (_b = (_a = form.querySelector('textarea[name="DeckSource"]')) === null || _a === void 0 ? void 0 : _a.value.trim()) !== null && _b !== void 0 ? _b : '';
+        if (!deckSource) {
+            return 'Paste your deck URL or deck text before fetching EDH Top 16 reference decks.';
+        }
+    }
+    if (step === 2) {
+        const checkedReferences = form.querySelectorAll('[data-chatgpt-cedh-reference-checkbox]:checked').length;
+        if (checkedReferences < 1) {
+            return 'Select at least 1 EDH Top 16 reference deck before generating the prompt.';
+        }
+        if (checkedReferences > maxChatGptCedhReferences) {
+            return `Select no more than ${maxChatGptCedhReferences} EDH Top 16 reference decks before generating the prompt.`;
+        }
+    }
+    if (step === 3) {
+        const responseJson = (_d = (_c = form.querySelector('textarea[name="MetaGapResponseJson"]')) === null || _c === void 0 ? void 0 : _c.value.trim()) !== null && _d !== void 0 ? _d : '';
+        if (!responseJson) {
+            return 'Paste the meta_gap JSON returned from ChatGPT into Step 3 before rendering the analysis.';
+        }
+    }
+    return null;
+};
+const syncChatGptCedhCheckboxState = (form) => {
+    const checkboxes = Array.from(form.querySelectorAll('[data-chatgpt-cedh-reference-checkbox]'));
+    const checkedCount = checkboxes.filter(checkbox => checkbox.checked).length;
+    checkboxes.forEach(checkbox => {
+        checkbox.disabled = !checkbox.checked && checkedCount >= maxChatGptCedhReferences;
+    });
+};
+const showChatGptCedhReferencePage = (form, page) => {
+    const rowsWithPages = Array.from(form.querySelectorAll('[data-chatgpt-cedh-reference-row]')).map(row => ({
+        row,
+        page: parseChatGptCedhPage(row.dataset.chatgptCedhPage)
+    }));
+    if (rowsWithPages.length === 0) {
+        return;
+    }
+    const maxPage = Math.max(...rowsWithPages.map(({ page: rowPage }) => rowPage));
+    const nextPage = Math.min(Math.max(page, 1), maxPage);
+    rowsWithPages.forEach(({ row, page: rowPage }) => {
+        row.classList.toggle('hidden', rowPage !== nextPage);
+    });
+    form.dataset.chatgptCedhReferencePage = nextPage.toString();
+    const status = form.querySelector('[data-chatgpt-cedh-page-status]');
+    if (status) {
+        status.textContent = `Page ${nextPage} of ${maxPage}`;
+    }
+    const prevButton = form.querySelector('[data-chatgpt-cedh-page-nav="prev"]');
+    const nextButton = form.querySelector('[data-chatgpt-cedh-page-nav="next"]');
+    if (prevButton) {
+        prevButton.disabled = nextPage <= 1;
+    }
+    if (nextButton) {
+        nextButton.disabled = nextPage >= maxPage;
+    }
+};
+const attachChatGptCedhWorkflow = () => {
+    const form = document.querySelector('[data-chatgpt-cedh-form]');
+    if (!form) {
+        return;
+    }
+    const currentStep = parseChatGptCedhStep(form.dataset.chatgptCedhCurrentStep);
+    showChatGptCedhStep(form, currentStep);
+    setChatGptCedhValidationMessage(null);
+    syncChatGptCedhCheckboxState(form);
+    showChatGptCedhReferencePage(form, parseChatGptCedhPage(form.dataset.chatgptCedhReferencePage));
+    scrollChatGptCedhResults(form);
+    form.querySelectorAll('[data-chatgpt-cedh-reference-checkbox]').forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+            syncChatGptCedhCheckboxState(form);
+            setChatGptCedhValidationMessage(null);
+        });
+    });
+    form.querySelectorAll('[data-chatgpt-cedh-show-step]').forEach(button => {
+        button.addEventListener('click', () => {
+            const step = parseChatGptCedhStep(button.dataset.chatgptCedhShowStep);
+            showChatGptCedhStep(form, step);
+            setChatGptCedhValidationMessage(null);
+        });
+    });
+    form.querySelectorAll('[data-chatgpt-cedh-next-step]').forEach(button => {
+        button.addEventListener('click', () => {
+            var _a;
+            const step = parseChatGptCedhStep(button.dataset.chatgptCedhNextStep);
+            showChatGptCedhStep(form, step);
+            setChatGptCedhValidationMessage(null);
+            (_a = form.querySelector(`[data-chatgpt-cedh-step="${step}"]`)) === null || _a === void 0 ? void 0 : _a.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+    form.querySelectorAll('[data-chatgpt-cedh-page-nav]').forEach(button => {
+        button.addEventListener('click', () => {
+            const currentPage = parseChatGptCedhPage(form.dataset.chatgptCedhReferencePage);
+            const delta = button.dataset.chatgptCedhPageNav === 'next' ? 1 : -1;
+            showChatGptCedhReferencePage(form, currentPage + delta);
+        });
+    });
+    form.addEventListener('submit', event => {
+        var _a;
+        const submitter = event.submitter;
+        const step = parseChatGptCedhStep((_a = submitter === null || submitter === void 0 ? void 0 : submitter.dataset.chatgptCedhSubmitStep) !== null && _a !== void 0 ? _a : form.dataset.chatgptCedhCurrentStep);
+        const validationMessage = validateChatGptCedhStep(form, step);
+        if (!validationMessage) {
+            setChatGptCedhValidationMessage(null);
+            showChatGptCedhStep(form, step);
+            return;
+        }
+        event.preventDefault();
+        hideBusyIndicator();
+        showChatGptCedhStep(form, step);
+        setChatGptCedhValidationMessage(validationMessage);
+    });
+};
 window.setAllPrintingChoices = setAllPrintingChoices;
 window.hideBusyIndicator = hideBusyIndicator;
 let deckSyncBootstrapped = false;
@@ -1060,6 +1227,7 @@ const bootstrapDeckSync = () => {
     attachDeckSyncPersistence();
     attachChatGptPacketsWorkflow();
     attachChatGptComparisonWorkflow();
+    attachChatGptCedhWorkflow();
     loadSetOptionsAsync();
     attachToolNav();
     attachConvertForm();

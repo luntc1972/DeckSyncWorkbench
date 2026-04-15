@@ -32,6 +32,12 @@ public sealed class CategorySuggestionApiResponse
     public bool HasExactCategories { get; init; }
     public bool HasInferredCategories { get; init; }
     public bool HasEdhrecCategories { get; init; }
+    /// <summary>
+    /// Oracle/functional tags from Scryfall Tagger.
+    /// </summary>
+    public string TaggerCategoriesText { get; init; } = string.Empty;
+    public string TaggerSuggestionContextText { get; init; } = string.Empty;
+    public bool HasTaggerCategories { get; init; }
     public string? SuggestionSourceSummary { get; init; }
     public bool NoSuggestionsFound { get; init; }
     public string? NoSuggestionsMessage { get; init; }

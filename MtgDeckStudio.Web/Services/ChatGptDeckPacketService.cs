@@ -117,21 +117,21 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             && string.IsNullOrWhiteSpace(request.DeckSource)
             && !string.IsNullOrWhiteSpace(request.DeckProfileJson))
         {
-            var analysisResponse = ParseAnalysisResponse(request.DeckProfileJson);
-            var timingSummary = BuildTimingSummary(overallStopwatch, timings);
+            var savedAnalysisResponse = ParseAnalysisResponse(request.DeckProfileJson);
+            var savedTimingSummary = BuildTimingSummary(timings, overallStopwatch.ElapsedMilliseconds);
             return new ChatGptDeckPacketResult(
-                InputSummary: BuildAnalysisSummaryFromSavedJson(analysisResponse),
-                SuggestedChatTitle: BuildSuggestedChatTitle(request, analysisResponse.Commander),
+                InputSummary: BuildAnalysisSummaryFromSavedJson(savedAnalysisResponse),
+                SuggestedChatTitle: BuildSuggestedChatTitle(request, savedAnalysisResponse.Commander),
                 DeckProfileSchemaJson: BuildDeckProfileSchemaJson(
-                    string.IsNullOrWhiteSpace(analysisResponse.Commander) ? null : analysisResponse.Commander,
-                    string.IsNullOrWhiteSpace(analysisResponse.Format) ? request.Format : analysisResponse.Format,
-                    analysisResponse.DeckVersions.Count > 0),
+                    string.IsNullOrWhiteSpace(savedAnalysisResponse.Commander) ? null : savedAnalysisResponse.Commander,
+                    string.IsNullOrWhiteSpace(savedAnalysisResponse.Format) ? request.Format : savedAnalysisResponse.Format,
+                    savedAnalysisResponse.DeckVersions.Count > 0),
                 ReferenceText: null,
                 AnalysisPromptText: null,
                 SetUpgradePromptText: null,
                 SavedArtifactsDirectory: null,
-                TimingSummary: timingSummary,
-                AnalysisResponse: analysisResponse);
+                TimingSummary: savedTimingSummary,
+                AnalysisResponse: savedAnalysisResponse);
         }
 
         if (string.IsNullOrWhiteSpace(request.DeckSource))

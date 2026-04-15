@@ -8,7 +8,7 @@ public sealed class CategorySuggestionRequest
     /// <summary>
     /// Chooses whether the lookup should use only the local cache or also inspect a supplied Archidekt reference deck.
     /// </summary>
-    public CategorySuggestionMode Mode { get; set; } = CategorySuggestionMode.CachedData;
+    public CategorySuggestionMode Mode { get; set; } = CategorySuggestionMode.All;
 
     /// <summary>
     /// Describes whether the optional reference deck will be provided as a public URL or pasted export text.

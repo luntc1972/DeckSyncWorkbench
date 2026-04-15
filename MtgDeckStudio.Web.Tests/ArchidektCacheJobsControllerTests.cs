@@ -1,7 +1,9 @@
 using MtgDeckStudio.Web.Controllers.Api;
 using MtgDeckStudio.Web.Models.Api;
 using MtgDeckStudio.Web.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Routing;
 using Xunit;
 
 namespace MtgDeckStudio.Web.Tests;
@@ -115,9 +117,21 @@ public sealed class ArchidektCacheJobsControllerTests
 
     private sealed class FakeUrlHelper : IUrlHelper
     {
-        public ActionContext ActionContext => new();
+        public ActionContext ActionContext { get; } = new()
+        {
+            HttpContext = new DefaultHttpContext()
+        };
 
-        public string? Action(UrlActionContext actionContext) => null;
+        public FakeUrlHelper()
+        {
+            ActionContext.HttpContext.Request.Scheme = "https";
+            ActionContext.HttpContext.Request.Host = new HostString("example.test");
+        }
+
+        public string? Action(UrlActionContext actionContext)
+            => TryGetJobId(actionContext.Values, out var jobId)
+                ? $"/api/archidekt-cache-jobs/{jobId}"
+                : "/api/archidekt-cache-jobs";
 
         public string? Content(string? contentPath) => contentPath;
 
@@ -131,5 +145,11 @@ public sealed class ArchidektCacheJobsControllerTests
             => values is not null
                 ? $"/api/archidekt-cache-jobs/{values.GetType().GetProperty("jobId")?.GetValue(values)}"
                 : "/api/archidekt-cache-jobs";
+
+        private static bool TryGetJobId(object? values, out object? jobId)
+        {
+            jobId = values?.GetType().GetProperty("jobId")?.GetValue(values);
+            return jobId is not null;
+        }
     }
 }

@@ -32,6 +32,9 @@
     hasExactCategories: boolean;
     hasInferredCategories: boolean;
     hasEdhrecCategories: boolean;
+    taggerCategoriesText: string;
+    taggerSuggestionContextText: string;
+    hasTaggerCategories: boolean;
     suggestionSourceSummary?: string | null;
     noSuggestionsFound: boolean;
     noSuggestionsMessage?: string | null;
@@ -102,6 +105,7 @@
     toggleSuggestionPanel('exact', false);
     toggleSuggestionPanel('inferred', false);
     toggleSuggestionPanel('edhrec', false);
+    toggleSuggestionPanel('tagger', false);
     toggleSuggestionPanel('no-suggestions', false);
     toggleSuggestionPanel('lookup-hint', false);
     toggleSuggestionPanel('commander-results', false);
@@ -125,6 +129,36 @@
     }, 100);
   };
 
+  const busyConfigByMode: Record<string, { title: string; message: string; progress: string }> = {
+    CachedData: {
+      title: 'Finding Categories',
+      message: 'Checking the local store and recent Archidekt decks.',
+      progress: 'Refreshing cached store|Scanning recent Archidekt decks|Finalizing category matches',
+    },
+    ReferenceDeck: {
+      title: 'Finding Categories',
+      message: 'Loading the reference deck and matching categories.',
+      progress: 'Loading reference deck|Matching card categories|Finalizing results',
+    },
+    ScryfallTagger: {
+      title: 'Looking Up Tags',
+      message: 'Fetching functional tags from Scryfall Tagger.',
+      progress: 'Resolving card|Querying Scryfall Tagger|Finalizing tags',
+    },
+    All: {
+      title: 'Finding Categories',
+      message: 'Checking all sources: cached store and Scryfall Tagger.',
+      progress: 'Refreshing cached store|Querying Scryfall Tagger|Finalizing results',
+    },
+  };
+
+  const updateBusyAttributes = (form: HTMLFormElement, mode: string): void => {
+    const config = busyConfigByMode[mode] ?? busyConfigByMode['CachedData'];
+    form.setAttribute('data-busy-title', config.title);
+    form.setAttribute('data-busy-message', config.message);
+    form.setAttribute('data-busy-progress', config.progress);
+  };
+
   const updateSuggestionInputModeUi = (): void => {
     const modeSelect = document.querySelector<HTMLSelectElement>('select[name="Mode"]');
     const archidektModeSelect = document.querySelector<HTMLSelectElement>('select[name="ArchidektInputSource"]');
@@ -132,26 +166,36 @@
       return;
     }
 
-    const useReferenceDeck = modeSelect.value === 'ReferenceDeck';
+    const mode = modeSelect.value;
+    const showReference = mode === 'ReferenceDeck';
     const showUrl = archidektModeSelect.value === 'PublicUrl';
     const showText = archidektModeSelect.value === 'PasteText';
 
     document.querySelectorAll<HTMLElement>('.reference-controls').forEach(element => {
-      element.classList.toggle('hidden', !useReferenceDeck);
+      element.classList.toggle('hidden', !showReference);
     });
 
     document.querySelectorAll<HTMLElement>('[data-suggest-panel="url"]').forEach(element => {
-      element.classList.toggle('hidden', !useReferenceDeck || !showUrl);
+      element.classList.toggle('hidden', !showReference || !showUrl);
     });
 
     document.querySelectorAll<HTMLElement>('[data-suggest-panel="text"]').forEach(element => {
-      element.classList.toggle('hidden', !useReferenceDeck || !showText);
+      element.classList.toggle('hidden', !showReference || !showText);
     });
+
+    const form = modeSelect.closest<HTMLFormElement>('form');
+    if (form) {
+      updateBusyAttributes(form, mode);
+    }
   };
 
   const handleCardResponse = (form: SuggestionForm, response: CardSuggestionResponse): void => {
     resetCardUi();
     handleError('suggest-error', null);
+
+    const modeSelect = form.querySelector<HTMLSelectElement>('select[name="Mode"]');
+    const mode = modeSelect?.value ?? 'CachedData';
+    const showAll = mode === 'All';
 
     const hintText = response.noSuggestionsFound && response.noSuggestionsMessage
       ? response.noSuggestionsMessage
@@ -160,7 +204,8 @@
     setFieldText('lookup-hint-text', hintText);
     toggleSuggestionPanel('lookup-hint', true);
 
-    if (response.cardDeckTotals.totalDeckCount > 0) {
+    const showCached = mode === 'CachedData' || showAll;
+    if (showCached && response.cardDeckTotals.totalDeckCount > 0) {
       setFieldText('cache-info-count', response.cardDeckTotals.totalDeckCount.toString());
       setFieldText('cache-info-text', `The cached store currently contains ${response.cardDeckTotals.totalDeckCount} deck(s) featuring ${response.cardName}.`);
       toggleSuggestionPanel('cache-info', true);
@@ -171,25 +216,31 @@
       toggleSuggestionPanel('source-summary', true);
     }
 
-    const modeSelect = form.querySelector<HTMLSelectElement>('select[name="Mode"]');
-    const isReferenceMode = modeSelect?.value === 'ReferenceDeck';
-    toggleSuggestionPanel('exact', response.hasExactCategories && isReferenceMode);
+    const showExact = mode === 'ReferenceDeck' && response.hasExactCategories;
+    toggleSuggestionPanel('exact', showExact);
     setFieldText('exact-context', response.exactSuggestionContextText);
     setFieldText('exact-text', response.exactCategoriesText);
 
-    toggleSuggestionPanel('inferred', true);
+    const showInferred = showCached && response.hasInferredCategories;
+    toggleSuggestionPanel('inferred', showInferred);
     setFieldText('inferred-context', response.inferredSuggestionContextText);
     setFieldText('inferred-text', response.inferredCategoriesText);
     setFieldText(
       'cache-info-detail',
-      response.cardDeckTotals.totalDeckCount > 0
+      showCached && response.cardDeckTotals.totalDeckCount > 0
         ? `${response.cardDeckTotals.totalDeckCount} deck(s) in the cache include ${response.cardName}.`
         : ''
     );
 
-    toggleSuggestionPanel('edhrec', response.hasEdhrecCategories);
+    const showEdhrec = showCached && response.hasEdhrecCategories;
+    toggleSuggestionPanel('edhrec', showEdhrec);
     setFieldText('edhrec-context', response.edhrecSuggestionContextText);
     setFieldText('edhrec-text', response.edhrecCategoriesText);
+
+    const showTagger = (mode === 'ScryfallTagger' || showAll) && response.hasTaggerCategories;
+    toggleSuggestionPanel('tagger', showTagger);
+    setFieldText('tagger-context', response.taggerSuggestionContextText);
+    setFieldText('tagger-text', response.taggerCategoriesText);
 
     toggleSuggestionPanel('no-suggestions', response.noSuggestionsFound);
     if (response.noSuggestionsFound) {
@@ -198,17 +249,22 @@
       return;
     }
 
-    if (response.hasInferredCategories) {
+    if (showTagger) {
+      scrollPanelIntoCenter('[data-api-panel="tagger"]');
+      return;
+    }
+
+    if (showInferred) {
       scrollPanelIntoCenter('#cached-store-matches');
       return;
     }
 
-    if (response.hasExactCategories) {
+    if (showExact) {
       scrollPanelIntoCenter('[data-api-panel="exact"]');
       return;
     }
 
-    if (response.hasEdhrecCategories) {
+    if (showEdhrec) {
       scrollPanelIntoCenter('[data-api-panel="edhrec"]');
     }
   };

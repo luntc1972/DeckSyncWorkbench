@@ -4,4 +4,6 @@ public enum CategorySuggestionMode
 {
     CachedData = 0,
     ReferenceDeck = 1,
+    ScryfallTagger = 2,
+    All = 3,
 }

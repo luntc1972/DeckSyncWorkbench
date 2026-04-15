@@ -5,7 +5,7 @@
     var deckToolsActive = Model is DeckPageTab.Sync or DeckPageTab.Convert;
     var categoriesActive = Model is DeckPageTab.SuggestCategories or DeckPageTab.CommanderCategories;
     var referenceActive = Model is DeckPageTab.CardLookup or DeckPageTab.MechanicLookup;
-    var chatGptActive = Model is DeckPageTab.ChatGptPackets or DeckPageTab.ChatGptDeckComparison;
+    var chatGptActive = Model is DeckPageTab.ChatGptPackets or DeckPageTab.ChatGptDeckComparison or DeckPageTab.ChatGptCedhMetaGap;
 }
 
 <nav class="tool-nav" aria-label="Deck tools" data-tool-nav>
@@ -43,6 +43,7 @@
         <div class="tool-nav__dropdown">
             <a class="tool-nav__link @(Model == DeckPageTab.ChatGptPackets ? "is-active" : string.Empty)" href="@Url.Content("~/chatgpt-packets")">ChatGPT Analysis</a>
             <a class="tool-nav__link @(Model == DeckPageTab.ChatGptDeckComparison ? "is-active" : string.Empty)" href="@Url.Content("~/chatgpt-deck-comparison")">Deck Comparison</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptCedhMetaGap ? "is-active" : string.Empty)" href="@Url.Content("~/chatgpt-cedh-meta-gap")">cEDH Meta Gap</a>
         </div>
     </div>
 </nav>

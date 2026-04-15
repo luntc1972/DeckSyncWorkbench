@@ -1,14 +1,15 @@
 # MTG Deck Studio
 
-MTG Deck Studio helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides ChatGPT prompt-building workflows for single-deck analysis and head-to-head deck comparison, Commander Spellbook combo lookup, Scryfall card and mechanic references, and a cache-backed category suggestion engine.
+MTG Deck Studio helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides ChatGPT prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, and head-to-head deck comparison, Commander Spellbook combo lookup, Scryfall card and mechanic references, and a cache-backed category suggestion engine.
 
-**Repository description (≤350 characters):** MTG Deck Studio unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, ChatGPT deck-analysis and deck-comparison prompt generation with Scryfall references, Commander Spellbook combos, and cache-backed category suggestions.
+**Repository description (≤350 characters):** MTG Deck Studio unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, ChatGPT deck-analysis, cEDH meta-gap, and deck-comparison prompt generation with Scryfall references, Commander Spellbook combos, and cache-backed category suggestions.
 
 ## Highlights
 - `MtgDeckStudio.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
-- `MtgDeckStudio.Web` provides an ASP.NET Core MVC UI for running syncs, ChatGPT prompt building, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
+- `MtgDeckStudio.Web` provides an ASP.NET Core MVC UI for running syncs, ChatGPT prompt building, cEDH meta-gap analysis, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
 - `MtgDeckStudio.CLI` exposes deck comparison, category harvesting, and cache querying in a console tool.
 - The ChatGPT Analysis page is the primary single-deck analysis workflow: it resolves card text via Scryfall, looks up rules for mechanics via the WOTC rules page, queries Commander Spellbook for combos, and assembles a complete analysis prompt with reference data attached.
+- The cEDH Meta Gap page compares a submitted deck against 1 to 5 EDH Top 16 reference lists for the same commander, generates a strict `meta_gap` ChatGPT prompt, and renders the returned JSON as a readable upgrade path.
 - The Commander Categories page shows which Archidekt tags appear most often on decks where a given card is listed as commander.
 - The Moxfield Tag Exporter browser extension exports deck tags from moxfield.com into Archidekt or Moxfield bulk-edit format.
 
@@ -172,6 +173,50 @@ The `prompt-templates/deck-comparison/` directory contains reference templates f
 
 ---
 
+## ChatGPT cEDH Meta Gap
+
+The cEDH Meta Gap page (`/chatgpt-cedh-meta-gap`) generates a structured ChatGPT workflow for comparing your deck against recent EDH Top 16 lists for the same commander.
+
+### Step 1 — Load Deck And Fetch References
+Paste a public Moxfield or Archidekt URL, or paste deck export text directly. You can optionally override the commander name. The page then queries EDH Top 16 using:
+
+- Time period
+- Sort by (`TOP` or `NEW`)
+- Minimum event size
+- Maximum standing
+
+The service parses the submitted deck, resolves the commander, fetches matching EDH Top 16 entries, and sorts them newest-first before display.
+
+### Step 2 — Generate Meta-Gap Prompt
+Select 1 to 5 EDH Top 16 reference decks and generate the prompt. The service builds:
+
+- `30-meta-gap-prompt.txt`
+- `31-meta-gap-schema.json`
+
+The prompt requires ChatGPT to return a single fenced `json` block whose top-level object is `meta_gap`, with no extra prose.
+
+### Step 3 — Paste Returned JSON
+Paste the raw JSON or fenced `json` block back into the page. The shared JSON extractor accepts fenced responses and ignores surrounding prose or extra trailing fence noise before parsing the payload. The page renders:
+
+- Overview and readiness score
+- Win lines
+- Interaction
+- Speed
+- Mana efficiency
+- Core convergence
+- Missing staples
+- Potential cuts
+- Top 10 adds and cuts
+
+### Artifact saving
+Check **Save artifacts to disk** to write generated files to:
+```
+Documents\MTG Deck Studio\ChatGPT cEDH Meta Gap\<commander-name>\<timestamp>\
+```
+Files saved: `00-input-summary.txt`, `30-meta-gap-prompt.txt`, `31-meta-gap-schema.json`, `40-meta-gap-response.json` (when a JSON response is pasted).
+
+---
+
 ## Deck Sync
 
 The Deck Sync page (`/Deck/DeckSync`) compares two decks and generates the delta import needed to bring the target deck in line with the source.
@@ -201,11 +246,33 @@ The Commander Categories page shows the Archidekt tags that appear most often on
 
 ---
 
+## AI Category Suggestions
+
+The AI Category Suggestions page supports multiple lookup modes:
+
+- `CachedData`
+- `ReferenceDeck`
+- `ScryfallTagger`
+- `All`
+
+Current behavior:
+
+- `ReferenceDeck` reads exact categories from a supplied Archidekt deck URL or pasted Archidekt text.
+- `CachedData` runs a short local cache sweep, then reads category hits from the local Archidekt-backed store.
+- `ScryfallTagger` returns oracle-tag style suggestions from Scryfall Tagger.
+- `All` combines the cached-store path and tagger path, with EDHREC as a fallback when no other source returns anything.
+
+The page also exposes a background Archidekt harvest button so the local category store can be refreshed while the rest of the UI remains usable.
+
+---
+
 ## Archidekt category cache
 - Run `dotnet run --project MtgDeckStudio.CLI -- archidekt-cache --minutes 5` to keep the local cache fed with the latest public decks.
 - The CLI runs a dedicated cache session that respects rate limits via Polly, records skips for noisy decks, and persists card/category observations to `artifacts/category-knowledge.db`.
 - The web cache service reuses the same session logic for on-demand refreshes from the MVC UI.
-- The AI Category Suggestions page can start a 10-minute Archidekt harvest as a background job. The rest of the site stays usable while it runs, only one harvest is allowed at a time, and a local browser notification/banner appears when the job completes.
+- The AI Category Suggestions page can start a 5-minute Archidekt harvest as a background job. The rest of the site stays usable while it runs, only one harvest is allowed at a time, and a local browser notification/banner appears when the job completes.
+- Background harvest state is polled from the web app, and the start button stays disabled while the job is queued or running.
+- The cache session now stays alive for the requested harvest window even when the queue runs dry, and it retries transient recent-page fetch failures instead of ending the whole job early.
 - Basic card type categories (Creature, Instant, Sorcery, Enchantment, Artifact, Planeswalker, Battle) are filtered out of cache suggestions.
 
 ---
@@ -244,7 +311,7 @@ POST /api/archidekt-cache-jobs
 Content-Type: application/json
 
 {
-  "durationSeconds": 600
+  "durationSeconds": 300
 }
 ```
 

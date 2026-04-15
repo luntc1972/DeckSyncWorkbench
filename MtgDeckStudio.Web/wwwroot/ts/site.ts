@@ -246,6 +246,7 @@
   };
 
   const updateArchidektCacheButtons = (isRunning: boolean): void => {
+    console.debug('[harvest]', 'updateArchidektCacheButtons', { isRunning, pending: archidektCacheJobStartPending, stack: new Error().stack?.split('\n').slice(1, 4).map(s => s.trim()).join(' < ') });
     document.querySelectorAll<HTMLButtonElement>('[data-archidekt-cache-start]').forEach(button => {
       const disabled = isRunning || archidektCacheJobStartPending;
       button.disabled = disabled;
@@ -253,7 +254,7 @@
       button.classList.toggle('disabled', disabled);
       button.textContent = disabled
         ? (archidektCacheJobStartPending && !isRunning ? 'Starting Archidekt Harvest...' : 'Archidekt Harvest Running...')
-        : 'Run 10-Minute Archidekt Harvest';
+        : 'Run 5-Minute Archidekt Harvest';
     });
   };
 
@@ -420,7 +421,7 @@
         const startUrl = button.dataset.startUrl;
         const statusBaseUrl = button.dataset.statusBaseUrl;
         const activeUrl = button.dataset.activeUrl;
-        const durationSeconds = Number(button.dataset.durationSeconds ?? '600');
+        const durationSeconds = Number(button.dataset.durationSeconds ?? '300');
         if (!startUrl || !statusBaseUrl || !activeUrl || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
           return;
         }
@@ -485,18 +486,20 @@
 
     archidektCacheJobStartPending = readPendingStart();
     const activeRecord = readArchidektCacheJobRecord();
-    if (activeRecord?.jobId) {
+    const activeUrl = document.querySelector<HTMLButtonElement>('[data-archidekt-cache-start]')?.dataset.activeUrl;
+    if (activeRecord?.jobId && activeUrl) {
+      // Verify the stored job still exists on the server before locking the button.
+      // If the server was restarted, resolveActive returns 404 and clears the stale record.
+      updateArchidektCacheButtons(true);
+      void resolveActiveArchidektCacheJob(activeUrl);
+    } else if (activeRecord?.jobId) {
       updateArchidektCacheButtons(activeRecord.state === 'Queued' || activeRecord.state === 'Running');
       void pollArchidektCacheJob();
-    } else if (archidektCacheJobStartPending) {
-      const activeUrl = document.querySelector<HTMLButtonElement>('[data-archidekt-cache-start]')?.dataset.activeUrl;
+    } else if (archidektCacheJobStartPending && activeUrl) {
       updateArchidektCacheButtons(true);
-      if (activeUrl) {
-        void resolveActiveArchidektCacheJob(activeUrl);
-      }
+      void resolveActiveArchidektCacheJob(activeUrl);
     } else {
       updateArchidektCacheButtons(false);
-      const activeUrl = document.querySelector<HTMLButtonElement>('[data-archidekt-cache-start]')?.dataset.activeUrl;
       if (activeUrl) {
         void resolveActiveArchidektCacheJob(activeUrl);
       }

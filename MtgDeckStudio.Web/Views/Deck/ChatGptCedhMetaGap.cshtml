@@ -1,0 +1,565 @@
+@model MtgDeckStudio.Web.Models.ChatGptCedhMetaGapViewModel
+@{
+    ViewData["Title"] = "cEDH Meta Gap";
+    var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 3);
+    var selectedReferenceIndexes = Model.Request.SelectedReferenceIndexes ?? new List<int>();
+    const int pageSize = 10;
+}
+
+<section class="hero">
+    <h1>cEDH Meta Gap</h1>
+    <p class="lede">Compare your deck against 1 to 5 EDH Top 16 reference lists for the same commander, generate a strict ChatGPT prompt, and paste the returned <code>meta_gap</code> JSON back here for a readable upgrade path.</p>
+</section>
+
+@await Html.PartialAsync("_BusyIndicator")
+@await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
+
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="error-banner" role="alert">@Model.ErrorMessage</div>
+}
+
+<div class="info-banner">
+    Step 1 fetches EDH Top 16 reference decks, Step 2 generates the ChatGPT prompt from 1 to 5 selected lists, and Step 3 renders the returned <code>meta_gap</code> JSON.
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.SavedArtifactsDirectory))
+{
+    <div class="info-banner">
+        Saved cEDH meta-gap artifacts to <code>@Model.SavedArtifactsDirectory</code>.
+    </div>
+}
+
+<div class="error-banner hidden" data-chatgpt-cedh-validation-error role="alert"></div>
+
+<form method="post" class="deck-form" data-cache-key="chatgpt-cedh-meta-gap" data-chatgpt-cedh-form data-chatgpt-cedh-current-step="@currentStep" data-busy-title="Building cEDH Meta Gap Packet" data-busy-message="Parsing your deck, querying EDH Top 16, and generating the prompt.">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-cedh-workflow-step />
+
+    <div class="chatgpt-step-nav" role="tablist" aria-label="cEDH meta-gap workflow steps">
+        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-cedh-step-tab-1" aria-controls="chatgpt-cedh-step-panel-1" aria-selected="false" tabindex="-1" data-chatgpt-cedh-show-step="1">Step 1: Fetch Decks</button>
+        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-cedh-step-tab-2" aria-controls="chatgpt-cedh-step-panel-2" aria-selected="false" tabindex="-1" data-chatgpt-cedh-show-step="2">Step 2: Generate Prompt</button>
+        <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-cedh-step-tab-3" aria-controls="chatgpt-cedh-step-panel-3" aria-selected="false" tabindex="-1" data-chatgpt-cedh-show-step="3">Step 3: Paste JSON</button>
+    </div>
+
+    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-cedh-step-panel-1" aria-labelledby="chatgpt-cedh-step-tab-1" data-chatgpt-cedh-step="1">
+        <div class="chatgpt-step-heading">
+            <div>
+                <p class="chatgpt-step-eyebrow">Step 1</p>
+                <h2>Load your deck and fetch reference lists</h2>
+                <p>Paste your deck URL or deck export, optionally override the commander name, then pull the top tournament lists for that commander from EDH Top 16.</p>
+            </div>
+            <span class="chatgpt-step-badge">Required</span>
+        </div>
+
+        <label class="chatgpt-question-option">
+            <input type="checkbox" name="SaveArtifactsToDisk" value="true" @(Model.Request.SaveArtifactsToDisk ? "checked" : null) />
+            <span>Save prompt artifacts to disk under <code>Documents/MTG Deck Studio/ChatGPT cEDH Meta Gap</code></span>
+        </label>
+
+        <div class="sync-columns">
+            <section class="sync-column sync-column--moxfield">
+                <div class="sync-column__header">
+                    <p>Your Deck</p>
+                    <span class="sync-column__status">Required</span>
+                </div>
+
+                <label class="field">
+                    <span>Commander name <small>(optional override)</small></span>
+                    <input type="text" name="CommanderName" value="@Model.Request.CommanderName" />
+                    <small class="sync-column__hint">Leave blank to infer the commander from the submitted deck list. Use this only if the deck export is ambiguous.</small>
+                </label>
+
+                <label class="field">
+                    <span>Deck URL or deck text</span>
+                    <textarea name="DeckSource" spellcheck="false">@Model.Request.DeckSource</textarea>
+                    <small class="sync-column__hint">Required. Paste a public Moxfield or Archidekt URL, or raw deck export text.</small>
+                </label>
+            </section>
+
+            <section class="sync-column sync-column--archidekt">
+                <div class="sync-column__header">
+                    <p>EDH Top 16 Filters</p>
+                    <span class="sync-column__status">Required</span>
+                </div>
+
+                <label class="field">
+                    <span>Time period</span>
+                    <select name="TimePeriod">
+                        @foreach (var option in Enum.GetValues<MtgDeckStudio.Web.Models.CedhMetaTimePeriod>())
+                        {
+                            <option value="@option" selected="@(Model.Request.TimePeriod == option)">@option.ToString().Replace('_', ' ')</option>
+                        }
+                    </select>
+                </label>
+
+                <label class="field">
+                    <span>Sort by</span>
+                    <select name="SortBy">
+                        <option value="TOP" selected="@(Model.Request.SortBy == MtgDeckStudio.Web.Models.CedhMetaSortBy.TOP)">Top Performing</option>
+                        <option value="NEW" selected="@(Model.Request.SortBy == MtgDeckStudio.Web.Models.CedhMetaSortBy.NEW)">Recent</option>
+                    </select>
+                </label>
+
+                <label class="field">
+                    <span>Minimum event size</span>
+                    <select name="MinEventSize">
+                        @foreach (var sizeOption in new[] { (0, "All Events"), (16, "16+ Players"), (30, "30+ Players"), (50, "50+ Players"), (100, "100+ Players"), (250, "250+ Players") })
+                        {
+                            <option value="@sizeOption.Item1" selected="@(Model.Request.MinEventSize == sizeOption.Item1)">@sizeOption.Item2</option>
+                        }
+                    </select>
+                </label>
+
+                <label class="field">
+                    <span>Maximum standing</span>
+                    <select name="MaxStanding">
+                        @foreach (var standingOption in new[] { ((int?)null, "All Players"), ((int?)16, "Top 16"), ((int?)4, "Top 4"), ((int?)1, "Winner") })
+                        {
+                            <option value="@(standingOption.Item1?.ToString() ?? string.Empty)" selected="@(Model.Request.MaxStanding == standingOption.Item1)">@standingOption.Item2</option>
+                        }
+                    </select>
+                </label>
+            </section>
+        </div>
+
+        <div class="chatgpt-step-footer">
+            <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/chatgpt-cedh-meta-gap")">Clear</button>
+            <button type="submit" class="run-button" data-chatgpt-cedh-submit-step="1">Fetch Top Decks</button>
+        </div>
+    </section>
+
+    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-cedh-step-panel-2" aria-labelledby="chatgpt-cedh-step-tab-2" data-chatgpt-cedh-step="2">
+        <div class="chatgpt-step-heading">
+            <div>
+                <p class="chatgpt-step-eyebrow">Step 2</p>
+                <h2>Select 1 to 5 reference decks and generate the prompt</h2>
+                <p>Choose 1 to 5 EDH Top 16 entries, build the prompt, then paste it into ChatGPT and request the fenced <code>meta_gap</code> JSON block.</p>
+            </div>
+            <span class="chatgpt-step-badge">Prompt output</span>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.InputSummary))
+        {
+            <section class="result-panel nested-panel summary-panel">
+                <h3>Input Summary</h3>
+                <pre>@Model.InputSummary</pre>
+            </section>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.ResolvedCommanderName))
+        {
+            <div class="info-banner">
+                Resolved commander for EDH Top 16 lookup: <strong>@Model.ResolvedCommanderName</strong>
+            </div>
+        }
+
+        @if (Model.FetchedEntries.Count > 0)
+        {
+            <section class="result-panel nested-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h3>EDH Top 16 References</h3>
+                        <p>Sorted by newest tournament first. Select 1 to 5 decks. The client enforces the limit before submit.</p>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table data-chatgpt-cedh-reference-table>
+                        <thead>
+                        <tr>
+                            <th>Select</th>
+                            <th>#</th>
+                            <th>Player</th>
+                            <th>Tournament</th>
+                            <th>Date</th>
+                            <th>Participants</th>
+                            <th>Finish</th>
+                            <th>W-L-D</th>
+                            <th>Win %</th>
+                            <th>Decklist</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @for (var index = 0; index < Model.FetchedEntries.Count; index++)
+                        {
+                            var entry = Model.FetchedEntries[index];
+                            var rowPage = (index / pageSize) + 1;
+                            <tr data-chatgpt-cedh-reference-row data-chatgpt-cedh-page="@rowPage">
+                                <td>
+                                    <input type="checkbox"
+                                           name="SelectedReferenceIndexes"
+                                           value="@index"
+                                           checked="@(selectedReferenceIndexes.Contains(index) ? "checked" : null)"
+                                           data-chatgpt-cedh-reference-checkbox />
+                                </td>
+                                <td>@(index + 1)</td>
+                                <td>@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "Unknown" : entry.PlayerName)</td>
+                                <td>@(string.IsNullOrWhiteSpace(entry.TournamentName) ? "Unknown" : entry.TournamentName)</td>
+                                <td>@(entry.TournamentDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                                <td>@(entry.TournamentSize > 0 ? entry.TournamentSize : 0)</td>
+                                <td>@entry.Standing</td>
+                                <td>@entry.Wins-@entry.Losses-@entry.Draws</td>
+                                <td>@entry.WinRate.ToString("P0")</td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(entry.DecklistUrl))
+                                    {
+                                        <a href="@entry.DecklistUrl" target="_blank" rel="noopener noreferrer">Open</a>
+                                    }
+                                    else
+                                    {
+                                        <span>-</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+
+                @if (Model.FetchedEntries.Count > pageSize)
+                {
+                    var pageCount = (int)Math.Ceiling(Model.FetchedEntries.Count / (double)pageSize);
+                    <div class="toolbar chatgpt-step-actions" data-chatgpt-cedh-pagination>
+                        <button type="button" class="clear-cache-button" data-chatgpt-cedh-page-nav="prev">Previous</button>
+                        <span data-chatgpt-cedh-page-status>Page 1 of @pageCount</span>
+                        <button type="button" class="run-button" data-chatgpt-cedh-page-nav="next">Next</button>
+                    </div>
+                }
+            </section>
+        }
+
+        <div class="chatgpt-instructions">
+            <strong>What you do:</strong>
+            <ol>
+                <li>Select 1 to 5 reference decks.</li>
+                <li>Click <code>Generate Meta Gap Prompt</code>.</li>
+                <li>Copy <code>30-meta-gap-prompt.txt</code>.</li>
+                <li>Paste it into ChatGPT.</li>
+                <li>Have ChatGPT return only the fenced <code>```json</code> block or raw JSON whose top-level object is <code>meta_gap</code>, with no extra prose.</li>
+                <li>Paste that JSON into Step 3.</li>
+            </ol>
+        </div>
+
+        <div class="toolbar chatgpt-step-actions">
+            <button type="submit" class="run-button" data-chatgpt-cedh-submit-step="2">Generate Meta Gap Prompt</button>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.PromptText))
+        {
+            <section class="result-panel nested-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h3>30-meta-gap-prompt.txt</h3>
+                        <p>Paste this into ChatGPT to get the final <code>meta_gap</code> JSON-only response.</p>
+                    </div>
+                    <button type="button" class="copy-button" data-copy-target="cedh-meta-gap-prompt-output">Copy</button>
+                </div>
+                <textarea id="cedh-meta-gap-prompt-output" readonly spellcheck="false" data-chatgpt-cedh-result-anchor>@Model.PromptText</textarea>
+            </section>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.SchemaJson))
+        {
+            <details class="result-panel nested-panel">
+                <summary>Show expected JSON format</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h3>31-meta-gap-schema.json</h3>
+                        <p>ChatGPT should return a top-level <code>meta_gap</code> object matching this shape.</p>
+                    </div>
+                    <button type="button" class="copy-button" data-copy-target="cedh-meta-gap-schema-output">Copy</button>
+                </div>
+                <textarea id="cedh-meta-gap-schema-output" readonly spellcheck="false">@Model.SchemaJson</textarea>
+            </details>
+        }
+
+        <div class="chatgpt-step-footer">
+            <button type="button" class="clear-cache-button" data-chatgpt-cedh-show-step="1">Back: Fetch Decks</button>
+            <button type="button" class="run-button" data-chatgpt-cedh-next-step="3">Next: Paste JSON</button>
+        </div>
+    </section>
+
+    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-cedh-step-panel-3" aria-labelledby="chatgpt-cedh-step-tab-3" data-chatgpt-cedh-step="3">
+        <div class="chatgpt-step-heading">
+            <div>
+                <p class="chatgpt-step-eyebrow">Step 3</p>
+                <h2>Paste the returned meta-gap JSON</h2>
+                <p>Paste only the fenced JSON block or raw JSON payload that contains the top-level <code>meta_gap</code> object.</p>
+            </div>
+            <span class="chatgpt-step-badge">Final step</span>
+        </div>
+
+        <label class="field">
+            <span>Meta gap JSON</span>
+            <textarea name="MetaGapResponseJson" spellcheck="false">@Model.Request.MetaGapResponseJson</textarea>
+            <small class="sync-column__hint">Required for rendering the final analysis. You can paste the fenced <code>```json</code> block directly.</small>
+        </label>
+
+        <div class="toolbar chatgpt-step-actions">
+            <button type="submit" class="run-button" data-chatgpt-cedh-submit-step="3">Render Meta Gap Analysis</button>
+        </div>
+
+        @if (Model.AnalysisResponse is not null)
+        {
+            var analysis = Model.AnalysisResponse.MetaGap;
+            <section class="result-panel nested-panel summary-panel" data-chatgpt-cedh-result-anchor>
+                <h3>Meta Gap Analysis</h3>
+                <div class="stack">
+                    <section class="result-panel nested-panel">
+                        <h4>Overview</h4>
+                        <p><strong>Commander:</strong> @analysis.Commander</p>
+                        <p><strong>Reference decks:</strong> @analysis.RefDeckCount</p>
+                        @if (!string.IsNullOrWhiteSpace(analysis.ColorId))
+                        {
+                            <p><strong>Color identity:</strong> @analysis.ColorId</p>
+                        }
+                        @if (analysis.ReadinessScore > 0)
+                        {
+                            <p><strong>cEDH Readiness:</strong> @analysis.ReadinessScore / 10</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(analysis.ReadinessJustification))
+                        {
+                            <p><strong>Readiness call:</strong> @analysis.ReadinessJustification</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(analysis.MetaSummary))
+                        {
+                            <p><strong>Meta positioning:</strong> @analysis.MetaSummary</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(analysis.OptimizationPath))
+                        {
+                            <p><strong>Upgrade path:</strong> @analysis.OptimizationPath</p>
+                        }
+                    </section>
+
+                    <div class="sync-columns">
+                        @if (analysis.WinLines is not null)
+                        {
+                            <section class="result-panel nested-panel">
+                                <h4>Win Lines</h4>
+                                <ul>
+                                    @if (analysis.WinLines.MyDeck is not null && !string.IsNullOrWhiteSpace(analysis.WinLines.MyDeck.Primary))
+                                    {
+                                        <li><strong>Your primary line:</strong> @analysis.WinLines.MyDeck.Primary</li>
+                                    }
+                                    @if (analysis.WinLines.MyDeck is not null && !string.IsNullOrWhiteSpace(analysis.WinLines.MyDeck.Backup))
+                                    {
+                                        <li><strong>Your backup line:</strong> @analysis.WinLines.MyDeck.Backup</li>
+                                    }
+                                    @if (analysis.WinLines.RefConsensus is not null && !string.IsNullOrWhiteSpace(analysis.WinLines.RefConsensus.Primary))
+                                    {
+                                        <li><strong>Meta primary line:</strong> @analysis.WinLines.RefConsensus.Primary</li>
+                                    }
+                                    @if (analysis.WinLines.RefConsensus is not null && !string.IsNullOrWhiteSpace(analysis.WinLines.RefConsensus.Backup))
+                                    {
+                                        <li><strong>Meta backup line:</strong> @analysis.WinLines.RefConsensus.Backup</li>
+                                    }
+                                    @foreach (var missingLine in analysis.WinLines.MissingLines.Where(line => !string.IsNullOrWhiteSpace(line)))
+                                    {
+                                        <li><strong>Missing line:</strong> @missingLine</li>
+                                    }
+                                </ul>
+                            </section>
+                        }
+
+                        @if (analysis.Interaction is not null)
+                        {
+                            <section class="result-panel nested-panel">
+                                <h4>Interaction</h4>
+                                <p><strong>Your interaction count:</strong> @analysis.Interaction.MyCount</p>
+                                <p><strong>Reference average:</strong> @analysis.Interaction.RefAvgCount.ToString("F1")</p>
+                                @if (!string.IsNullOrWhiteSpace(analysis.Interaction.Verdict))
+                                {
+                                    <p><strong>Verdict:</strong> @analysis.Interaction.Verdict</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(analysis.Interaction.Detail))
+                                {
+                                    <p>@analysis.Interaction.Detail</p>
+                                }
+                            </section>
+                        }
+                    </div>
+
+                    <div class="sync-columns">
+                        @if (analysis.Speed is not null)
+                        {
+                            <section class="result-panel nested-panel">
+                                <h4>Speed</h4>
+                                @if (!string.IsNullOrWhiteSpace(analysis.Speed.MyClassification) || !string.IsNullOrWhiteSpace(analysis.Speed.MyAvgTurn))
+                                {
+                                    <p><strong>Your deck:</strong> @analysis.Speed.MyClassification@if (!string.IsNullOrWhiteSpace(analysis.Speed.MyAvgTurn))
+                                        {
+                                            <text> (@analysis.Speed.MyAvgTurn)</text>
+                                        }
+                                    </p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(analysis.Speed.RefClassification) || !string.IsNullOrWhiteSpace(analysis.Speed.RefAvgTurn))
+                                {
+                                    <p><strong>Reference field:</strong> @analysis.Speed.RefClassification@if (!string.IsNullOrWhiteSpace(analysis.Speed.RefAvgTurn))
+                                        {
+                                            <text> (@analysis.Speed.RefAvgTurn)</text>
+                                        }
+                                    </p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(analysis.Speed.Detail))
+                                {
+                                    <p>@analysis.Speed.Detail</p>
+                                }
+                            </section>
+                        }
+
+                        @if (analysis.ManaEfficiency is not null)
+                        {
+                            <section class="result-panel nested-panel">
+                                <h4>Mana Efficiency</h4>
+                                <p><strong>Fast mana:</strong> @analysis.ManaEfficiency.MyFastMana vs meta @analysis.ManaEfficiency.RefAvgFastMana.ToString("F1")</p>
+                                <p><strong>Average CMC:</strong> @analysis.ManaEfficiency.MyAvgCmc.ToString("F2") vs meta @analysis.ManaEfficiency.RefAvgCmc.ToString("F2")</p>
+                                <p><strong>Lands:</strong> @analysis.ManaEfficiency.MyLands vs meta @analysis.ManaEfficiency.RefAvgLands.ToString("F1")</p>
+                                @if (!string.IsNullOrWhiteSpace(analysis.ManaEfficiency.Detail))
+                                {
+                                    <p>@analysis.ManaEfficiency.Detail</p>
+                                }
+                            </section>
+                        }
+                    </div>
+
+                    @if (analysis.CoreConvergence.Count > 0)
+                    {
+                        <section class="result-panel nested-panel">
+                            <h4>Core Convergence</h4>
+                            <ul>
+                                @foreach (var item in analysis.CoreConvergence.Where(item => !string.IsNullOrWhiteSpace(item.Card)))
+                                {
+                                    <li>
+                                        <strong>@item.Card</strong>
+                                        @if (!string.IsNullOrWhiteSpace(item.Role))
+                                        {
+                                            <text> (@item.Role)</text>
+                                        }
+                                        : @(item.InMyDeck ? "already in your deck" : "missing from your deck")
+                                    </li>
+                                }
+                            </ul>
+                        </section>
+                    }
+
+                    <div class="sync-columns">
+                        @if (analysis.MissingStaples.Count > 0)
+                        {
+                            <section class="result-panel nested-panel">
+                                <h4>Missing Staples</h4>
+                                <ul>
+                                    @foreach (var item in analysis.MissingStaples.OrderBy(item => item.Priority).Where(item => !string.IsNullOrWhiteSpace(item.Card)))
+                                    {
+                                        <li>
+                                            <strong>#@item.Priority @item.Card</strong>
+                                            @if (!string.IsNullOrWhiteSpace(item.Role))
+                                            {
+                                                <text> (@item.Role)</text>
+                                            }
+                                            @if (item.RefCount > 0)
+                                            {
+                                                <text> seen in @item.RefCount reference deck(s)</text>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(item.Why))
+                                            {
+                                                <text> - @item.Why</text>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            </section>
+                        }
+
+                        @if (analysis.PotentialCuts.Count > 0)
+                        {
+                            <section class="result-panel nested-panel">
+                                <h4>Potential Cuts</h4>
+                                <ul>
+                                    @foreach (var item in analysis.PotentialCuts.OrderBy(item => item.Priority).Where(item => !string.IsNullOrWhiteSpace(item.Card)))
+                                    {
+                                        <li>
+                                            <strong>#@item.Priority @item.Card</strong>
+                                            @if (!string.IsNullOrWhiteSpace(item.Role))
+                                            {
+                                                <text> (@item.Role)</text>
+                                            }
+                                            @if (item.RefCount >= 0)
+                                            {
+                                                <text> found in @item.RefCount reference deck(s)</text>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(item.Why))
+                                            {
+                                                <text> - @item.Why</text>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            </section>
+                        }
+                    </div>
+
+                    <div class="sync-columns">
+                        @if (analysis.Top10Adds.Count > 0)
+                        {
+                            <section class="result-panel nested-panel">
+                                <h4>Top 10 Adds</h4>
+                                <ul>
+                                    @foreach (var item in analysis.Top10Adds.Where(item => !string.IsNullOrWhiteSpace(item.Card)))
+                                    {
+                                        <li>
+                                            <strong>@item.Card</strong>
+                                            @if (!string.IsNullOrWhiteSpace(item.Replaces))
+                                            {
+                                                <text> in for <strong>@item.Replaces</strong></text>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(item.Role))
+                                            {
+                                                <text> (@item.Role)</text>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(item.Why))
+                                            {
+                                                <text> - @item.Why</text>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            </section>
+                        }
+
+                        @if (analysis.Top10Cuts.Count > 0)
+                        {
+                            <section class="result-panel nested-panel">
+                                <h4>Top 10 Cuts</h4>
+                                <ul>
+                                    @foreach (var item in analysis.Top10Cuts.Where(item => !string.IsNullOrWhiteSpace(item.Card)))
+                                    {
+                                        <li>
+                                            <strong>@item.Card</strong>
+                                            @if (!string.IsNullOrWhiteSpace(item.Role))
+                                            {
+                                                <text> (@item.Role)</text>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(item.Why))
+                                            {
+                                                <text> - @item.Why</text>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            </section>
+                        }
+                    </div>
+                </div>
+            </section>
+        }
+
+        <div class="chatgpt-step-footer">
+            <button type="button" class="clear-cache-button" data-chatgpt-cedh-show-step="2">Back: Generate Prompt</button>
+        </div>
+    </section>
+</form>
+
+@section Scripts {
+    <script src="~/js/deck-sync.js" asp-append-version="true"></script>
+}

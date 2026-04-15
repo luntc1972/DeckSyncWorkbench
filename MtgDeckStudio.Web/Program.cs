@@ -66,8 +66,11 @@ public class Program
         builder.Services.AddSingleton<ICommanderBanListService, CommanderBanListService>();
         builder.Services.AddSingleton<ICommanderSpellbookService, CommanderSpellbookService>();
         builder.Services.AddSingleton<IScryfallSetService, ScryfallSetService>();
+        builder.Services.AddSingleton<IEdhTop16Client, EdhTop16Client>();
+        builder.Services.AddSingleton<IScryfallTaggerService, ScryfallTaggerService>();
         builder.Services.AddScoped<IChatGptDeckPacketService, ChatGptDeckPacketService>();
         builder.Services.AddScoped<IChatGptDeckComparisonService, ChatGptDeckComparisonService>();
+        builder.Services.AddScoped<IChatGptCedhMetaGapService, ChatGptCedhMetaGapService>();
         builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
         builder.Services.AddSingleton<ArchidektCacheJobService>();
         builder.Services.AddSingleton<IArchidektCacheJobService>(sp => sp.GetRequiredService<ArchidektCacheJobService>());

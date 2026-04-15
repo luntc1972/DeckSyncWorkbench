@@ -8,17 +8,26 @@ namespace MtgDeckStudio.Core.Knowledge;
 
 public sealed class ArchidektDeckCacheSession
 {
+    private static readonly TimeSpan IdlePollDelay = TimeSpan.FromSeconds(5);
+
     private readonly CategoryKnowledgeRepository _repository;
     private readonly IArchidektDeckImporter _deckImporter;
-    private readonly ArchidektRecentDecksImporter _recentImporter;
+    private readonly IArchidektRecentDecksImporter _recentImporter;
     private readonly ILogger? _logger;
+    private readonly TimeSpan _idlePollDelay;
 
-    public ArchidektDeckCacheSession(CategoryKnowledgeRepository repository, IArchidektDeckImporter deckImporter, ArchidektRecentDecksImporter recentImporter, ILogger? logger = null)
+    public ArchidektDeckCacheSession(
+        CategoryKnowledgeRepository repository,
+        IArchidektDeckImporter deckImporter,
+        IArchidektRecentDecksImporter recentImporter,
+        ILogger? logger = null,
+        TimeSpan? idlePollDelay = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _deckImporter = deckImporter ?? throw new ArgumentNullException(nameof(deckImporter));
         _recentImporter = recentImporter ?? throw new ArgumentNullException(nameof(recentImporter));
         _logger = logger;
+        _idlePollDelay = idlePollDelay.GetValueOrDefault(IdlePollDelay);
     }
 
     /// <summary>
@@ -42,28 +51,42 @@ public sealed class ArchidektDeckCacheSession
 
         while (stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested)
         {
-            var newestDeckIds = await _recentImporter.ImportRecentDeckIdsPageAsync(1, cancellationToken);
-            if (newestDeckIds.Count > 0)
+            try
             {
-                await _repository.AddDeckIdsAsync(newestDeckIds, cancellationToken);
+                var newestDeckIds = await _recentImporter.ImportRecentDeckIdsPageAsync(1, cancellationToken);
+                if (newestDeckIds.Count > 0)
+                {
+                    await _repository.AddDeckIdsAsync(newestDeckIds, cancellationToken);
+                }
+
+                var crawlPage = await _repository.GetRecentDeckCrawlPageAsync(cancellationToken);
+                var deeperDeckIds = await _recentImporter.ImportRecentDeckIdsPageAsync(crawlPage, cancellationToken);
+                if (deeperDeckIds.Count > 0)
+                {
+                    await _repository.AddDeckIdsAsync(deeperDeckIds, cancellationToken);
+                    await _repository.SetRecentDeckCrawlPageAsync(crawlPage + 1, cancellationToken);
+                }
+                else
+                {
+                    await _repository.SetRecentDeckCrawlPageAsync(2, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+            {
+                _logger?.LogWarning(exception, "Recent Archidekt deck fetch failed during cache sweep; retrying until the harvest window ends.");
+                await DelayUntilNextRetryAsync(stopwatch, duration, cancellationToken);
+                continue;
             }
 
-            var crawlPage = await _repository.GetRecentDeckCrawlPageAsync(cancellationToken);
-            var deeperDeckIds = await _recentImporter.ImportRecentDeckIdsPageAsync(crawlPage, cancellationToken);
-            if (deeperDeckIds.Count > 0)
-            {
-                await _repository.AddDeckIdsAsync(deeperDeckIds, cancellationToken);
-                await _repository.SetRecentDeckCrawlPageAsync(crawlPage + 1, cancellationToken);
-            }
-            else
-            {
-                await _repository.SetRecentDeckCrawlPageAsync(2, cancellationToken);
-            }
-
-            var deckIds = await _repository.GetNextUnprocessedDeckIdsAsync(queueBatchSize, cancellationToken);
+            var deckIds = await _repository.GetNextUnprocessedDeckIdsAsync(fetchBatchSize, cancellationToken);
             if (deckIds.Count == 0)
             {
-                break;
+                await DelayUntilNextRetryAsync(stopwatch, duration, cancellationToken);
+                continue;
             }
 
             foreach (var deckId in deckIds)
@@ -103,6 +126,18 @@ public sealed class ArchidektDeckCacheSession
 
         stopwatch.Stop();
         return new ArchidektCacheRunResult(added, updated, skipped, stopwatch.Elapsed);
+    }
+
+    private async Task DelayUntilNextRetryAsync(Stopwatch stopwatch, TimeSpan duration, CancellationToken cancellationToken)
+    {
+        var remaining = duration - stopwatch.Elapsed;
+        if (remaining <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        var idleDelay = remaining < _idlePollDelay ? remaining : _idlePollDelay;
+        await Task.Delay(idleDelay, cancellationToken);
     }
 
     /// <summary>

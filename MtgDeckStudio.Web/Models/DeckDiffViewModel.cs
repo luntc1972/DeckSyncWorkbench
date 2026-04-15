@@ -39,6 +39,10 @@ public sealed class DeckDiffViewModel
 
     public string? EdhrecSuggestionContextText { get; init; }
 
+    public string? TaggerCategoriesText { get; init; }
+
+    public string? TaggerSuggestionContextText { get; init; }
+
     public bool NoSuggestionsFound { get; init; }
 
     public string? NoSuggestionsMessage { get; init; }

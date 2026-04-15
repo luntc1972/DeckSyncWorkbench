@@ -27,7 +27,7 @@ public sealed class CategorySuggestionServiceTests
         });
 
         var store = new FakeKnowledgeStore(new[] { new[] { "Ramp" } }, processedDeckCount: 3, totals);
-        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), NullLogger<CategorySuggestionService>.Instance);
+        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), new FakeTaggerService(), NullLogger<CategorySuggestionService>.Instance);
 
         var request = new CategorySuggestionRequest
         {
@@ -48,7 +48,7 @@ public sealed class CategorySuggestionServiceTests
     {
         var totals = CardDeckTotals.Empty;
         var store = new FakeKnowledgeStore(new[] { Array.Empty<string>(), new[] { "Draw" } }, processedDeckCount: 1, totals);
-        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), NullLogger<CategorySuggestionService>.Instance);
+        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), new FakeTaggerService(), NullLogger<CategorySuggestionService>.Instance);
 
         var request = new CategorySuggestionRequest
         {
@@ -73,7 +73,7 @@ public sealed class CategorySuggestionServiceTests
             new() { Name = "Guardian Project", NormalizedName = CardNormalizer.Normalize("Guardian Project"), Category = "Draw,Ramp", Quantity = 1, Board = "mainboard" }
         };
         var importer = new FakeImporter(entries);
-        var service = new CategorySuggestionService(store, new ArchidektParser(), importer, NullLogger<CategorySuggestionService>.Instance);
+        var service = new CategorySuggestionService(store, new ArchidektParser(), importer, new FakeTaggerService(), NullLogger<CategorySuggestionService>.Instance);
 
         var request = new CategorySuggestionRequest
         {
@@ -88,6 +88,53 @@ public sealed class CategorySuggestionServiceTests
         Assert.Contains("Draw", result.ExactCategories);
         Assert.Contains("Ramp", result.ExactCategories);
         Assert.Contains("reference deck", result.UsedSources);
+    }
+
+    [Fact]
+    public async Task SuggestAsync_UsesScryfallTaggerModeWithoutCacheSweep()
+    {
+        var store = new FakeKnowledgeStore(new[] { Array.Empty<string>() }, processedDeckCount: 0, CardDeckTotals.Empty);
+        var tagger = new FakeTaggerService("Protection", "Value");
+        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), tagger, NullLogger<CategorySuggestionService>.Instance);
+
+        var result = await service.SuggestAsync(new CategorySuggestionRequest
+        {
+            Mode = CategorySuggestionMode.ScryfallTagger,
+            CardName = "Esper Sentinel"
+        });
+
+        Assert.False(result.NothingFound);
+        Assert.Equal(new[] { "Protection", "Value" }, result.TaggerCategories);
+        Assert.Contains("Scryfall Tagger", result.UsedSources);
+        Assert.Equal(1, tagger.LookupCalls);
+        Assert.Equal(0, store.RunCacheSweepCalls);
+        Assert.False(result.CacheHarvestTriggered);
+    }
+
+    [Fact]
+    public async Task SuggestAsync_AllModeIncludesTaggerAndCachedSuggestions()
+    {
+        var totals = new CardDeckTotals(4, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["mainboard"] = 4
+        });
+        var store = new FakeKnowledgeStore(new[] { new[] { "Draw" } }, processedDeckCount: 4, totals);
+        var tagger = new FakeTaggerService("Value");
+        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), tagger, NullLogger<CategorySuggestionService>.Instance);
+
+        var result = await service.SuggestAsync(new CategorySuggestionRequest
+        {
+            Mode = CategorySuggestionMode.All,
+            CardName = "Rhystic Study"
+        });
+
+        Assert.Contains("Draw", result.InferredCategories);
+        Assert.Contains("Value", result.TaggerCategories);
+        Assert.Contains("cached store", result.UsedSources);
+        Assert.Contains("Scryfall Tagger", result.UsedSources);
+        Assert.Equal(1, store.RunCacheSweepCalls);
+        Assert.Equal(1, tagger.LookupCalls);
+        Assert.True(result.CacheHarvestTriggered);
     }
 
     private sealed class FakeKnowledgeStore : ICategoryKnowledgeStore
@@ -142,6 +189,24 @@ public sealed class CategorySuggestionServiceTests
         public Task<List<DeckEntry>> ImportAsync(string urlOrId, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(_entries.ToList());
+        }
+    }
+
+    private sealed class FakeTaggerService : IScryfallTaggerService
+    {
+        private readonly IReadOnlyList<string> _responses;
+
+        public FakeTaggerService(params string[] responses)
+        {
+            _responses = responses;
+        }
+
+        public int LookupCalls { get; private set; }
+
+        public Task<IReadOnlyList<string>> LookupOracleTagsAsync(string cardName, CancellationToken cancellationToken = default)
+        {
+            LookupCalls++;
+            return Task.FromResult(_responses);
         }
     }
 }

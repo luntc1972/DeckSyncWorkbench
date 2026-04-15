@@ -6,7 +6,14 @@ using RestSharp;
 
 namespace MtgDeckStudio.Core.Integration;
 
-public sealed partial class ArchidektRecentDecksImporter
+public interface IArchidektRecentDecksImporter
+{
+    Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, int startPage, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default);
+}
+
+public sealed partial class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
 {
     private readonly RestClient _restClient;
     private static readonly AsyncRetryPolicy<RestResponse> RetryPolicy = Policy<RestResponse>

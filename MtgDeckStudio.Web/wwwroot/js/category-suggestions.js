@@ -42,6 +42,7 @@
         toggleSuggestionPanel('exact', false);
         toggleSuggestionPanel('inferred', false);
         toggleSuggestionPanel('edhrec', false);
+        toggleSuggestionPanel('tagger', false);
         toggleSuggestionPanel('no-suggestions', false);
         toggleSuggestionPanel('lookup-hint', false);
         toggleSuggestionPanel('commander-results', false);
@@ -61,35 +62,73 @@
             element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 100);
     };
+    const busyConfigByMode = {
+        CachedData: {
+            title: 'Finding Categories',
+            message: 'Checking the local store and recent Archidekt decks.',
+            progress: 'Refreshing cached store|Scanning recent Archidekt decks|Finalizing category matches',
+        },
+        ReferenceDeck: {
+            title: 'Finding Categories',
+            message: 'Loading the reference deck and matching categories.',
+            progress: 'Loading reference deck|Matching card categories|Finalizing results',
+        },
+        ScryfallTagger: {
+            title: 'Looking Up Tags',
+            message: 'Fetching functional tags from Scryfall Tagger.',
+            progress: 'Resolving card|Querying Scryfall Tagger|Finalizing tags',
+        },
+        All: {
+            title: 'Finding Categories',
+            message: 'Checking all sources: cached store and Scryfall Tagger.',
+            progress: 'Refreshing cached store|Querying Scryfall Tagger|Finalizing results',
+        },
+    };
+    const updateBusyAttributes = (form, mode) => {
+        var _a;
+        const config = (_a = busyConfigByMode[mode]) !== null && _a !== void 0 ? _a : busyConfigByMode['CachedData'];
+        form.setAttribute('data-busy-title', config.title);
+        form.setAttribute('data-busy-message', config.message);
+        form.setAttribute('data-busy-progress', config.progress);
+    };
     const updateSuggestionInputModeUi = () => {
         const modeSelect = document.querySelector('select[name="Mode"]');
         const archidektModeSelect = document.querySelector('select[name="ArchidektInputSource"]');
         if (!modeSelect || !archidektModeSelect) {
             return;
         }
-        const useReferenceDeck = modeSelect.value === 'ReferenceDeck';
+        const mode = modeSelect.value;
+        const showReference = mode === 'ReferenceDeck';
         const showUrl = archidektModeSelect.value === 'PublicUrl';
         const showText = archidektModeSelect.value === 'PasteText';
         document.querySelectorAll('.reference-controls').forEach(element => {
-            element.classList.toggle('hidden', !useReferenceDeck);
+            element.classList.toggle('hidden', !showReference);
         });
         document.querySelectorAll('[data-suggest-panel="url"]').forEach(element => {
-            element.classList.toggle('hidden', !useReferenceDeck || !showUrl);
+            element.classList.toggle('hidden', !showReference || !showUrl);
         });
         document.querySelectorAll('[data-suggest-panel="text"]').forEach(element => {
-            element.classList.toggle('hidden', !useReferenceDeck || !showText);
+            element.classList.toggle('hidden', !showReference || !showText);
         });
+        const form = modeSelect.closest('form');
+        if (form) {
+            updateBusyAttributes(form, mode);
+        }
     };
     const handleCardResponse = (form, response) => {
-        var _a;
+        var _a, _b;
         resetCardUi();
         handleError('suggest-error', null);
+        const modeSelect = form.querySelector('select[name="Mode"]');
+        const mode = (_a = modeSelect === null || modeSelect === void 0 ? void 0 : modeSelect.value) !== null && _a !== void 0 ? _a : 'CachedData';
+        const showAll = mode === 'All';
         const hintText = response.noSuggestionsFound && response.noSuggestionsMessage
             ? response.noSuggestionsMessage
             : `The cached store tracks Archidekt categories that appear on decks containing ${response.cardName}. Click Suggest to keep scanning public decks for another 20 seconds so those categories can populate.`;
         setFieldText('lookup-hint-text', hintText);
         toggleSuggestionPanel('lookup-hint', true);
-        if (response.cardDeckTotals.totalDeckCount > 0) {
+        const showCached = mode === 'CachedData' || showAll;
+        if (showCached && response.cardDeckTotals.totalDeckCount > 0) {
             setFieldText('cache-info-count', response.cardDeckTotals.totalDeckCount.toString());
             setFieldText('cache-info-text', `The cached store currently contains ${response.cardDeckTotals.totalDeckCount} deck(s) featuring ${response.cardName}.`);
             toggleSuggestionPanel('cache-info', true);
@@ -98,35 +137,44 @@
             setFieldText('source-summary-text', response.suggestionSourceSummary);
             toggleSuggestionPanel('source-summary', true);
         }
-        const modeSelect = form.querySelector('select[name="Mode"]');
-        const isReferenceMode = (modeSelect === null || modeSelect === void 0 ? void 0 : modeSelect.value) === 'ReferenceDeck';
-        toggleSuggestionPanel('exact', response.hasExactCategories && isReferenceMode);
+        const showExact = mode === 'ReferenceDeck' && response.hasExactCategories;
+        toggleSuggestionPanel('exact', showExact);
         setFieldText('exact-context', response.exactSuggestionContextText);
         setFieldText('exact-text', response.exactCategoriesText);
-        toggleSuggestionPanel('inferred', true);
+        const showInferred = showCached && response.hasInferredCategories;
+        toggleSuggestionPanel('inferred', showInferred);
         setFieldText('inferred-context', response.inferredSuggestionContextText);
         setFieldText('inferred-text', response.inferredCategoriesText);
-        setFieldText('cache-info-detail', response.cardDeckTotals.totalDeckCount > 0
+        setFieldText('cache-info-detail', showCached && response.cardDeckTotals.totalDeckCount > 0
             ? `${response.cardDeckTotals.totalDeckCount} deck(s) in the cache include ${response.cardName}.`
             : '');
-        toggleSuggestionPanel('edhrec', response.hasEdhrecCategories);
+        const showEdhrec = showCached && response.hasEdhrecCategories;
+        toggleSuggestionPanel('edhrec', showEdhrec);
         setFieldText('edhrec-context', response.edhrecSuggestionContextText);
         setFieldText('edhrec-text', response.edhrecCategoriesText);
+        const showTagger = (mode === 'ScryfallTagger' || showAll) && response.hasTaggerCategories;
+        toggleSuggestionPanel('tagger', showTagger);
+        setFieldText('tagger-context', response.taggerSuggestionContextText);
+        setFieldText('tagger-text', response.taggerCategoriesText);
         toggleSuggestionPanel('no-suggestions', response.noSuggestionsFound);
         if (response.noSuggestionsFound) {
-            setFieldText('no-suggestions-text', (_a = response.noSuggestionsMessage) !== null && _a !== void 0 ? _a : `No category suggestions were found for ${response.cardName}.`);
+            setFieldText('no-suggestions-text', (_b = response.noSuggestionsMessage) !== null && _b !== void 0 ? _b : `No category suggestions were found for ${response.cardName}.`);
             scrollPanelIntoCenter('[data-api-panel="no-suggestions"]');
             return;
         }
-        if (response.hasInferredCategories) {
+        if (showTagger) {
+            scrollPanelIntoCenter('[data-api-panel="tagger"]');
+            return;
+        }
+        if (showInferred) {
             scrollPanelIntoCenter('#cached-store-matches');
             return;
         }
-        if (response.hasExactCategories) {
+        if (showExact) {
             scrollPanelIntoCenter('[data-api-panel="exact"]');
             return;
         }
-        if (response.hasEdhrecCategories) {
+        if (showEdhrec) {
             scrollPanelIntoCenter('[data-api-panel="edhrec"]');
         }
     };

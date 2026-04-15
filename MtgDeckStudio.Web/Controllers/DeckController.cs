@@ -27,6 +27,7 @@ public sealed class DeckController : Controller
     private readonly ICategorySuggestionService _categorySuggestionService;
     private readonly IChatGptDeckPacketService _chatGptDeckPacketService;
     private readonly IChatGptDeckComparisonService _chatGptDeckComparisonService;
+    private readonly IChatGptCedhMetaGapService _chatGptCedhMetaGapService;
     private readonly IScryfallSetService _scryfallSetService;
     private readonly ILogger<DeckController> _logger;
 
@@ -42,6 +43,7 @@ public sealed class DeckController : Controller
         ICategorySuggestionService categorySuggestionService,
         IChatGptDeckPacketService chatGptDeckPacketService,
         IChatGptDeckComparisonService chatGptDeckComparisonService,
+        IChatGptCedhMetaGapService chatGptCedhMetaGapService,
         IScryfallSetService scryfallSetService,
         ILogger<DeckController> logger)
     {
@@ -53,6 +55,7 @@ public sealed class DeckController : Controller
         _categorySuggestionService = categorySuggestionService;
         _chatGptDeckPacketService = chatGptDeckPacketService;
         _chatGptDeckComparisonService = chatGptDeckComparisonService;
+        _chatGptCedhMetaGapService = chatGptCedhMetaGapService;
         _scryfallSetService = scryfallSetService;
         _logger = logger;
     }
@@ -129,6 +132,19 @@ public sealed class DeckController : Controller
         {
             ActiveTab = DeckPageTab.ChatGptDeckComparison,
             Request = new ChatGptDeckComparisonRequest(),
+        });
+    }
+
+    [HttpGet("/chatgpt-cedh-meta-gap")]
+    /// <summary>
+    /// Renders the staged cEDH meta-gap workflow.
+    /// </summary>
+    public IActionResult ChatGptCedhMetaGap()
+    {
+        return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+        {
+            ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+            Request = new ChatGptCedhMetaGapRequest(),
         });
     }
 
@@ -446,6 +462,73 @@ public sealed class DeckController : Controller
         }
     }
 
+    [HttpPost("/chatgpt-cedh-meta-gap")]
+    [ValidateAntiForgeryToken]
+    /// <summary>
+    /// Processes the cEDH meta-gap workflow.
+    /// </summary>
+    /// <param name="request">Current meta-gap workflow request.</param>
+    public async Task<IActionResult> ChatGptCedhMetaGap(ChatGptCedhMetaGapRequest request)
+    {
+        request ??= new ChatGptCedhMetaGapRequest();
+        if (!ModelState.IsValid)
+        {
+            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                Request = request,
+                ErrorMessage = "The cEDH meta-gap form contains invalid values. Review the highlighted fields and try again."
+            });
+        }
+
+        try
+        {
+            var result = await _chatGptCedhMetaGapService.BuildAsync(request, HttpContext.RequestAborted);
+            request.WorkflowStep = request.WorkflowStep switch
+            {
+                >= 3 when result.AnalysisResponse is not null => 3,
+                >= 2 when !string.IsNullOrWhiteSpace(result.PromptText) => 2,
+                _ when result.FetchedEntries.Count > 0 => 2,
+                _ => 1
+            };
+
+            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                Request = request,
+                InputSummary = result.InputSummary,
+                ResolvedCommanderName = result.ResolvedCommanderName,
+                PromptText = result.PromptText,
+                SchemaJson = result.SchemaJson,
+                FetchedEntries = result.FetchedEntries,
+                AnalysisResponse = result.AnalysisResponse,
+                SavedArtifactsDirectory = result.SavedArtifactsDirectory
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogInformation(exception, "cEDH meta-gap generation failed validation.");
+            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                Request = request,
+                ErrorMessage = exception.Message,
+            });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "cEDH meta-gap generation hit an upstream dependency.");
+            return View("ChatGptCedhMetaGap", new ChatGptCedhMetaGapViewModel
+            {
+                ActiveTab = DeckPageTab.ChatGptCedhMetaGap,
+                Request = request,
+                ErrorMessage = exception.StatusCode == HttpStatusCode.TooManyRequests
+                    ? "EDH Top 16 is rate-limiting requests right now. Try again shortly."
+                    : UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+            });
+        }
+    }
+
     /// <summary>
     /// Attempts to load set options without surfacing catalog failures as page-breaking errors.
     /// </summary>
@@ -590,6 +673,8 @@ public sealed class DeckController : Controller
                 InferredSuggestionContextText = "These come from the local cached store built from recent Archidekt decks.",
                 EdhrecCategoriesText = CategorySuggestionReporter.ToText(result.EdhrecCategories, result.CardName),
                 EdhrecSuggestionContextText = "These themes/tags are inferred from EDHREC’s deck data that include the card.",
+                TaggerCategoriesText = CategorySuggestionReporter.ToText(result.TaggerCategories, result.CardName),
+                TaggerSuggestionContextText = "These are community-curated functional tags from Scryfall Tagger.",
                 NoSuggestionsFound = result.NothingFound,
                 NoSuggestionsMessage = lookupMessage,
                 SuggestionSourceSummary = result.UsedSources.Count == 0

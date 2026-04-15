@@ -32,6 +32,7 @@ public sealed record CategorySuggestionResult(
     IReadOnlyList<string> ExactCategories,
     IReadOnlyList<string> InferredCategories,
     IReadOnlyList<string> EdhrecCategories,
+    IReadOnlyList<string> TaggerCategories,
     CardDeckTotals CardDeckTotals,
     IReadOnlyList<string> UsedSources,
     bool NothingFound,
@@ -40,6 +41,7 @@ public sealed record CategorySuggestionResult(
 {
     public static CategorySuggestionResult Empty(string cardName) => new(
         cardName,
+        Array.Empty<string>(),
         Array.Empty<string>(),
         Array.Empty<string>(),
         Array.Empty<string>(),
@@ -60,6 +62,7 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
     private readonly ILogger<CategorySuggestionService> _logger;
     private readonly ArchidektParser _archidektParser;
     private readonly IArchidektDeckImporter _archidektImporter;
+    private readonly IScryfallTaggerService _taggerService;
 
     /// <summary>
     /// Initializes a new instance of <see cref="CategorySuggestionService"/>.
@@ -68,11 +71,13 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
         ICategoryKnowledgeStore knowledgeStore,
         ArchidektParser archidektParser,
         IArchidektDeckImporter archidektImporter,
+        IScryfallTaggerService taggerService,
         ILogger<CategorySuggestionService> logger)
     {
         _knowledgeStore = knowledgeStore;
         _archidektParser = archidektParser;
         _archidektImporter = archidektImporter;
+        _taggerService = taggerService;
         _logger = logger;
     }
 
@@ -97,18 +102,37 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
         }
 
         var cardName = request.CardName.Trim();
+        var mode = request.Mode;
+        var runAll = mode == CategorySuggestionMode.All;
+
         var initialDeckCount = await _knowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
 
-        var exactCategories = request.Mode == CategorySuggestionMode.ReferenceDeck
+        var runReferencePath = mode == CategorySuggestionMode.ReferenceDeck;
+
+        var exactCategories = runReferencePath
             ? CategorySuggestionReporter.SuggestCategories(await LoadReferenceEntriesAsync(request, cancellationToken), cardName)
             : Array.Empty<string>();
 
-        await _knowledgeStore.RunCacheSweepAsync(_logger, ClickSweepDurationSeconds, cancellationToken);
+        var taggerCategories = mode == CategorySuggestionMode.ScryfallTagger || runAll
+            ? await _taggerService.LookupOracleTagsAsync(cardName, cancellationToken)
+            : Array.Empty<string>();
 
-        var inferredCategories = await _knowledgeStore.GetCategoriesAsync(cardName, cancellationToken);
+        var runCachedPath = mode == CategorySuggestionMode.CachedData || runAll;
 
-        var cardTotals = await _knowledgeStore.GetCardDeckTotalsAsync(cardName, cancellationToken: cancellationToken);
-        var edhrecCategories = exactCategories.Count == 0 && inferredCategories.Count == 0
+        if (runCachedPath)
+        {
+            await _knowledgeStore.RunCacheSweepAsync(_logger, ClickSweepDurationSeconds, cancellationToken);
+        }
+
+        var inferredCategories = runCachedPath
+            ? await _knowledgeStore.GetCategoriesAsync(cardName, cancellationToken)
+            : Array.Empty<string>();
+
+        var cardTotals = runCachedPath
+            ? await _knowledgeStore.GetCardDeckTotalsAsync(cardName, cancellationToken: cancellationToken)
+            : CardDeckTotals.Empty;
+
+        var edhrecCategories = runCachedPath && exactCategories.Count == 0 && inferredCategories.Count == 0 && taggerCategories.Count == 0
             ? await new EdhrecCardLookup().LookupCategoriesAsync(cardName, cancellationToken)
             : Array.Empty<string>();
 
@@ -126,6 +150,11 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
             usedSources.Add("reference deck");
         }
 
+        if (taggerCategories.Count > 0)
+        {
+            usedSources.Add("Scryfall Tagger");
+        }
+
         if (inferredCategories.Count > 0)
         {
             usedSources.Add("cached store");
@@ -136,18 +165,19 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
             usedSources.Add("EDHREC");
         }
 
-        var nothingFound = exactCategories.Count == 0 && inferredCategories.Count == 0 && edhrecCategories.Count == 0;
+        var nothingFound = exactCategories.Count == 0 && inferredCategories.Count == 0 && edhrecCategories.Count == 0 && taggerCategories.Count == 0;
 
         return new CategorySuggestionResult(
             cardName,
             exactCategories,
             inferredCategories,
             edhrecCategories,
+            taggerCategories,
             cardTotals,
             usedSources,
             nothingFound,
             additionalDecksFound,
-            true);
+            runCachedPath);
     }
 
     private static bool HasSuggestionInput(CategorySuggestionRequest request)

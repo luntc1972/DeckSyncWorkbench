@@ -39,6 +39,7 @@ public sealed class SuggestionsApiControllerTests
             Array.Empty<string>(),
             new[] { "Draw", "Ramp" },
             Array.Empty<string>(),
+            Array.Empty<string>(),
             new CardDeckTotals(3, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["mainboard"] = 3 }),
             new[] { "cached store" },
             false,
@@ -62,6 +63,42 @@ public sealed class SuggestionsApiControllerTests
         Assert.True(payload.HasInferredCategories);
         Assert.Equal(2, payload.AdditionalDecksFound);
         Assert.True(payload.CacheSweepPerformed);
+    }
+
+    [Fact]
+    public async Task PostCardSuggestionAsync_ReturnsTaggerFields()
+    {
+        var result = new CategorySuggestionResult(
+            "Esper Sentinel",
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            new[] { "Protection", "Value" },
+            CardDeckTotals.Empty,
+            new[] { "Scryfall Tagger" },
+            false,
+            0,
+            false);
+
+        var controller = new SuggestionsApiController(
+            new FakeCategorySuggestionService(result),
+            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
+            NullLogger<SuggestionsApiController>.Instance);
+
+        var response = await controller.PostCardSuggestionAsync(new CategorySuggestionRequest
+        {
+            CardName = "Esper Sentinel",
+            Mode = CategorySuggestionMode.ScryfallTagger
+        }, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var payload = Assert.IsType<CategorySuggestionApiResponse>(ok.Value);
+        Assert.True(payload.HasTaggerCategories);
+        Assert.Contains("Protection", payload.TaggerCategoriesText);
+        Assert.Equal("These are community-curated functional tags from Scryfall Tagger.", payload.TaggerSuggestionContextText);
+        Assert.Equal("Source used: Scryfall Tagger", payload.SuggestionSourceSummary);
+        Assert.False(payload.CacheSweepPerformed);
     }
 
     [Fact]
