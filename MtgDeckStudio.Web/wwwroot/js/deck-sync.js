@@ -1053,7 +1053,7 @@ const parseChatGptCedhPage = (value) => {
     const parsedValue = parseInt(value !== null && value !== void 0 ? value : '1', 10);
     return Number.isNaN(parsedValue) || parsedValue < 1 ? 1 : parsedValue;
 };
-const maxChatGptCedhReferences = 5;
+const maxChatGptCedhReferences = 3;
 const setChatGptCedhValidationMessage = (message) => {
     const errorNode = document.querySelector('[data-chatgpt-cedh-validation-error]');
     if (!errorNode) {

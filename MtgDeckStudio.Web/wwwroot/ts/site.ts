@@ -6,11 +6,17 @@
   let archidektCacheJobInitialized = false;
   let archidektCacheJobPollHandle: number | null = null;
   let archidektCacheJobStartPending = false;
+  let archidektCacheJobLocked = false;
+  let archidektCacheJobResolveVersion = 0;
+  let archidektCacheJobRecordMemory: ArchidektCacheJobRecord | null = null;
+  let suppressPageSnapshotPersistence = false;
   const themeStorageKey = 'mtg-deck-studio-theme';
   const themeCookieMaxAgeSeconds = 60 * 60 * 24 * 365;
   const archidektCacheJobStorageKey = 'mtg-deck-studio-archidekt-cache-job';
   const archidektCacheJobDismissedKey = 'mtg-deck-studio-archidekt-cache-job-dismissed';
   const archidektCacheJobPendingKey = 'mtg-deck-studio-archidekt-cache-job-pending';
+  const pageSnapshotStoragePrefix = 'decksync-page-snapshot-';
+  const tabNavigationKey = 'decksync-tab-navigation';
   const archidektCacheJobPollIntervalMs = 5000;
 
   type ArchidektCacheJobRecord = {
@@ -33,6 +39,111 @@
     additionalDecksFound: number;
     errorMessage?: string | null;
     startedNewJob?: boolean;
+  };
+
+  type ArchidektCacheJobResponsePayload = ArchidektCacheJobResponse & {
+    JobId?: string;
+    StatusUrl?: string;
+    State?: string;
+    DurationSeconds?: number;
+    RequestedUtc?: string;
+    StartedUtc?: string | null;
+    CompletedUtc?: string | null;
+    DecksProcessed?: number;
+    AdditionalDecksFound?: number;
+    ErrorMessage?: string | null;
+    StartedNewJob?: boolean;
+    Message?: string;
+  };
+
+  const getSessionStorage = (): Storage | null => {
+    try {
+      const testKey = '__decksync_page_snapshot_test_key__';
+      window.sessionStorage.setItem(testKey, '1');
+      window.sessionStorage.removeItem(testKey);
+      return window.sessionStorage;
+    } catch {
+      return null;
+    }
+  };
+
+  const getPageSnapshotKey = (): string => `${pageSnapshotStoragePrefix}${window.location.pathname}`;
+
+  const canPersistCurrentPage = (): boolean => document.querySelector('form[data-cache-key]') !== null;
+
+  const persistCurrentPageSnapshot = (): void => {
+    if (suppressPageSnapshotPersistence || !canPersistCurrentPage()) {
+      return;
+    }
+
+    const storage = getSessionStorage();
+    const main = document.querySelector<HTMLElement>('main.content-shell');
+    if (!storage || !main) {
+      return;
+    }
+
+    try {
+      storage.setItem(getPageSnapshotKey(), main.innerHTML);
+    } catch {
+      // Ignore storage failures and continue without page snapshot persistence.
+    }
+  };
+
+  const clearCurrentPageSnapshot = (): void => {
+    const storage = getSessionStorage();
+    if (!storage) {
+      return;
+    }
+
+    try {
+      storage.removeItem(getPageSnapshotKey());
+    } catch {
+      // Ignore storage failures and continue without page snapshot persistence.
+    }
+  };
+
+  const restoreCurrentPageSnapshot = (): void => {
+    const storage = getSessionStorage();
+    const main = document.querySelector<HTMLElement>('main.content-shell');
+    if (!storage || !main || storage.getItem(tabNavigationKey) !== '1' || !canPersistCurrentPage()) {
+      return;
+    }
+
+    const snapshot = storage.getItem(getPageSnapshotKey());
+    if (!snapshot) {
+      return;
+    }
+
+    main.innerHTML = snapshot;
+  };
+
+  const attachPageSnapshotPersistence = (): void => {
+    if (!canPersistCurrentPage()) {
+      return;
+    }
+
+    document.querySelectorAll<HTMLAnchorElement>('.tool-nav__link').forEach(link => {
+      link.addEventListener('click', () => {
+        const storage = getSessionStorage();
+        persistCurrentPageSnapshot();
+        storage?.setItem(tabNavigationKey, '1');
+      });
+    });
+
+    document.querySelectorAll<HTMLElement>('[data-clear-cache]').forEach(button => {
+      button.addEventListener('click', () => {
+        suppressPageSnapshotPersistence = true;
+        clearCurrentPageSnapshot();
+      });
+    });
+
+    window.addEventListener('pagehide', () => {
+      if (suppressPageSnapshotPersistence) {
+        return;
+      }
+
+      persistCurrentPageSnapshot();
+    });
   };
 
   const attachBackToTop = (): void => {
@@ -140,19 +251,27 @@
   };
 
   const readArchidektCacheJobRecord = (): ArchidektCacheJobRecord | null => {
+    if (archidektCacheJobRecordMemory) {
+      return archidektCacheJobRecordMemory;
+    }
+
     try {
       const payload = window.localStorage.getItem(archidektCacheJobStorageKey);
       if (!payload) {
         return null;
       }
 
-      return JSON.parse(payload) as ArchidektCacheJobRecord;
+      const record = JSON.parse(payload) as ArchidektCacheJobRecord;
+      archidektCacheJobRecordMemory = record;
+      return record;
     } catch {
       return null;
     }
   };
 
   const writeArchidektCacheJobRecord = (record: ArchidektCacheJobRecord | null): void => {
+    archidektCacheJobRecordMemory = record;
+
     try {
       if (!record) {
         window.localStorage.removeItem(archidektCacheJobStorageKey);
@@ -246,9 +365,8 @@
   };
 
   const updateArchidektCacheButtons = (isRunning: boolean): void => {
-    console.debug('[harvest]', 'updateArchidektCacheButtons', { isRunning, pending: archidektCacheJobStartPending, stack: new Error().stack?.split('\n').slice(1, 4).map(s => s.trim()).join(' < ') });
     document.querySelectorAll<HTMLButtonElement>('[data-archidekt-cache-start]').forEach(button => {
-      const disabled = isRunning || archidektCacheJobStartPending;
+      const disabled = isRunning || archidektCacheJobStartPending || archidektCacheJobLocked;
       button.disabled = disabled;
       button.setAttribute('aria-disabled', disabled ? 'true' : 'false');
       button.classList.toggle('disabled', disabled);
@@ -273,6 +391,34 @@
     }
   };
 
+  const normalizeArchidektCacheJobResponse = (payload: ArchidektCacheJobResponsePayload | null): ArchidektCacheJobResponse | null => {
+    if (!payload) {
+      return null;
+    }
+
+    const jobId = payload.jobId ?? payload.JobId;
+    const state = payload.state ?? payload.State;
+    const durationSeconds = payload.durationSeconds ?? payload.DurationSeconds;
+    const requestedUtc = payload.requestedUtc ?? payload.RequestedUtc;
+    if (!jobId || !state || !Number.isFinite(durationSeconds) || !requestedUtc) {
+      return null;
+    }
+
+    return {
+      jobId,
+      statusUrl: payload.statusUrl ?? payload.StatusUrl,
+      state,
+      durationSeconds,
+      requestedUtc,
+      startedUtc: payload.startedUtc ?? payload.StartedUtc ?? null,
+      completedUtc: payload.completedUtc ?? payload.CompletedUtc ?? null,
+      decksProcessed: payload.decksProcessed ?? payload.DecksProcessed ?? 0,
+      additionalDecksFound: payload.additionalDecksFound ?? payload.AdditionalDecksFound ?? 0,
+      errorMessage: payload.errorMessage ?? payload.ErrorMessage ?? null,
+      startedNewJob: payload.startedNewJob ?? payload.StartedNewJob
+    };
+  };
+
   const notifyJobCompletion = (job: ArchidektCacheJobResponse): void => {
     if (!('Notification' in window) || document.visibilityState === 'visible') {
       return;
@@ -289,6 +435,7 @@
     const message = buildJobMessage(job);
     const completed = job.state === 'Succeeded' || job.state === 'Failed';
     writePendingStart(false);
+    archidektCacheJobLocked = !completed;
     const prior = readArchidektCacheJobRecord();
     const completionNotified = prior?.jobId === job.jobId ? prior.completionNotified === true : false;
     writeArchidektCacheJobRecord(completed ? null : {
@@ -321,6 +468,7 @@
   const pollArchidektCacheJob = async (): Promise<void> => {
     const record = readArchidektCacheJobRecord();
     if (!record?.statusUrl) {
+      archidektCacheJobLocked = false;
       updateArchidektCacheButtons(false);
       return;
     }
@@ -336,6 +484,7 @@
       if (!response.ok) {
         if (response.status === 404) {
           writeArchidektCacheJobRecord(null);
+          archidektCacheJobLocked = false;
           updateArchidektCacheButtons(false);
           setPageJobStatus(null);
         }
@@ -353,7 +502,7 @@
     }
   };
 
-  const resolveActiveArchidektCacheJob = async (activeUrl: string): Promise<boolean> => {
+  const resolveActiveArchidektCacheJob = async (activeUrl: string, version: number = ++archidektCacheJobResolveVersion): Promise<boolean> => {
     try {
       const response = await fetch(activeUrl, {
         method: 'GET',
@@ -362,9 +511,14 @@
         }
       });
 
+      if (version !== archidektCacheJobResolveVersion) {
+        return false;
+      }
+
       if (response.status === 404) {
         writePendingStart(false);
         writeArchidektCacheJobRecord(null);
+        archidektCacheJobLocked = false;
         setPageJobStatus(null);
         updateArchidektCacheButtons(false);
         return false;
@@ -409,11 +563,13 @@
 
     document.querySelectorAll<HTMLButtonElement>('[data-archidekt-cache-start]').forEach(button => {
       button.addEventListener('click', async () => {
+        archidektCacheJobResolveVersion += 1;
         const existingRecord = readArchidektCacheJobRecord();
         if (archidektCacheJobStartPending
           || existingRecord?.state === 'Queued'
           || existingRecord?.state === 'Running')
         {
+          archidektCacheJobLocked = true;
           updateArchidektCacheButtons(true);
           return;
         }
@@ -431,6 +587,7 @@
         }
 
         writePendingStart(true);
+        archidektCacheJobLocked = true;
         updateArchidektCacheButtons(true);
         setPageJobStatus('Starting Archidekt category harvest...');
         setGlobalJobNotice('Starting Archidekt category harvest...');
@@ -445,9 +602,9 @@
             body: JSON.stringify({ durationSeconds })
           });
 
-          let payload: (ArchidektCacheJobResponse & { startedNewJob?: boolean; statusUrl?: string; message?: string; Message?: string }) | null = null;
+          let payload: ArchidektCacheJobResponsePayload | null = null;
           try {
-            payload = await response.json() as ArchidektCacheJobResponse & { startedNewJob?: boolean; statusUrl?: string; message?: string; Message?: string };
+            payload = await response.json() as ArchidektCacheJobResponsePayload;
           } catch {
             payload = null;
           }
@@ -457,6 +614,7 @@
             const activeJobFound = await resolveActiveArchidektCacheJob(activeUrl);
             if (!activeJobFound) {
               writePendingStart(false);
+              archidektCacheJobLocked = false;
               setPageJobStatus(message);
               setGlobalJobNotice(message);
               updateArchidektCacheButtons(false);
@@ -468,13 +626,29 @@
             throw new Error('Archidekt category harvest returned an empty response.');
           }
 
-          const statusUrl = payload.statusUrl ?? `${statusBaseUrl}/${payload.jobId}`;
+          const job = normalizeArchidektCacheJobResponse(payload);
+          const statusUrl = job?.statusUrl
+            ?? response.headers.get('Location')
+            ?? (job?.jobId ? `${statusBaseUrl}/${job.jobId}` : null);
+
+          writePendingStart(false);
+          archidektCacheJobLocked = true;
+
+          if (!job || !statusUrl) {
+            setPageJobStatus('Archidekt category harvest is queued and will start shortly.');
+            setGlobalJobNotice('Archidekt category harvest is queued and will start shortly.');
+            updateArchidektCacheButtons(true);
+            void resolveActiveArchidektCacheJob(activeUrl);
+            return;
+          }
+
           writeDismissedJobId(null);
-          applyJobStatus(payload, statusUrl);
+          applyJobStatus(job, statusUrl);
         } catch (error) {
           const activeJobFound = await resolveActiveArchidektCacheJob(activeUrl);
           if (!activeJobFound) {
             writePendingStart(false);
+            archidektCacheJobLocked = false;
             const message = error instanceof Error ? error.message : 'Unable to start the Archidekt category harvest.';
             setPageJobStatus(message);
             setGlobalJobNotice(message);
@@ -488,17 +662,21 @@
     const activeRecord = readArchidektCacheJobRecord();
     const activeUrl = document.querySelector<HTMLButtonElement>('[data-archidekt-cache-start]')?.dataset.activeUrl;
     if (activeRecord?.jobId && activeUrl) {
+      archidektCacheJobLocked = true;
       // Verify the stored job still exists on the server before locking the button.
       // If the server was restarted, resolveActive returns 404 and clears the stale record.
       updateArchidektCacheButtons(true);
       void resolveActiveArchidektCacheJob(activeUrl);
     } else if (activeRecord?.jobId) {
+      archidektCacheJobLocked = activeRecord.state === 'Queued' || activeRecord.state === 'Running';
       updateArchidektCacheButtons(activeRecord.state === 'Queued' || activeRecord.state === 'Running');
       void pollArchidektCacheJob();
     } else if (archidektCacheJobStartPending && activeUrl) {
+      archidektCacheJobLocked = true;
       updateArchidektCacheButtons(true);
       void resolveActiveArchidektCacheJob(activeUrl);
     } else {
+      archidektCacheJobLocked = false;
       updateArchidektCacheButtons(false);
       if (activeUrl) {
         void resolveActiveArchidektCacheJob(activeUrl);
@@ -506,6 +684,8 @@
     }
   };
 
+  restoreCurrentPageSnapshot();
+  attachPageSnapshotPersistence();
   document.addEventListener('DOMContentLoaded', attachBackToTop);
   document.addEventListener('DOMContentLoaded', attachThemePicker);
   document.addEventListener('DOMContentLoaded', attachArchidektCacheJobUi);

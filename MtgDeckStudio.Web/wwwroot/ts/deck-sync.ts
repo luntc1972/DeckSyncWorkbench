@@ -1308,7 +1308,7 @@ const parseChatGptCedhPage = (value: string | undefined | null): number => {
   return Number.isNaN(parsedValue) || parsedValue < 1 ? 1 : parsedValue;
 };
 
-const maxChatGptCedhReferences = 5;
+const maxChatGptCedhReferences = 3;
 
 const setChatGptCedhValidationMessage = (message: string | null): void => {
   const errorNode = document.querySelector<HTMLElement>('[data-chatgpt-cedh-validation-error]');
