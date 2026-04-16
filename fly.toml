@@ -1,0 +1,40 @@
+# Fly.io configuration for MtgDeckStudio.Web.
+# Prereqs: `fly launch --no-deploy` once (or `fly apps create mtg-deck-studio`), then:
+#   fly volumes create mtg_data --size 1 --region sea
+#   fly deploy
+#
+# The volume gets mounted at /data, which MTG_DATA_DIR points to, so both the
+# SQLite knowledge DB and ChatGPT Analysis artifacts persist across restarts.
+
+app = "mtg-deck-studio"
+primary_region = "sea"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  ASPNETCORE_ENVIRONMENT = "Production"
+  MTG_DATA_DIR = "/data"
+
+[[mounts]]
+  source = "mtg_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "15s"
+    method = "GET"
+    timeout = "5s"
+    path = "/"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  cpus = 1

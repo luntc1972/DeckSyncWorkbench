@@ -77,6 +77,19 @@ Do not omit any fields from the schema.
 <form method="post" class="deck-form chatgpt-packets-form" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-chatgpt-ui-mode="guided" data-set-options-url="@Url.Content("~/api/set-options")" data-busy-title="Building ChatGPT Packets" data-busy-message="Resolving the deck and generating prompt files.">
     @Html.AntiForgeryToken()
     <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-workflow-step />
+
+    <details class="result-panel chatgpt-import-panel">
+        <summary>Import saved session from folder</summary>
+        <p>Paste a path to a saved <code>Documents\MTG Deck Studio\ChatGPT Analysis\&lt;commander&gt;\&lt;timestamp&gt;</code> folder. The saved <code>40-deck-profile.json</code> and <code>51-set-upgrade-response.json</code> files will be loaded and rendered. You can also use a path relative to the <code>ChatGPT Analysis</code> root.</p>
+        <label class="field">
+            <span>Saved artifacts folder</span>
+            <input type="text" name="ImportArtifactsPath" value="@Model.Request.ImportArtifactsPath" placeholder="Commander Name\20260416-140000" data-chatgpt-import-path />
+        </label>
+        <div class="toolbar chatgpt-step-actions">
+            <button type="submit" class="run-button" data-chatgpt-submit-step="5" data-chatgpt-import-submit>Import and Render</button>
+        </div>
+    </details>
+
     <div class="chatgpt-step-nav" role="tablist" aria-label="ChatGPT packet workflow steps">
         <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-1" aria-controls="chatgpt-step-panel-1" aria-selected="false" tabindex="-1" data-chatgpt-show-step="1">Step 1: Deck Setup</button>
         <button type="button" class="chatgpt-step-tab" role="tab" id="chatgpt-step-tab-2" aria-controls="chatgpt-step-panel-2" aria-selected="false" tabindex="-1" data-chatgpt-show-step="2">Step 2: Analysis</button>

@@ -1,0 +1,24 @@
+# Render blueprint for MtgDeckStudio.Web.
+# Create the service by pushing this file to the repo root and clicking "New > Blueprint"
+# in the Render dashboard, then selecting the repo. Render builds from the Dockerfile.
+#
+# The attached disk mounts at /data. Both the SQLite knowledge DB and ChatGPT Analysis
+# artifacts are redirected under that path via MTG_DATA_DIR.
+
+services:
+  - type: web
+    name: mtg-deck-studio
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: MTG_DATA_DIR
+        value: /data
+    disk:
+      name: mtg-data
+      mountPath: /data
+      sizeGB: 1
+    healthCheckPath: /

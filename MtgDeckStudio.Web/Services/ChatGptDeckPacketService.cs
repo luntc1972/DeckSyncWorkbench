@@ -91,12 +91,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         _scryfallSetService = scryfallSetService;
         _commanderSpellbookService = commanderSpellbookService;
         _logger = logger ?? NullLogger<ChatGptDeckPacketService>.Instance;
-        _chatGptArtifactsPath = string.IsNullOrWhiteSpace(chatGptArtifactsPath)
-            ? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "MTG Deck Studio",
-                "ChatGPT Analysis")
-            : Path.GetFullPath(chatGptArtifactsPath);
+        _chatGptArtifactsPath = ResolveChatGptArtifactsPath(chatGptArtifactsPath);
         var client = scryfallRestClient ?? ScryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsync
             ?? ((request, cancellationToken) => ExecuteScryfallWithThrottleAsync(token => client.ExecuteAsync<ScryfallCollectionResponse>(request, token), cancellationToken));
@@ -104,6 +99,25 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             ?? ((request, cancellationToken) => ExecuteScryfallWithThrottleAsync(token => client.ExecuteAsync<ScryfallSearchResponse>(request, token), cancellationToken));
         _executeNamedAsync = executeNamedAsync
             ?? ((request, cancellationToken) => ExecuteScryfallWithThrottleAsync(token => client.ExecuteAsync<ScryfallCard>(request, token), cancellationToken));
+    }
+
+    private static string ResolveChatGptArtifactsPath(string? explicitPath)
+    {
+        if (!string.IsNullOrWhiteSpace(explicitPath))
+        {
+            return Path.GetFullPath(explicitPath);
+        }
+
+        var dataDir = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        if (!string.IsNullOrWhiteSpace(dataDir))
+        {
+            return Path.Combine(Path.GetFullPath(dataDir), "ChatGPT Analysis");
+        }
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "MTG Deck Studio",
+            "ChatGPT Analysis");
     }
 
     // Keep under Scryfall's 10 req/sec cap with a small safety margin (≈ 9 req/sec).
@@ -176,6 +190,13 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         ArgumentNullException.ThrowIfNull(request);
         var overallStopwatch = Stopwatch.StartNew();
         var timings = new List<(string Label, long Ms, string? Detail)>();
+
+        if (!string.IsNullOrWhiteSpace(request.ImportArtifactsPath))
+        {
+            ImportSavedArtifacts(request);
+            // Do not re-import on downstream branches (e.g., artifact save) that read the request again.
+            request.ImportArtifactsPath = string.Empty;
+        }
 
         if (request.WorkflowStep == 3
             && string.IsNullOrWhiteSpace(request.DeckSource)
@@ -620,6 +641,65 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             || response.SynergyTags.Count > 0
             || response.QuestionAnswers.Count > 0
             || response.DeckVersions.Count > 0;
+
+    private void ImportSavedArtifacts(ChatGptDeckRequest request)
+    {
+        var path = request.ImportArtifactsPath.Trim();
+        var fullPath = Path.IsPathRooted(path)
+            ? Path.GetFullPath(path)
+            : Path.GetFullPath(Path.Combine(_chatGptArtifactsPath, path));
+
+        var artifactsRoot = Path.GetFullPath(_chatGptArtifactsPath);
+        var isUnderArtifactsRoot = fullPath.StartsWith(
+            artifactsRoot + Path.DirectorySeparatorChar,
+            StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fullPath, artifactsRoot, StringComparison.OrdinalIgnoreCase);
+        if (!isUnderArtifactsRoot)
+        {
+            throw new InvalidOperationException(
+                $"Import folder must be under the ChatGPT Analysis artifacts directory ({artifactsRoot}).");
+        }
+
+        if (!Directory.Exists(fullPath))
+        {
+            throw new InvalidOperationException($"Import folder not found: {fullPath}");
+        }
+
+        var deckProfilePath = Path.Combine(fullPath, "40-deck-profile.json");
+        var setUpgradeResponsePath = Path.Combine(fullPath, "51-set-upgrade-response.json");
+
+        var loadedDeckProfile = false;
+        if (File.Exists(deckProfilePath))
+        {
+            var deckProfileContent = File.ReadAllText(deckProfilePath);
+            if (!string.IsNullOrWhiteSpace(deckProfileContent))
+            {
+                request.DeckProfileJson = deckProfileContent;
+                loadedDeckProfile = true;
+            }
+        }
+
+        var loadedSetUpgrade = false;
+        if (File.Exists(setUpgradeResponsePath))
+        {
+            var setUpgradeContent = File.ReadAllText(setUpgradeResponsePath);
+            if (!string.IsNullOrWhiteSpace(setUpgradeContent))
+            {
+                request.SetUpgradeResponseJson = setUpgradeContent;
+                loadedSetUpgrade = true;
+            }
+        }
+
+        if (!loadedDeckProfile && !loadedSetUpgrade)
+        {
+            throw new InvalidOperationException(
+                $"Import folder did not contain 40-deck-profile.json or 51-set-upgrade-response.json: {fullPath}");
+        }
+
+        // Advance the workflow step so the matching standalone short-circuit fires.
+        request.DeckSource = string.Empty;
+        request.WorkflowStep = loadedSetUpgrade ? 5 : 3;
+    }
 
     internal static ChatGptSetUpgradeResponse ParseSetUpgradeResponse(string input)
     {

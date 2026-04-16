@@ -26,11 +26,22 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <param name="environment">Web host environment for locating artifacts.</param>
     public CategoryKnowledgeStore(IWebHostEnvironment environment)
     {
-        _artifactsPath = Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", "artifacts"));
+        _artifactsPath = ResolveArtifactsPath(environment);
         _databasePath = Path.Combine(_artifactsPath, "category-knowledge.db");
         _repository = new CategoryKnowledgeRepository(_databasePath);
         _archidektImporter = new ArchidektApiDeckImporter();
         _recentDeckImporter = new ArchidektRecentDecksImporter();
+    }
+
+    private static string ResolveArtifactsPath(IWebHostEnvironment environment)
+    {
+        var dataDir = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        if (!string.IsNullOrWhiteSpace(dataDir))
+        {
+            return Path.GetFullPath(dataDir);
+        }
+
+        return Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", "artifacts"));
     }
 
     public string DatabasePath => _databasePath;

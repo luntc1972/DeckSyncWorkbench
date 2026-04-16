@@ -144,4 +144,16 @@ public sealed class ChatGptDeckRequest
         get => _setUpgradeResponseJson;
         set => _setUpgradeResponseJson = value ?? string.Empty;
     }
+
+    private string _importArtifactsPath = string.Empty;
+
+    /// <summary>
+    /// Absolute or relative path to a previously saved ChatGPT Analysis artifact folder.
+    /// When set, the service rehydrates DeckProfileJson and SetUpgradeResponseJson from the folder's JSON files.
+    /// </summary>
+    public string ImportArtifactsPath
+    {
+        get => _importArtifactsPath;
+        set => _importArtifactsPath = value ?? string.Empty;
+    }
 }

@@ -843,6 +843,13 @@ const applyChatGptUiMode = (form: HTMLFormElement, mode: ChatGptUiMode): void =>
 };
 
 const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string | null => {
+  const importArtifactsPath = form.querySelector<HTMLInputElement>('input[name="ImportArtifactsPath"]')?.value.trim() ?? '';
+  if (importArtifactsPath) {
+    // When importing a saved artifacts folder, the server rehydrates DeckProfileJson / SetUpgradeResponseJson —
+    // skip client-side field validation and let the import path run.
+    return null;
+  }
+
   const deckSource = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckSource"]')?.value.trim() ?? '';
   const deckProfileJson = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckProfileJson"]')?.value.trim() ?? '';
   const targetCommanderBracket = form.querySelector<HTMLSelectElement>('select[name="TargetCommanderBracket"]')?.value.trim() ?? '';

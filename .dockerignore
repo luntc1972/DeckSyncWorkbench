@@ -1,0 +1,35 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/node_modules/
+**/*.user
+**/logs/
+**/TestResults/
+
+# Git metadata
+.git/
+.gitignore
+.gitattributes
+
+# Local planning / notes / dev tooling not needed for the image
+.planning/
+.claude/
+browser-extensions/
+docs/
+prompt-templates/
+scripts/
+tasks/
+
+# Test projects (Dockerfile only copies what it needs; this is belt-and-suspenders)
+MtgDeckStudio.Core.Tests/
+MtgDeckStudio.Web.Tests/
+
+# Artifacts directory — should be a volume at runtime, not baked into the image
+artifacts/
+
+# Host OS files
+Dockerfile
+.dockerignore
+README.md
+*.md
