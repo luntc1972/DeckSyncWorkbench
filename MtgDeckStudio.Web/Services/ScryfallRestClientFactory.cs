@@ -7,7 +7,7 @@ namespace MtgDeckStudio.Web.Services;
 /// </summary>
 public static class ScryfallRestClientFactory
 {
-    private const string UserAgent = "MtgDeckStudio/1.0 (+https://github.com/luntc1972/MtgDeckStudio)";
+    private const string UserAgent = "MtgDeckStudio/1.0 (+https://github.com/luntc1972/DeckFlow)";
     private const string AcceptHeader = "application/json;q=0.9,*/*;q=0.8";
 
     /// <summary>

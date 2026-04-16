@@ -351,7 +351,7 @@ public sealed partial class WotcMechanicLookupService : IMechanicLookupService
             ThrowOnAnyError = false,
         });
 
-        client.AddDefaultHeader("User-Agent", "MtgDeckStudio/1.0 (+https://github.com/luntc1972/MtgDeckStudio)");
+        client.AddDefaultHeader("User-Agent", "MtgDeckStudio/1.0 (+https://github.com/luntc1972/DeckFlow)");
         client.AddDefaultHeader("Accept", "text/plain, text/html, application/xhtml+xml, */*;q=0.8");
 
         var request = new RestRequest(url, Method.Get);

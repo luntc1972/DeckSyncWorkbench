@@ -446,7 +446,7 @@ internal static class CommandRunners
                 ThrowOnAnyError = false,
             });
 
-            client.AddDefaultHeader("User-Agent", "MtgDeckStudio.CLI/1.0 (+https://github.com/luntc1972/MtgDeckStudio)");
+            client.AddDefaultHeader("User-Agent", "MtgDeckStudio.CLI/1.0 (+https://github.com/luntc1972/DeckFlow)");
             client.AddDefaultHeader("Accept", "application/json;q=0.9,*/*;q=0.8");
 
             var request = new RestRequest("cards/named", Method.Get);
@@ -485,7 +485,7 @@ internal static class CommandRunners
                 ThrowOnAnyError = false,
             });
 
-            client.AddDefaultHeader("User-Agent", "MtgDeckStudio.CLI/1.0 (+https://github.com/luntc1972/MtgDeckStudio)");
+            client.AddDefaultHeader("User-Agent", "MtgDeckStudio.CLI/1.0 (+https://github.com/luntc1972/DeckFlow)");
             client.AddDefaultHeader("Accept", "application/json;q=0.9,*/*;q=0.8");
 
             var iterations = Math.Max(1, repeat);
