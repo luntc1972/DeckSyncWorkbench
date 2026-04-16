@@ -205,6 +205,19 @@ public sealed partial class WotcMechanicLookupService : IMechanicLookupService
                 var nextLine = lines[nextIndex].TrimEnd();
                 if (string.IsNullOrWhiteSpace(nextLine))
                 {
+                    // Peek past blank lines to see if more subrules follow for this section.
+                    var peekIndex = nextIndex + 1;
+                    while (peekIndex < lines.Count && string.IsNullOrWhiteSpace(lines[peekIndex]))
+                    {
+                        peekIndex++;
+                    }
+
+                    if (peekIndex < lines.Count && lines[peekIndex].TrimStart().StartsWith(prefix, StringComparison.Ordinal))
+                    {
+                        collectedLines.Add(string.Empty);
+                        continue;
+                    }
+
                     break;
                 }
 

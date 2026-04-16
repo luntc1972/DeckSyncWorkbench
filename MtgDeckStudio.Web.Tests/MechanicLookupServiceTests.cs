@@ -27,10 +27,19 @@ public sealed class MechanicLookupServiceTests
         702.108. Prowess
         702.108a Prowess is a triggered ability. “Prowess” means “Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.”
 
+        702.157. Squad
+
+        702.157a Squad is a keyword that represents two linked abilities. The first is a static ability that functions while the creature spell with squad is on the stack. The second is a triggered ability that functions when the creature with squad enters the battlefield.
+
+        702.157b If a spell has multiple instances of squad, each is paid separately. If a permanent has multiple instances of squad, each triggers based on the payments made for that squad ability as it was cast, not based on payments for any other instance of squad.
+
         Glossary
 
         Prowess
         A keyword ability that causes a creature to get +1/+1 whenever its controller casts a noncreature spell. See rule 702.108, “Prowess.”
+
+        Squad
+        A keyword ability that lets you pay an additional cost to create token copies. See rule 702.157, “Squad.”
 
         Warp
         A keyword ability found on permanent cards that allows them to be cast for an alternative cost. See rule 702.185, “Warp.”
@@ -50,6 +59,26 @@ public sealed class MechanicLookupServiceTests
         Assert.Equal("Exact rules section", result.MatchType);
         Assert.Contains("702.108a Prowess is a triggered ability.", result.RulesText);
         Assert.Contains("See rule 702.108", result.SummaryText);
+    }
+
+    [Fact]
+    public async Task LookupAsync_IncludesAllSubsections_WhenSeparatedByBlankLines()
+    {
+        using var memoryCache = new MemoryCache(new MemoryCacheOptions());
+        var service = new WotcMechanicLookupService(memoryCache, FakeFetchAsync);
+
+        var result = await service.LookupAsync("Squad");
+
+        Assert.True(result.Found);
+        Assert.Equal("Squad", result.MechanicName);
+        Assert.Equal("702.157", result.RuleReference);
+        Assert.Equal("Exact rules section", result.MatchType);
+        Assert.Contains("702.157a Squad is a keyword", result.RulesText);
+        Assert.Contains("702.157b If a spell has multiple instances", result.RulesText);
+        // Blank lines separate the header and each subsection for readability.
+        var expectedSeparator = $"Squad{Environment.NewLine}{Environment.NewLine}702.157a";
+        Assert.Contains(expectedSeparator, result.RulesText);
+        Assert.Contains("See rule 702.157", result.SummaryText);
     }
 
     [Fact]
