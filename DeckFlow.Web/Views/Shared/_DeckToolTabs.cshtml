@@ -2,29 +2,30 @@
 @model DeckPageTab
 
 @{
-    var deckToolsActive = Model is DeckPageTab.Sync or DeckPageTab.Convert;
-    var categoriesActive = Model is DeckPageTab.SuggestCategories or DeckPageTab.CommanderCategories;
+    var analyzeActive = Model is DeckPageTab.ChatGptPackets or DeckPageTab.ChatGptDeckComparison or DeckPageTab.ChatGptCedhMetaGap;
+    var buildActive = Model is DeckPageTab.Sync or DeckPageTab.Convert;
     var referenceActive = Model is DeckPageTab.CardLookup or DeckPageTab.MechanicLookup;
-    var chatGptActive = Model is DeckPageTab.ChatGptPackets or DeckPageTab.ChatGptDeckComparison or DeckPageTab.ChatGptCedhMetaGap;
+    var categoriesActive = Model is DeckPageTab.SuggestCategories or DeckPageTab.CommanderCategories;
 }
 
 <nav class="tool-nav" aria-label="Deck tools" data-tool-nav>
-    <div class="tool-nav__group @(deckToolsActive ? "is-active" : string.Empty)" data-tool-nav-group>
+    <div class="tool-nav__group @(analyzeActive ? "is-active" : string.Empty)" data-tool-nav-group>
         <button type="button" class="tool-nav__trigger" aria-expanded="false" aria-haspopup="true" data-tool-nav-trigger>
-            Deck Tools
+            Analyze
+        </button>
+        <div class="tool-nav__dropdown">
+            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptPackets ? "is-active" : string.Empty)" href="@Url.Content("~/chatgpt-packets")">ChatGPT Analysis</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptDeckComparison ? "is-active" : string.Empty)" href="@Url.Content("~/chatgpt-deck-comparison")">Deck Comparison</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptCedhMetaGap ? "is-active" : string.Empty)" href="@Url.Content("~/chatgpt-cedh-meta-gap")">cEDH Meta Gap</a>
+        </div>
+    </div>
+    <div class="tool-nav__group @(buildActive ? "is-active" : string.Empty)" data-tool-nav-group>
+        <button type="button" class="tool-nav__trigger" aria-expanded="false" aria-haspopup="true" data-tool-nav-trigger>
+            Build
         </button>
         <div class="tool-nav__dropdown">
             <a class="tool-nav__link @(Model == DeckPageTab.Sync ? "is-active" : string.Empty)" href="@Url.Content("~/")">Deck Sync</a>
             <a class="tool-nav__link @(Model == DeckPageTab.Convert ? "is-active" : string.Empty)" href="@Url.Content("~/convert")">Convert Deck</a>
-        </div>
-    </div>
-    <div class="tool-nav__group @(categoriesActive ? "is-active" : string.Empty)" data-tool-nav-group>
-        <button type="button" class="tool-nav__trigger" aria-expanded="false" aria-haspopup="true" data-tool-nav-trigger>
-            Categories
-        </button>
-        <div class="tool-nav__dropdown">
-            <a class="tool-nav__link @(Model == DeckPageTab.SuggestCategories ? "is-active" : string.Empty)" href="@Url.Content("~/suggest-categories")">AI Category Suggestions</a>
-            <a class="tool-nav__link @(Model == DeckPageTab.CommanderCategories ? "is-active" : string.Empty)" href="@Url.Content("~/commander-categories")">Category Reference</a>
         </div>
     </div>
     <div class="tool-nav__group @(referenceActive ? "is-active" : string.Empty)" data-tool-nav-group>
@@ -36,14 +37,13 @@
             <a class="tool-nav__link @(Model == DeckPageTab.MechanicLookup ? "is-active" : string.Empty)" href="@Url.Content("~/mechanic-lookup")">Mechanic Rules</a>
         </div>
     </div>
-    <div class="tool-nav__group @(chatGptActive ? "is-active" : string.Empty)" data-tool-nav-group>
+    <div class="tool-nav__group @(categoriesActive ? "is-active" : string.Empty)" data-tool-nav-group>
         <button type="button" class="tool-nav__trigger" aria-expanded="false" aria-haspopup="true" data-tool-nav-trigger>
-            ChatGPT
+            Categories
         </button>
         <div class="tool-nav__dropdown">
-            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptPackets ? "is-active" : string.Empty)" href="@Url.Content("~/chatgpt-packets")">ChatGPT Analysis</a>
-            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptDeckComparison ? "is-active" : string.Empty)" href="@Url.Content("~/chatgpt-deck-comparison")">Deck Comparison</a>
-            <a class="tool-nav__link @(Model == DeckPageTab.ChatGptCedhMetaGap ? "is-active" : string.Empty)" href="@Url.Content("~/chatgpt-cedh-meta-gap")">cEDH Meta Gap</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.SuggestCategories ? "is-active" : string.Empty)" href="@Url.Content("~/suggest-categories")">AI Category Suggestions</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.CommanderCategories ? "is-active" : string.Empty)" href="@Url.Content("~/commander-categories")">Category Reference</a>
         </div>
     </div>
 </nav>
