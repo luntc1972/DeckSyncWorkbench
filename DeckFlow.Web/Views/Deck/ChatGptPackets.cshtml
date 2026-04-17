@@ -98,20 +98,21 @@ Do not omit any fields from the schema.
     </details>
 
     @{
-        var step1Complete = !string.IsNullOrWhiteSpace(Model.Request.DeckSource);
-        var step2Complete = !string.IsNullOrWhiteSpace(Model.AnalysisPromptText);
-        var step3Complete = Model.AnalysisResponse is not null;
-        var step4Complete = !string.IsNullOrWhiteSpace(Model.SetUpgradePromptText);
-        var step5Complete = Model.SetUpgradeResponse is not null;
-        string StepTabClass(bool complete) => complete ? "chatgpt-step-tab is-complete" : "chatgpt-step-tab";
+        var packetTabs = new DeckFlow.Web.Models.WorkflowStepTabsModel(
+            AriaLabel: "ChatGPT packet workflow steps",
+            TabIdPrefix: "chatgpt-step-tab",
+            PanelIdPrefix: "chatgpt-step-panel",
+            DataShowStepAttribute: "chatgpt-show-step",
+            Steps: new[]
+            {
+                new DeckFlow.Web.Models.WorkflowStepTab(1, "Step 1: Deck", !string.IsNullOrWhiteSpace(Model.Request.DeckSource)),
+                new DeckFlow.Web.Models.WorkflowStepTab(2, "Step 2: Build Analysis Prompt", !string.IsNullOrWhiteSpace(Model.AnalysisPromptText)),
+                new DeckFlow.Web.Models.WorkflowStepTab(3, "Step 3: Analysis Results", Model.AnalysisResponse is not null),
+                new DeckFlow.Web.Models.WorkflowStepTab(4, "Step 4: Build Set Upgrade Prompt", !string.IsNullOrWhiteSpace(Model.SetUpgradePromptText)),
+                new DeckFlow.Web.Models.WorkflowStepTab(5, "Step 5: Set Upgrade Results", Model.SetUpgradeResponse is not null)
+            });
     }
-    <div class="chatgpt-step-nav" role="tablist" aria-label="ChatGPT packet workflow steps">
-        <button type="button" class="@StepTabClass(step1Complete)" role="tab" id="chatgpt-step-tab-1" aria-controls="chatgpt-step-panel-1" aria-selected="false" tabindex="-1" data-chatgpt-show-step="1">Step 1: Deck</button>
-        <button type="button" class="@StepTabClass(step2Complete)" role="tab" id="chatgpt-step-tab-2" aria-controls="chatgpt-step-panel-2" aria-selected="false" tabindex="-1" data-chatgpt-show-step="2">Step 2: Build Analysis Prompt</button>
-        <button type="button" class="@StepTabClass(step3Complete)" role="tab" id="chatgpt-step-tab-3" aria-controls="chatgpt-step-panel-3" aria-selected="false" tabindex="-1" data-chatgpt-show-step="3">Step 3: Analysis Results</button>
-        <button type="button" class="@StepTabClass(step4Complete)" role="tab" id="chatgpt-step-tab-4" aria-controls="chatgpt-step-panel-4" aria-selected="false" tabindex="-1" data-chatgpt-show-step="4">Step 4: Build Set Upgrade Prompt</button>
-        <button type="button" class="@StepTabClass(step5Complete)" role="tab" id="chatgpt-step-tab-5" aria-controls="chatgpt-step-panel-5" aria-selected="false" tabindex="-1" data-chatgpt-show-step="5">Step 5: Set Upgrade Results</button>
-    </div>
+    @await Html.PartialAsync("_WorkflowStepTabs", packetTabs)
     <section class="result-panel chatgpt-step-panel chatgpt-workflow-setup" role="tabpanel" id="chatgpt-step-panel-1" aria-labelledby="chatgpt-step-tab-1" data-chatgpt-step="1" data-chatgpt-setup-panel>
         <div class="chatgpt-step-heading">
             <div>

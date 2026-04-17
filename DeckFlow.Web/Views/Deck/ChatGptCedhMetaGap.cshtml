@@ -48,16 +48,19 @@
     <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-cedh-workflow-step />
 
     @{
-        var cedhStep1Complete = Model.FetchedEntries.Count > 0 || !string.IsNullOrWhiteSpace(Model.ResolvedCommanderName);
-        var cedhStep2Complete = !string.IsNullOrWhiteSpace(Model.PromptText);
-        var cedhStep3Complete = Model.AnalysisResponse is not null;
-        string CedhTabClass(bool complete) => complete ? "chatgpt-step-tab is-complete" : "chatgpt-step-tab";
+        var cedhTabs = new DeckFlow.Web.Models.WorkflowStepTabsModel(
+            AriaLabel: "cEDH meta-gap workflow steps",
+            TabIdPrefix: "chatgpt-cedh-step-tab",
+            PanelIdPrefix: "chatgpt-cedh-step-panel",
+            DataShowStepAttribute: "chatgpt-cedh-show-step",
+            Steps: new[]
+            {
+                new DeckFlow.Web.Models.WorkflowStepTab(1, "Step 1: Fetch Reference Decks", Model.FetchedEntries.Count > 0 || !string.IsNullOrWhiteSpace(Model.ResolvedCommanderName)),
+                new DeckFlow.Web.Models.WorkflowStepTab(2, "Step 2: Build Meta Gap Prompt", !string.IsNullOrWhiteSpace(Model.PromptText)),
+                new DeckFlow.Web.Models.WorkflowStepTab(3, "Step 3: Meta Gap Results", Model.AnalysisResponse is not null)
+            });
     }
-    <div class="chatgpt-step-nav" role="tablist" aria-label="cEDH meta-gap workflow steps">
-        <button type="button" class="@CedhTabClass(cedhStep1Complete)" role="tab" id="chatgpt-cedh-step-tab-1" aria-controls="chatgpt-cedh-step-panel-1" aria-selected="false" tabindex="-1" data-chatgpt-cedh-show-step="1">Step 1: Fetch Reference Decks</button>
-        <button type="button" class="@CedhTabClass(cedhStep2Complete)" role="tab" id="chatgpt-cedh-step-tab-2" aria-controls="chatgpt-cedh-step-panel-2" aria-selected="false" tabindex="-1" data-chatgpt-cedh-show-step="2">Step 2: Build Meta Gap Prompt</button>
-        <button type="button" class="@CedhTabClass(cedhStep3Complete)" role="tab" id="chatgpt-cedh-step-tab-3" aria-controls="chatgpt-cedh-step-panel-3" aria-selected="false" tabindex="-1" data-chatgpt-cedh-show-step="3">Step 3: Meta Gap Results</button>
-    </div>
+    @await Html.PartialAsync("_WorkflowStepTabs", cedhTabs)
 
     <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-cedh-step-panel-1" aria-labelledby="chatgpt-cedh-step-tab-1" data-chatgpt-cedh-step="1">
         <div class="chatgpt-step-heading">

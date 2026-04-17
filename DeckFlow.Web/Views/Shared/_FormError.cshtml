@@ -1,0 +1,7 @@
+@*
+    Shared inline error banner for form validation messages populated by client-side JS.
+    Pass the data attribute name as the model (e.g. "chatgpt-validation-error").
+*@
+@model string
+
+<div class="error-banner hidden" role="alert" data-@Model></div>

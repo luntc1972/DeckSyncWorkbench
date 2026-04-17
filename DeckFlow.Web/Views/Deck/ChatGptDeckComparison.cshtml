@@ -179,16 +179,19 @@ Deck B ([DECK B NAME]):
     <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-comparison-workflow-step />
 
     @{
-        var comparisonStep1Complete = !string.IsNullOrWhiteSpace(Model.Request.DeckASource) && !string.IsNullOrWhiteSpace(Model.Request.DeckBSource);
-        var comparisonStep2Complete = !string.IsNullOrWhiteSpace(Model.ComparisonPromptText);
-        var comparisonStep3Complete = Model.ComparisonResponse is not null;
-        string ComparisonTabClass(bool complete) => complete ? "chatgpt-step-tab is-complete" : "chatgpt-step-tab";
+        var comparisonTabs = new DeckFlow.Web.Models.WorkflowStepTabsModel(
+            AriaLabel: "Deck comparison workflow steps",
+            TabIdPrefix: "chatgpt-comparison-step-tab",
+            PanelIdPrefix: "chatgpt-comparison-step-panel",
+            DataShowStepAttribute: "chatgpt-comparison-show-step",
+            Steps: new[]
+            {
+                new DeckFlow.Web.Models.WorkflowStepTab(1, "Step 1: Decks", !string.IsNullOrWhiteSpace(Model.Request.DeckASource) && !string.IsNullOrWhiteSpace(Model.Request.DeckBSource)),
+                new DeckFlow.Web.Models.WorkflowStepTab(2, "Step 2: Build Comparison Prompt", !string.IsNullOrWhiteSpace(Model.ComparisonPromptText)),
+                new DeckFlow.Web.Models.WorkflowStepTab(3, "Step 3: Comparison Results", Model.ComparisonResponse is not null)
+            });
     }
-    <div class="chatgpt-step-nav" role="tablist" aria-label="Deck comparison workflow steps">
-        <button type="button" class="@ComparisonTabClass(comparisonStep1Complete)" role="tab" id="chatgpt-comparison-step-tab-1" aria-controls="chatgpt-comparison-step-panel-1" aria-selected="false" tabindex="-1" data-chatgpt-comparison-show-step="1">Step 1: Decks</button>
-        <button type="button" class="@ComparisonTabClass(comparisonStep2Complete)" role="tab" id="chatgpt-comparison-step-tab-2" aria-controls="chatgpt-comparison-step-panel-2" aria-selected="false" tabindex="-1" data-chatgpt-comparison-show-step="2">Step 2: Build Comparison Prompt</button>
-        <button type="button" class="@ComparisonTabClass(comparisonStep3Complete)" role="tab" id="chatgpt-comparison-step-tab-3" aria-controls="chatgpt-comparison-step-panel-3" aria-selected="false" tabindex="-1" data-chatgpt-comparison-show-step="3">Step 3: Comparison Results</button>
-    </div>
+    @await Html.PartialAsync("_WorkflowStepTabs", comparisonTabs)
 
     <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-comparison-step-panel-1" aria-labelledby="chatgpt-comparison-step-tab-1" data-chatgpt-comparison-step="1">
         <div class="chatgpt-step-heading">

@@ -1,0 +1,16 @@
+@model DeckFlow.Web.Models.WorkflowStepTabsModel
+
+<div class="chatgpt-step-nav" role="tablist" aria-label="@Model.AriaLabel">
+    @foreach (var step in Model.Steps)
+    {
+        var cls = step.IsComplete ? "chatgpt-step-tab is-complete" : "chatgpt-step-tab";
+        <button type="button"
+                class="@cls"
+                role="tab"
+                id="@($"{Model.TabIdPrefix}-{step.Step}")"
+                aria-controls="@($"{Model.PanelIdPrefix}-{step.Step}")"
+                aria-selected="false"
+                tabindex="-1"
+                data-@(Model.DataShowStepAttribute)="@step.Step">@step.Label</button>
+    }
+</div>
