@@ -78,7 +78,7 @@ Do not omit any fields from the schema.
     @Html.AntiForgeryToken()
     <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-workflow-step />
 
-    <details class="result-panel chatgpt-import-panel">
+    <details class="result-panel chatgpt-import-panel desktop-only">
         <summary>Import saved session from folder</summary>
         <p>Paste a path to a saved <code>Documents\MTG Deck Studio\ChatGPT Analysis\&lt;commander&gt;\&lt;timestamp&gt;</code> folder. The saved <code>40-deck-profile.json</code> and <code>51-set-upgrade-response.json</code> files will be loaded and rendered. You can also use a path relative to the <code>ChatGPT Analysis</code> root.</p>
         <label class="field">
@@ -107,7 +107,7 @@ Do not omit any fields from the schema.
             <span class="chatgpt-step-badge">Required</span>
         </div>
 
-        <label class="chatgpt-question-option">
+        <label class="chatgpt-question-option desktop-only">
             <input type="checkbox" name="SaveArtifactsToDisk" value="true" @(Model.Request.SaveArtifactsToDisk ? "checked" : null) />
             <span>Save generated prompts, pasted JSON responses, and hidden additional context to disk under <code>Documents/MTG Deck Studio/ChatGPT Analysis</code></span>
         </label>

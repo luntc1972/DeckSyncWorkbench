@@ -1008,6 +1008,13 @@ details summary {
   }
 }
 
+/* Long unbroken strings (URLs, rules refs) in read-only output should wrap on narrow viewports. */
+textarea,
+pre {
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
 @media (max-width: 900px) {
   .field-grid,
   .url-grid {
@@ -1034,5 +1041,25 @@ details summary {
   .conflict-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+}
+
+/* Features that need local filesystem access (save artifacts, import from folder) have no value on mobile browsers. */
+@media (max-width: 600px) {
+  .desktop-only {
+    display: none !important;
+  }
+
+  .hero h1 {
+    font-size: 1.5rem;
+  }
+
+  .chatgpt-step-nav {
+    gap: 0.4rem;
+  }
+
+  .chatgpt-step-tab {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.6rem;
   }
 }

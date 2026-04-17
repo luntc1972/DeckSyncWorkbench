@@ -1041,3 +1041,28 @@ details summary {
     flex-direction: column;
   }
 }
+/* Mobile wrap + desktop-only hiders (appended for DeckFlow v1). */
+textarea,
+pre {
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+  .desktop-only {
+    display: none !important;
+  }
+
+  .hero h1 {
+    font-size: 1.5rem;
+  }
+
+  .chatgpt-step-nav {
+    gap: 0.4rem;
+  }
+
+  .chatgpt-step-tab {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.6rem;
+  }
+}
