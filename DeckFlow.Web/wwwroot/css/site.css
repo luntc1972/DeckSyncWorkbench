@@ -949,6 +949,11 @@ select {
   white-space: pre-wrap;
 }
 
+.mechanic-summary-panel pre {
+  min-height: auto;
+  padding: 0.5rem 0;
+}
+
 .run-button,
 .copy-button {
   border: 1px solid var(--accent);

@@ -256,7 +256,8 @@
 
         @if (!string.IsNullOrWhiteSpace(Model.PromptText))
         {
-            <section class="result-panel nested-panel">
+            <details class="result-panel nested-panel" data-chatgpt-cedh-result-anchor>
+                <summary>Show generated prompt (30-meta-gap-prompt.txt)</summary>
                 <div class="panel-heading">
                     <div>
                         <h3>30-meta-gap-prompt.txt</h3>
@@ -264,8 +265,8 @@
                     </div>
                     <button type="button" class="copy-button" data-copy-target="cedh-meta-gap-prompt-output">Copy</button>
                 </div>
-                <textarea id="cedh-meta-gap-prompt-output" readonly spellcheck="false" data-chatgpt-cedh-result-anchor>@Model.PromptText</textarea>
-            </section>
+                <textarea id="cedh-meta-gap-prompt-output" readonly spellcheck="false">@Model.PromptText</textarea>
+            </details>
         }
 
         @if (!string.IsNullOrWhiteSpace(Model.SchemaJson))

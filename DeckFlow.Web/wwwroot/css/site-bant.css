@@ -1061,3 +1061,7 @@ pre {
     padding: 0.4rem 0.6rem;
   }
 }
+.mechanic-summary-panel pre {
+  min-height: auto;
+  padding: 0.5rem 0;
+}
