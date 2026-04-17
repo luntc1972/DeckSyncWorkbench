@@ -48,7 +48,10 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
         var body = response.Content ?? string.Empty;
         if (!response.IsSuccessful)
         {
-            throw new HttpRequestException($"Moxfield API deck {deckId} returned {(int)response.StatusCode} {response.StatusDescription}: {body[..Math.Min(body.Length, 500)]}");
+            throw new HttpRequestException(
+                $"Moxfield API deck {deckId} returned {(int)response.StatusCode} {response.StatusDescription}: {body[..Math.Min(body.Length, 500)]}",
+                inner: null,
+                statusCode: response.StatusCode);
         }
 
         using var document = JsonDocument.Parse(body);
