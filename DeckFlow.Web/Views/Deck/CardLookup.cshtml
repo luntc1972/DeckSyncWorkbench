@@ -33,7 +33,7 @@
             <textarea name="CardList" spellcheck="false" placeholder="Sol Ring&#10;Arcane Signet&#10;1 Guardian Project">@Model.Request.CardList</textarea>
         </label>
     </div>
-    <div class="mode-note card-lookup-editor-note">
+    <div class="mode-note card-lookup-editor-note desktop-only">
         <div>
             <strong>Optional line editor</strong>
             <div>Convert the pasted text into editable rows with Scryfall look-ahead on each card-name field. Edits sync back into the textarea above.</div>
@@ -43,7 +43,7 @@
             <button type="button" class="clear-cache-button hidden" data-card-lookup-add-line>Add Line</button>
         </div>
     </div>
-    <div class="card-lookup-line-editor hidden" data-card-lookup-line-editor></div>
+    <div class="card-lookup-line-editor hidden desktop-only" data-card-lookup-line-editor></div>
     <div class="mode-note">
         <span data-verify-lines-count>0/100 lines</span>
     </div>
