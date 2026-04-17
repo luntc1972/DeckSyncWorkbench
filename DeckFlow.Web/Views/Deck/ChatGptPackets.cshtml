@@ -59,7 +59,7 @@ Do not omit any fields from the schema.
 
 <div class="error-banner hidden" data-chatgpt-validation-error role="alert"></div>
 
-<div class="toolbar chatgpt-page-toolbar">
+<div class="toolbar chatgpt-page-toolbar desktop-only">
     <div class="chatgpt-layout-picker" data-chatgpt-ui-mode-picker>
         <div class="chatgpt-layout-picker__copy">
             <strong>Workflow layouts</strong>
@@ -278,7 +278,7 @@ Do not omit any fields from the schema.
                                     </select>
                                     <small class="sync-column__hint">Choose which deck builder you will paste the generated lists into. When assigning or updating categories, you must choose Moxfield or Archidekt and ChatGPT should return the decklist in a fenced <code>```text</code> block.</small>
                                 </label>
-                                <label class="chatgpt-question-option">
+                                <label class="chatgpt-question-option desktop-only">
                                     <input type="checkbox" name="IncludeCardVersions" value="true" @(Model.Request.IncludeCardVersions ? "checked" : "") />
                                     <span>
                                         Include card versions (set code &amp; collector number) for retained cards
@@ -362,7 +362,7 @@ Do not omit any fields from the schema.
 
         @if (!string.IsNullOrWhiteSpace(Model.DeckProfileSchemaJson))
         {
-            <details class="result-panel nested-panel">
+            <details class="result-panel nested-panel desktop-only">
                 <summary>Show expected JSON format for deck-profile-schema.json</summary>
                 <div class="panel-heading">
                     <div>

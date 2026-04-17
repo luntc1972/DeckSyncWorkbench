@@ -57,10 +57,10 @@
     <div class="mode-note">
         <span>Click Suggest to keep scanning Archidekt decks for another 20 seconds and expand the cached category store.</span>
     </div>
-    <div class="mode-note">
+    <div class="mode-note desktop-only">
         <span>Need a bigger refresh? Start a 5-minute Archidekt harvest in the background and keep using the rest of the app while it runs.</span>
     </div>
-    <div class="toolbar toolbar--secondary">
+    <div class="toolbar toolbar--secondary desktop-only">
         <button
             type="button"
             class="run-button"
@@ -70,7 +70,7 @@
             data-active-url="@Url.Content("~/api/archidekt-cache-jobs/active")"
             data-duration-seconds="300">Run 5-Minute Archidekt Harvest</button>
     </div>
-    <div class="info-banner hidden" data-archidekt-cache-status-panel>
+    <div class="info-banner hidden desktop-only" data-archidekt-cache-status-panel>
         <p data-archidekt-cache-status-text></p>
     </div>
 
