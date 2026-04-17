@@ -42,7 +42,7 @@ public sealed class ScryfallCommanderSearchService : ICommanderSearchService
         _cache = cache;
         var client = restClient ?? ScryfallRestClientFactory.Create();
 
-        _executeAsync = executeAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallSearchResponse>(request, cancellationToken));
+        _executeAsync = executeAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallSearchResponse>(request, token), cancellationToken));
     }
 
     /// <inheritdoc />

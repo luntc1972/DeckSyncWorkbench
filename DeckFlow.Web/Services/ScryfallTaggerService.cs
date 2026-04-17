@@ -66,7 +66,9 @@ public sealed partial class ScryfallTaggerService : IScryfallTaggerService
         var request = new RestRequest("cards/named", Method.Get);
         request.AddQueryParameter("exact", cardName);
 
-        var response = await _scryfallClient.ExecuteAsync(request, cancellationToken);
+        var response = await ScryfallThrottle.ExecuteAsync(
+            token => _scryfallClient.ExecuteAsync(request, token),
+            cancellationToken);
         if (!response.IsSuccessful || string.IsNullOrEmpty(response.Content))
         {
             _logger.LogWarning("Scryfall card lookup failed for {CardName}: {Status}", cardName, response.StatusCode);

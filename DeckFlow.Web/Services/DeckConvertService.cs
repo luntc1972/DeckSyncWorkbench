@@ -54,7 +54,7 @@ public sealed class DeckConvertService : IDeckConvertService
         _moxfieldParser = moxfieldParser;
         _archidektParser = archidektParser;
         var client = restClient ?? ScryfallRestClientFactory.Create();
-        _executeCollectionAsync = executeCollectionAsync ?? ((request, ct) => client.ExecuteAsync<ScryfallCollectionResponse>(request, ct));
+        _executeCollectionAsync = executeCollectionAsync ?? ((request, ct) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallCollectionResponse>(request, token), ct));
     }
 
     /// <inheritdoc/>

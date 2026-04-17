@@ -42,9 +42,9 @@ public sealed class ScryfallCardLookupService : ICardLookupService
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
     {
         var client = restClient ?? ScryfallRestClientFactory.Create();
-        _executeAsync = executeAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallCollectionResponse>(request, cancellationToken));
-        _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallSearchResponse>(request, cancellationToken));
-        _executeNamedAsync = executeNamedAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallCard>(request, cancellationToken));
+        _executeAsync = executeAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallCollectionResponse>(request, token), cancellationToken));
+        _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallSearchResponse>(request, token), cancellationToken));
+        _executeNamedAsync = executeNamedAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallCard>(request, token), cancellationToken));
     }
 
     public async Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)

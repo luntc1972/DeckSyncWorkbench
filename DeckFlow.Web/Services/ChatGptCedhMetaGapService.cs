@@ -62,8 +62,8 @@ public sealed class ChatGptCedhMetaGapService : IChatGptCedhMetaGapService
         _edhTop16Client = edhTop16Client;
         _commanderSpellbookService = commanderSpellbookService;
         var client = scryfallRestClient ?? ScryfallRestClientFactory.Create();
-        _executeCollectionAsync = executeCollectionAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallCollectionResponse>(request, cancellationToken));
-        _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallSearchResponse>(request, cancellationToken));
+        _executeCollectionAsync = executeCollectionAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallCollectionResponse>(request, token), cancellationToken));
+        _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallSearchResponse>(request, token), cancellationToken));
         _artifactsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "MTG Deck Studio",

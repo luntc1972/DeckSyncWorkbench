@@ -73,8 +73,8 @@ public sealed class ChatGptDeckComparisonService : IChatGptDeckComparisonService
             : Path.GetFullPath(artifactsPath);
 
         var client = scryfallRestClient ?? ScryfallRestClientFactory.Create();
-        _executeCollectionAsync = executeCollectionAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallCollectionResponse>(request, cancellationToken));
-        _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallSearchResponse>(request, cancellationToken));
+        _executeCollectionAsync = executeCollectionAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallCollectionResponse>(request, token), cancellationToken));
+        _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallSearchResponse>(request, token), cancellationToken));
     }
 
     public async Task<ChatGptDeckComparisonResult> BuildAsync(ChatGptDeckComparisonRequest request, CancellationToken cancellationToken = default)

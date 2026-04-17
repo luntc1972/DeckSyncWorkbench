@@ -38,8 +38,8 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         _cache = cache;
         _mechanicLookupService = mechanicLookupService;
         var client = restClient ?? ScryfallRestClientFactory.Create();
-        _executeSetListAsync = executeSetListAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallSetListResponse>(request, cancellationToken));
-        _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => client.ExecuteAsync<ScryfallSearchResponse>(request, cancellationToken));
+        _executeSetListAsync = executeSetListAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallSetListResponse>(request, token), cancellationToken));
+        _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallSearchResponse>(request, token), cancellationToken));
     }
 
     public async Task<IReadOnlyList<ScryfallSetOption>> GetSetsAsync(CancellationToken cancellationToken = default)
