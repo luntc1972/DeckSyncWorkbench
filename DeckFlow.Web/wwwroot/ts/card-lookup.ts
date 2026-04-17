@@ -141,11 +141,17 @@ const initializeSingleCardMode = (): void => {
     errorBanner.classList.add('hidden');
   };
 
+  const askJudgeLink = document.querySelector<HTMLAnchorElement>('[data-card-lookup-ask-judge-link]');
+  const askJudgeBaseHref = askJudgeLink?.getAttribute('href') ?? '/judge-questions';
+
   const showResult = (name: string, verifiedText: string): void => {
     clearError();
     resultLabel.textContent = name;
     resultTextarea.value = verifiedText;
     resultPanel.classList.remove('hidden');
+    if (askJudgeLink) {
+      askJudgeLink.href = `${askJudgeBaseHref}?card=${encodeURIComponent(name)}`;
+    }
   };
 
   const runLookup = async (name: string): Promise<void> => {

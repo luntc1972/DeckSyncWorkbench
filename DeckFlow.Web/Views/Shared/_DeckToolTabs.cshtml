@@ -4,7 +4,7 @@
 @{
     var analyzeActive = Model is DeckPageTab.ChatGptPackets or DeckPageTab.ChatGptDeckComparison or DeckPageTab.ChatGptCedhMetaGap;
     var buildActive = Model is DeckPageTab.Sync or DeckPageTab.Convert;
-    var referenceActive = Model is DeckPageTab.CardLookup or DeckPageTab.MechanicLookup;
+    var referenceActive = Model is DeckPageTab.CardLookup or DeckPageTab.MechanicLookup or DeckPageTab.JudgeQuestions;
     var categoriesActive = Model is DeckPageTab.SuggestCategories or DeckPageTab.CommanderCategories;
 }
 
@@ -35,6 +35,7 @@
         <div class="tool-nav__dropdown">
             <a class="tool-nav__link @(Model == DeckPageTab.CardLookup ? "is-active" : string.Empty)" href="@Url.Content("~/card-lookup")">Card Lookup</a>
             <a class="tool-nav__link @(Model == DeckPageTab.MechanicLookup ? "is-active" : string.Empty)" href="@Url.Content("~/mechanic-lookup")">Mechanic Rules</a>
+            <a class="tool-nav__link @(Model == DeckPageTab.JudgeQuestions ? "is-active" : string.Empty)" href="@Url.Content("~/judge-questions")">Ask a Judge</a>
         </div>
     </div>
     <div class="tool-nav__group @(categoriesActive ? "is-active" : string.Empty)" data-tool-nav-group>

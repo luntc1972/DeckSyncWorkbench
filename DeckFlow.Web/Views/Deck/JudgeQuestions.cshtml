@@ -1,0 +1,101 @@
+@model DeckFlow.Web.Models.JudgeQuestionViewModel
+@{
+    ViewData["Title"] = "Ask a Judge";
+    var prefilledName = Model.PrefilledCardName ?? string.Empty;
+}
+
+<section class="hero">
+    <h1>Ask a Judge</h1>
+    <p class="lede">Get rules answers from real, certified MTG judges 24/7. A ChatGPT prompt generator is also provided as a fast (but fallible) backup.</p>
+</section>
+
+@await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
+
+<section class="result-panel judge-primary">
+    <div class="panel-heading">
+        <div>
+            <h2>Talk to a real judge (recommended)</h2>
+            <p>Certified Magic judges and rules experts answer rules and policy questions live at <code>chat.magicjudges.org</code>, with citations from the Comprehensive Rules. This is the authoritative path.</p>
+        </div>
+    </div>
+    <ul class="judge-tips">
+        <li>It's a community-run channel (not Wizards of the Coast). No login needed — pick any nickname and start typing.</li>
+        <li>If your question references a card, type <code>!CardName</code> first (e.g. <code>!Sol Ring</code>) to have the channel bot post the card text.</li>
+        <li>Be patient — answers usually arrive within a couple of minutes.</li>
+        <li>Stay on topic; no leaked-card discussion.</li>
+    </ul>
+    <div class="toolbar">
+        <a class="run-button" href="https://chat.magicjudges.org/mtgrules/" target="_blank" rel="noopener noreferrer">Open Judge Chat &rarr;</a>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(prefilledName))
+    {
+        <div class="judge-suggested">
+            <strong>Suggested opening message</strong>
+            <p>Edit the question, then copy and paste into the judge chat:</p>
+            <textarea id="judge-suggested-message" readonly spellcheck="false" rows="2">!@(prefilledName) — </textarea>
+            <div class="toolbar">
+                <button type="button" class="copy-button" data-copy-target="judge-suggested-message">Copy</button>
+            </div>
+        </div>
+    }
+</section>
+
+<section class="judge-divider" aria-hidden="true">
+    <span>Need a quick (less authoritative) second opinion?</span>
+</section>
+
+<section class="result-panel judge-secondary">
+    <div class="panel-heading">
+        <div>
+            <h2>ChatGPT prompt generator</h2>
+            <p>Build a question prompt you can paste into ChatGPT (free web UI). Useful for casual play and exploration, but not a substitute for a real judge.</p>
+        </div>
+    </div>
+
+    <div class="warning-banner">
+        <strong>ChatGPT can be confidently wrong about MTG rules.</strong>
+        Replacement effects, layers, timing, and corner-case interactions are especially error-prone. For tournament play, or anything you can't verify against the
+        <a href="https://magic.wizards.com/en/rules" target="_blank" rel="noopener noreferrer">Comprehensive Rules</a>, use the judge chat above.
+    </div>
+
+    <div class="field-grid">
+        <div class="field">
+            <label for="judge-question-card">Reference card (optional)</label>
+            <div class="autocomplete-anchor">
+                <input id="judge-question-card" type="text" spellcheck="false" autocomplete="off"
+                       placeholder="Start typing 4+ characters" value="@prefilledName" data-judge-card-input />
+            </div>
+            <small class="sync-column__hint">If filled, the card's Oracle text and rulings are fetched and embedded in the prompt.</small>
+        </div>
+        <label class="field">
+            <span>Your question</span>
+            <textarea id="judge-question-text" rows="4" spellcheck="false"
+                      placeholder="e.g. If I copy a creature with [[Mirror Image]], do enters-the-battlefield triggers fire?"
+                      data-judge-question-input></textarea>
+        </label>
+    </div>
+
+    <div class="toolbar">
+        <button type="button" class="run-button" data-judge-generate>Generate Prompt</button>
+        <button type="button" class="clear-cache-button" data-judge-clear>Clear</button>
+    </div>
+
+    <div class="error-banner hidden" role="alert" data-judge-error></div>
+
+    <section class="result-panel hidden" data-judge-result>
+        <div class="panel-heading">
+            <div>
+                <h2>Prompt for ChatGPT</h2>
+                <p>Copy this and paste it into <a href="https://chat.openai.com/" target="_blank" rel="noopener noreferrer">chat.openai.com</a>.</p>
+            </div>
+            <button type="button" class="copy-button" data-copy-target="judge-prompt-output">Copy</button>
+        </div>
+        <textarea id="judge-prompt-output" readonly spellcheck="false" rows="14" data-judge-prompt-output></textarea>
+    </section>
+</section>
+
+@section Scripts {
+    <script src="~/js/deck-sync.js" asp-append-version="true"></script>
+    <script src="~/js/judge-questions.js" asp-append-version="true"></script>
+}

@@ -1174,3 +1174,70 @@ pre {
     padding: 0.4rem 0.6rem;
   }
 }
+
+/* Card Lookup mode picker */
+.card-lookup-mode-picker {
+  margin: 0.5rem 0 1rem 0;
+  gap: 0.5rem;
+}
+
+.card-lookup-mode-picker [data-card-lookup-mode-button].is-active {
+  background: var(--accent, #3a82f7);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* Ask a Judge page */
+.judge-primary {
+  border-left: 4px solid var(--accent, #3a82f7);
+}
+
+.judge-tips {
+  margin: 0.25rem 0 0.75rem 1.25rem;
+  padding: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.judge-tips li {
+  margin-bottom: 0.35rem;
+}
+
+.judge-suggested {
+  margin-top: 1rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--jeskai-blue-bg);
+}
+
+.judge-suggested textarea {
+  width: 100%;
+  margin-top: 0.5rem;
+  font-family: inherit;
+}
+
+.judge-divider {
+  display: flex;
+  align-items: center;
+  margin: 1.5rem 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.judge-divider::before,
+.judge-divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed var(--line);
+}
+
+.judge-divider span {
+  padding: 0 1rem;
+}
+
+.judge-secondary {
+  opacity: 0.97;
+}
+

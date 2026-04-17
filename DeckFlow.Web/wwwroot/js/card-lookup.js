@@ -93,6 +93,7 @@ const attachLookaheadInput = (input, panel, minChars, onPick) => {
     });
 };
 const initializeSingleCardMode = () => {
+    var _a;
     const input = document.querySelector('[data-card-lookup-single-input]');
     const submitButton = document.querySelector('[data-card-lookup-single-submit]');
     const clearButton = document.querySelector('[data-card-lookup-single-clear]');
@@ -114,11 +115,16 @@ const initializeSingleCardMode = () => {
         errorBanner.textContent = '';
         errorBanner.classList.add('hidden');
     };
+    const askJudgeLink = document.querySelector('[data-card-lookup-ask-judge-link]');
+    const askJudgeBaseHref = (_a = askJudgeLink === null || askJudgeLink === void 0 ? void 0 : askJudgeLink.getAttribute('href')) !== null && _a !== void 0 ? _a : '/judge-questions';
     const showResult = (name, verifiedText) => {
         clearError();
         resultLabel.textContent = name;
         resultTextarea.value = verifiedText;
         resultPanel.classList.remove('hidden');
+        if (askJudgeLink) {
+            askJudgeLink.href = `${askJudgeBaseHref}?card=${encodeURIComponent(name)}`;
+        }
     };
     const runLookup = async (name) => {
         var _a;

@@ -12,4 +12,5 @@ public enum DeckPageTab
     ChatGptDeckComparison = 8,
     ChatGptCedhMetaGap = 9,
     Home = 10,
+    JudgeQuestions = 11,
 }

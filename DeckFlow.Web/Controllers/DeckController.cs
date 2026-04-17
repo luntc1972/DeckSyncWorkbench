@@ -121,6 +121,22 @@ public sealed class DeckController : Controller
         });
     }
 
+    [HttpGet("/judge-questions")]
+    /// <summary>
+    /// Renders the "Ask a Judge" page that primarily links to the live MTG judge chat
+    /// and offers a secondary ChatGPT prompt generator. Optionally pre-fills a card name
+    /// passed in via query string from a Card Lookup deep link.
+    /// </summary>
+    /// <param name="card">Optional card name to pre-populate the question form.</param>
+    public IActionResult JudgeQuestions(string? card)
+    {
+        return View("JudgeQuestions", new JudgeQuestionViewModel
+        {
+            ActiveTab = DeckPageTab.JudgeQuestions,
+            PrefilledCardName = string.IsNullOrWhiteSpace(card) ? null : card.Trim(),
+        });
+    }
+
     [HttpGet("/chatgpt-packets")]
     /// <summary>
     /// Renders the staged ChatGPT packet workflow. Set options load asynchronously on the client.

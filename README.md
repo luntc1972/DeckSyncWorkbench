@@ -301,6 +301,16 @@ The Card Lookup page (`/card-lookup`) has two modes:
 
 Under the hood all modes use the same `ICardLookupService`: the card collection is fetched via `POST /cards/collection` in batches of 75, and rulings are fetched per-card via `GET /cards/{id}/rulings`.
 
+The Single Card result panel includes an "Ask a rules question about this card →" link that deep-links into `/judge-questions?card=<name>`.
+
+---
+
+## Ask a Judge
+
+The Ask a Judge page (`/judge-questions`) leads with a prominent link to the live community judge chat at [`chat.magicjudges.org/mtgrules`](https://chat.magicjudges.org/mtgrules/) — a 24/7 IRC channel (`#magicjudges-rules` on Libera.Chat) staffed by certified judges and rules experts. This is the authoritative path. When the page is opened with a `?card=<name>` query parameter (e.g. from Card Lookup), it pre-formats a `!CardName — ` opening message ready to copy into the chat.
+
+A clearly labeled **secondary** ChatGPT prompt generator is provided below for casual play and quick second opinions. It carries a prominent disclaimer ("ChatGPT can be confidently wrong about MTG rules") and, if a reference card is supplied, fetches that card's Oracle text and rulings via `GET /card-lookup/single` and embeds them in the generated prompt. The prompt itself starts with the same warning so ChatGPT cannot bury it.
+
 ---
 
 ## Commander Categories
