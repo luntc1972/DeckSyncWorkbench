@@ -2,7 +2,8 @@ namespace DeckFlow.Web.Models;
 
 public sealed class ChatGptDeckRequest
 {
-    private string _deckSource = string.Empty;
+    private string _deckUrl = string.Empty;
+    private string _deckText = string.Empty;
     private string _format = "Commander";
     private string _deckName = string.Empty;
     private string _strategyNotes = string.Empty;
@@ -18,10 +19,41 @@ public sealed class ChatGptDeckRequest
     private string _decklistExportFormat = string.Empty;
     private string _preferredCategories = string.Empty;
 
+    public DeckInputSource DeckInputSource { get; set; } = DeckInputSource.PasteText;
+
+    public string DeckUrl
+    {
+        get => _deckUrl;
+        set => _deckUrl = value ?? string.Empty;
+    }
+
+    public string DeckText
+    {
+        get => _deckText;
+        set => _deckText = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Returns the raw deck input the user provided — either the pasted text or the public URL,
+    /// whichever matches <see cref="DeckInputSource"/>. Setting this property routes the value to
+    /// <see cref="DeckUrl"/> or <see cref="DeckText"/> based on the current mode so existing
+    /// consumers and tests that treat a deck input as a single string keep working.
+    /// </summary>
     public string DeckSource
     {
-        get => _deckSource;
-        set => _deckSource = value ?? string.Empty;
+        get => DeckInputSource == DeckInputSource.PublicUrl ? _deckUrl : _deckText;
+        set
+        {
+            var normalized = value ?? string.Empty;
+            if (DeckInputSource == DeckInputSource.PublicUrl)
+            {
+                _deckUrl = normalized;
+            }
+            else
+            {
+                _deckText = normalized;
+            }
+        }
     }
 
     public int WorkflowStep { get; set; } = 1;

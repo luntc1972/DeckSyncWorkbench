@@ -20,6 +20,11 @@ const panelConfigs = [
         urlSelector: '[data-sync-panel="archidekt-url"]',
         textSelector: '[data-sync-panel="archidekt-text"]',
     },
+    {
+        selectName: 'DeckInputSource',
+        urlSelector: '[data-sync-panel="chatgpt-deck-url"]',
+        textSelector: '[data-sync-panel="chatgpt-deck-text"]',
+    },
 ];
 const updateSyncInputModeUi = () => {
     panelConfigs.forEach(config => {
@@ -124,7 +129,7 @@ const initializeSyncInputModeUi = () => {
         return;
     }
     syncInputModeInitialized = true;
-    const inputSelectors = document.querySelectorAll('select[name="MoxfieldInputSource"], select[name="ArchidektInputSource"]');
+    const inputSelectors = document.querySelectorAll('select[name="MoxfieldInputSource"], select[name="ArchidektInputSource"], select[name="DeckInputSource"]');
     inputSelectors.forEach(element => {
         element.addEventListener('change', updateSyncInputModeUi);
     });

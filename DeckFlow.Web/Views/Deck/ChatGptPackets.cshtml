@@ -133,11 +133,25 @@ Do not omit any fields from the schema.
             <span>Save artifacts to disk under <code>Documents/DeckFlow/ChatGPT Analysis</code></span>
         </label>
 
-        <label class="field">
-            <span>Deck URL or deck text</span>
-            <textarea name="DeckSource" spellcheck="false">@Model.Request.DeckSource</textarea>
-            <small class="sync-column__hint">Required. Paste a public Moxfield or Archidekt URL, or paste deck export text directly.</small>
-        </label>
+        <div class="sync-column__body">
+            <label class="field">
+                <span>Input method</span>
+                <select name="DeckInputSource">
+                    <option value="@DeckFlow.Web.Models.DeckInputSource.PasteText" selected="@(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PasteText)">Paste text</option>
+                    <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl)">Use public deck URL</option>
+                </select>
+            </label>
+            <label class="field sync-column__input-field @(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="chatgpt-deck-url">
+                <span>Public deck URL</span>
+                <input type="url" name="DeckUrl" value="@Model.Request.DeckUrl" placeholder="https://moxfield.com/decks/... or https://archidekt.com/decks/..." />
+                <small class="sync-column__hint">Required. Paste a public Moxfield or Archidekt deck URL.</small>
+            </label>
+            <label class="field sync-column__input-field @(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="chatgpt-deck-text">
+                <span>Deck export text</span>
+                <textarea name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
+                <small class="sync-column__hint">Required. Paste deck export text directly.</small>
+            </label>
+        </div>
         <div class="toolbar chatgpt-step-actions">
             <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/chatgpt-packets")">Clear</button>
             <div class="chatgpt-step-note">You only need to paste the deck here once. After that, move through the workflow tabs below.</div>

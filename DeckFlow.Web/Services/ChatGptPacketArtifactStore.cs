@@ -117,7 +117,8 @@ internal sealed class ChatGptPacketArtifactStore
                 $"Import folder did not contain 40-deck-profile.json or 51-set-upgrade-response.json: {fullPath}");
         }
 
-        request.DeckSource = string.Empty;
+        request.DeckUrl = string.Empty;
+        request.DeckText = string.Empty;
         request.WorkflowStep = loadedSetUpgrade ? 5 : 3;
     }
 
