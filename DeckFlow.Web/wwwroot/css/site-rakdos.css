@@ -1,0 +1,35 @@
+/* Guild theme: Rakdos (BR) — crimson carnage and charcoal. */
+@import url('site.css');
+
+:root {
+  --bg: #f3e9e9;
+  --panel: #fbf7f7;
+  --ink: #241a1e;
+  --muted: #6b5a5c;
+  --line: #d3c2c4;
+  --accent: #a83232;
+  --accent-strong: #822323;
+
+  --jeskai-blue-bg: #faecec;
+  --jeskai-red: #3c2023;
+  --jeskai-red-soft: #5e3c41;
+  --jeskai-red-bg: #ede3e4;
+  --jeskai-white: #f4ecec;
+
+  --warning: #f4dcc0;
+  --error: #a83232;
+  --info: #f5e6e6;
+
+  --panel-inferred-border: #8b6b6d;
+  --panel-inferred-bg: #f3e8e8;
+  --panel-live-border: #a83232;
+  --panel-live-bg: #faecec;
+  --panel-edhrec-border: #3c2023;
+  --panel-edhrec-bg: #ede3e4;
+  --panel-retry-border: #80696b;
+  --panel-retry-bg: #f2eaea;
+  --panel-summary-border: #7e6e4a;
+  --panel-summary-bg: #f4efe0;
+  --panel-fallback-border: #a89798;
+  --panel-fallback-bg: #f4eded;
+}

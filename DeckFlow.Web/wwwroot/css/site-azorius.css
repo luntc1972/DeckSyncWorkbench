@@ -1,0 +1,35 @@
+/* Guild theme: Azorius (WU) — senate blue and ivory. */
+@import url('site.css');
+
+:root {
+  --bg: #eef1f6;
+  --panel: #fafbfd;
+  --ink: #1a2541;
+  --muted: #5a637a;
+  --line: #c2cad8;
+  --accent: #2a5b9e;
+  --accent-strong: #1d4378;
+
+  --jeskai-blue-bg: #eef3fa;
+  --jeskai-red: #b4a04c;
+  --jeskai-red-soft: #d5bf73;
+  --jeskai-red-bg: #faf5e0;
+  --jeskai-white: #f6f3ea;
+
+  --warning: #f6ecc5;
+  --error: #b4321e;
+  --info: #e4eef8;
+
+  --panel-inferred-border: #7a8da6;
+  --panel-inferred-bg: #edf2f8;
+  --panel-live-border: #2a5b9e;
+  --panel-live-bg: #eef3fa;
+  --panel-edhrec-border: #b4a04c;
+  --panel-edhrec-bg: #faf5e0;
+  --panel-retry-border: #7a8598;
+  --panel-retry-bg: #eef1f6;
+  --panel-summary-border: #5a8a6e;
+  --panel-summary-bg: #edf5f0;
+  --panel-fallback-border: #9aa4b6;
+  --panel-fallback-bg: #f2f4f8;
+}

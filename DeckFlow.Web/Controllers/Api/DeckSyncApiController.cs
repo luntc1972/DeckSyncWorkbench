@@ -5,6 +5,7 @@ using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.Api;
+using DeckFlow.Web.Security;
 using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -41,8 +42,14 @@ public sealed class DeckSyncApiController : ControllerBase
     [HttpPost("diff")]
     [ProducesResponseType(typeof(DeckSyncApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<DeckSyncApiResponse>> PostDiffAsync([FromBody] DeckSyncApiRequest request, CancellationToken cancellationToken)
     {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() });
+        }
+
         if (request is null)
         {
             return BadRequest(new { Message = "Request body is required." });

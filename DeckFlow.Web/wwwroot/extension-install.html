@@ -19,6 +19,7 @@
                 <section class="result-panel">
                     <h2>Current status</h2>
                     <p>The extension is not published to the Chrome Web Store yet, so the current install path is <strong>Load unpacked</strong>.</p>
+                    <p>The DeckFlow bridge is intentionally limited to <code>localhost</code> and <code>127.0.0.1</code> so the extension does not inject into unrelated sites.</p>
                 </section>
 
                 <section class="result-panel">
@@ -37,6 +38,7 @@
                 <section class="result-panel">
                     <h2>What it does</h2>
                     <p>The extension fetches the Moxfield deck in the browser, converts it to Moxfield bulk-edit text, and passes that text back to DeckFlow so the normal import flow can continue.</p>
+                    <p>If you self-host DeckFlow on a different origin, update the extension manifest's bridge matches before loading it.</p>
                 </section>
             </main>
         </div>

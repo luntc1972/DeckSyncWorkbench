@@ -1,4 +1,5 @@
 using DeckFlow.Web.Models.Api;
+using DeckFlow.Web.Security;
 using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,8 +19,14 @@ public sealed class ArchidektCacheJobsController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(ArchidektCacheJobEnqueueResponse), StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ArchidektCacheJobEnqueueResponse>> StartAsync([FromBody] ArchidektCacheJobStartRequest? request, CancellationToken cancellationToken)
     {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() });
+        }
+
         var durationSeconds = request?.DurationSeconds ?? 0;
         if (durationSeconds <= 0)
         {
@@ -54,6 +61,11 @@ public sealed class ArchidektCacheJobsController : ControllerBase
         return job is null ? NotFound() : Ok(ToStatusResponse(job));
     }
 
+    /// <summary>
+    /// Converts an enqueue result into the API response payload.
+    /// </summary>
+    /// <param name="result">Enqueue result returned by the background-job service.</param>
+    /// <returns>API response payload describing the queued job.</returns>
     private ArchidektCacheJobEnqueueResponse ToEnqueueResponse(ArchidektCacheJobEnqueueResult result)
     {
         var statusUrl = Url.ActionLink(nameof(GetByIdAsync), values: new { jobId = result.Job.JobId }) ?? $"/api/archidekt-cache-jobs/{result.Job.JobId}";
@@ -73,6 +85,11 @@ public sealed class ArchidektCacheJobsController : ControllerBase
         };
     }
 
+    /// <summary>
+    /// Converts the internal job status object into the public API response shape.
+    /// </summary>
+    /// <param name="job">Tracked background job.</param>
+    /// <returns>Public status response payload.</returns>
     private static ArchidektCacheJobStatusResponse ToStatusResponse(ArchidektCacheJobStatus job)
         => new()
         {

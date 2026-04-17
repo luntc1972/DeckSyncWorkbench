@@ -8,6 +8,7 @@ using DeckFlow.Web.Controllers.Api;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -19,7 +20,7 @@ public sealed class SuggestionsApiControllerTests
     [Fact]
     public async Task PostCardSuggestionAsync_ReturnsBadRequest_WhenCardNameMissing()
     {
-        var controller = new SuggestionsApiController(
+        var controller = CreateController(
             new FakeCategorySuggestionService(CategorySuggestionResult.Empty("")),
             new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
             new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
@@ -46,7 +47,7 @@ public sealed class SuggestionsApiControllerTests
             2,
             true);
 
-        var controller = new SuggestionsApiController(
+        var controller = CreateController(
             new FakeCategorySuggestionService(result),
             new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
             new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
@@ -80,7 +81,7 @@ public sealed class SuggestionsApiControllerTests
             0,
             false);
 
-        var controller = new SuggestionsApiController(
+        var controller = CreateController(
             new FakeCategorySuggestionService(result),
             new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
             new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
@@ -104,7 +105,7 @@ public sealed class SuggestionsApiControllerTests
     [Fact]
     public async Task PostCommanderSuggestionAsync_ReturnsBadRequest_WhenCommanderMissing()
     {
-        var controller = new SuggestionsApiController(
+        var controller = CreateController(
             new FakeCategorySuggestionService(CategorySuggestionResult.Empty("")),
             new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
             new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
@@ -128,7 +129,7 @@ public sealed class SuggestionsApiControllerTests
             3,
             true);
 
-        var controller = new SuggestionsApiController(
+        var controller = CreateController(
             new FakeCategorySuggestionService(CategorySuggestionResult.Empty("")),
             new FakeCommanderCategoryService(result),
             new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
@@ -150,7 +151,7 @@ public sealed class SuggestionsApiControllerTests
     [Fact]
     public async Task PostCardSuggestionAsync_ReturnsSiteSpecificMessage_WhenUpstreamRequestFails()
     {
-        var controller = new SuggestionsApiController(
+        var controller = CreateController(
             new ThrowingCategorySuggestionService(new HttpRequestException("EDHREC returned HTTP 503.", null, System.Net.HttpStatusCode.ServiceUnavailable)),
             new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
             new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
@@ -169,7 +170,7 @@ public sealed class SuggestionsApiControllerTests
     [Fact]
     public async Task PostMechanicLookupAsync_ReturnsStructuredResponse()
     {
-        var controller = new SuggestionsApiController(
+        var controller = CreateController(
             new FakeCategorySuggestionService(CategorySuggestionResult.Empty("")),
             new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
             new FakeMechanicLookupService(new MechanicLookupResult(
@@ -194,6 +195,52 @@ public sealed class SuggestionsApiControllerTests
         Assert.True(payload.Found);
         Assert.Equal("Prowess", payload.MechanicName);
         Assert.Equal("702.108", payload.RuleReference);
+    }
+
+    [Fact]
+    public async Task PostCardSuggestionAsync_ReturnsForbidden_WhenOriginIsCrossSite()
+    {
+        var controller = new SuggestionsApiController(
+            new FakeCategorySuggestionService(CategorySuggestionResult.Empty("")),
+            new FakeCommanderCategoryService(new CommanderCategoryResult("", Array.Empty<CategoryKnowledgeRow>(), Array.Empty<CommanderCategorySummary>(), 0, CardDeckTotals.Empty, 0, false)),
+            new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
+            NullLogger<SuggestionsApiController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+        controller.Request.Scheme = "https";
+        controller.Request.Host = new HostString("deckflow.test");
+        controller.Request.Headers.Origin = "https://evil.test";
+
+        var response = await controller.PostCardSuggestionAsync(new CategorySuggestionRequest
+        {
+            CardName = "Sol Ring"
+        }, CancellationToken.None);
+
+        var forbidden = Assert.IsType<ObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+    }
+
+    private static SuggestionsApiController CreateController(
+        ICategorySuggestionService categorySuggestionService,
+        ICommanderCategoryService commanderCategoryService,
+        IMechanicLookupService mechanicLookupService,
+        ILogger<SuggestionsApiController> logger)
+    {
+        var controller = new SuggestionsApiController(categorySuggestionService, commanderCategoryService, mechanicLookupService, logger)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+        controller.Request.Scheme = "https";
+        controller.Request.Host = new HostString("deckflow.test");
+        controller.Request.Headers.Origin = "https://deckflow.test";
+        return controller;
     }
 
     private sealed class FakeCategorySuggestionService : ICategorySuggestionService

@@ -23,7 +23,7 @@ public sealed class ArchidektCacheJobsControllerTests
             0,
             0,
             null);
-        var controller = new ArchidektCacheJobsController(new FakeArchidektCacheJobService(job, startedNewJob: true))
+        var controller = CreateController(new FakeArchidektCacheJobService(job, startedNewJob: true))
         {
             Url = new FakeUrlHelper()
         };
@@ -43,7 +43,7 @@ public sealed class ArchidektCacheJobsControllerTests
     [Fact]
     public async Task StartAsync_ReturnsBadRequest_WhenDurationInvalid()
     {
-        var controller = new ArchidektCacheJobsController(new FakeArchidektCacheJobService(null, startedNewJob: false));
+        var controller = CreateController(new FakeArchidektCacheJobService(null, startedNewJob: false));
 
         var response = await controller.StartAsync(new ArchidektCacheJobStartRequest
         {
@@ -85,6 +85,44 @@ public sealed class ArchidektCacheJobsControllerTests
         var response = controller.GetByIdAsync(Guid.NewGuid());
 
         Assert.IsType<NotFoundResult>(response.Result);
+    }
+
+    [Fact]
+    public async Task StartAsync_ReturnsForbidden_WhenOriginIsCrossSite()
+    {
+        var controller = new ArchidektCacheJobsController(new FakeArchidektCacheJobService(null, startedNewJob: false))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+        controller.Request.Scheme = "https";
+        controller.Request.Host = new HostString("deckflow.test");
+        controller.Request.Headers.Origin = "https://evil.test";
+
+        var response = await controller.StartAsync(new ArchidektCacheJobStartRequest
+        {
+            DurationSeconds = 300
+        }, CancellationToken.None);
+
+        var forbidden = Assert.IsType<ObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+    }
+
+    private static ArchidektCacheJobsController CreateController(IArchidektCacheJobService service)
+    {
+        var controller = new ArchidektCacheJobsController(service)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+        controller.Request.Scheme = "https";
+        controller.Request.Host = new HostString("deckflow.test");
+        controller.Request.Headers.Origin = "https://deckflow.test";
+        return controller;
     }
 
     private sealed class FakeArchidektCacheJobService : IArchidektCacheJobService

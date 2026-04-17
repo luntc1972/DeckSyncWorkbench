@@ -1,0 +1,35 @@
+/* Guild theme: Izzet (UR) — electric blue and ember orange. */
+@import url('site.css');
+
+:root {
+  --bg: #e8ecf2;
+  --panel: #fafbfd;
+  --ink: #1a2038;
+  --muted: #566179;
+  --line: #bec7d6;
+  --accent: #1f5eb0;
+  --accent-strong: #164282;
+
+  --jeskai-blue-bg: #e6eefa;
+  --jeskai-red: #d55a1a;
+  --jeskai-red-soft: #e68047;
+  --jeskai-red-bg: #fbe8d8;
+  --jeskai-white: #eff2f7;
+
+  --warning: #f8dab0;
+  --error: #c73f1f;
+  --info: #e3ecf7;
+
+  --panel-inferred-border: #7385a1;
+  --panel-inferred-bg: #e9eef6;
+  --panel-live-border: #1f5eb0;
+  --panel-live-bg: #e6eefa;
+  --panel-edhrec-border: #d55a1a;
+  --panel-edhrec-bg: #fbe8d8;
+  --panel-retry-border: #727f98;
+  --panel-retry-bg: #e7ecf3;
+  --panel-summary-border: #4a8a6e;
+  --panel-summary-bg: #e4f2ec;
+  --panel-fallback-border: #97a3b8;
+  --panel-fallback-bg: #edf0f6;
+}

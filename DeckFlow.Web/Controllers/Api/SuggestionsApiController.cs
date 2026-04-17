@@ -5,6 +5,7 @@ using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.Api;
+using DeckFlow.Web.Security;
 using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -40,9 +41,15 @@ public sealed class SuggestionsApiController : ControllerBase
     [HttpPost("card")]
     [ProducesResponseType(typeof(CategorySuggestionApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status408RequestTimeout)]
     public async Task<ActionResult<CategorySuggestionApiResponse>> PostCardSuggestionAsync([FromBody] CategorySuggestionRequest request, CancellationToken cancellationToken)
     {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() });
+        }
+
         if (request is null)
         {
             return BadRequest(new { Message = "Request body is required." });
@@ -105,9 +112,15 @@ public sealed class SuggestionsApiController : ControllerBase
     [HttpPost("commander")]
     [ProducesResponseType(typeof(CommanderCategoryApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status408RequestTimeout)]
     public async Task<ActionResult<CommanderCategoryApiResponse>> PostCommanderSuggestionAsync([FromBody] CommanderCategoryRequest request, CancellationToken cancellationToken)
     {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() });
+        }
+
         if (request is null || string.IsNullOrWhiteSpace(request.CommanderName))
         {
             return BadRequest(new { Message = "Commander name is required." });
@@ -159,8 +172,14 @@ public sealed class SuggestionsApiController : ControllerBase
     [HttpPost("mechanic")]
     [ProducesResponseType(typeof(MechanicLookupApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<MechanicLookupApiResponse>> PostMechanicLookupAsync([FromBody] MechanicLookupRequest request, CancellationToken cancellationToken)
     {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() });
+        }
+
         if (request is null || string.IsNullOrWhiteSpace(request.MechanicName))
         {
             return BadRequest(new { Message = "Mechanic name is required." });

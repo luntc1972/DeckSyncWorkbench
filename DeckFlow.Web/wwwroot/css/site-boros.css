@@ -1,0 +1,35 @@
+/* Guild theme: Boros (RW) — legion vermilion and sunlit gold. */
+@import url('site.css');
+
+:root {
+  --bg: #f4ede3;
+  --panel: #fdfaf3;
+  --ink: #2b1d16;
+  --muted: #71584a;
+  --line: #d6c6b2;
+  --accent: #b2381e;
+  --accent-strong: #8d2a15;
+
+  --jeskai-blue-bg: #fbe8e0;
+  --jeskai-red: #c9a646;
+  --jeskai-red-soft: #dcbd72;
+  --jeskai-red-bg: #f7eecf;
+  --jeskai-white: #f8f1e0;
+
+  --warning: #f6dcad;
+  --error: #b2381e;
+  --info: #f4ebdc;
+
+  --panel-inferred-border: #8f7e66;
+  --panel-inferred-bg: #f4ecd9;
+  --panel-live-border: #b2381e;
+  --panel-live-bg: #fbe8e0;
+  --panel-edhrec-border: #c9a646;
+  --panel-edhrec-bg: #f7eecf;
+  --panel-retry-border: #86725c;
+  --panel-retry-bg: #f1e8d3;
+  --panel-summary-border: #7a803a;
+  --panel-summary-bg: #f1eecf;
+  --panel-fallback-border: #b3a080;
+  --panel-fallback-bg: #f3ead7;
+}

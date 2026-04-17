@@ -1,0 +1,35 @@
+/* Guild theme: Dimir (UB) — midnight blue and obsidian. */
+@import url('site.css');
+
+:root {
+  --bg: #e9ebf2;
+  --panel: #f7f7fb;
+  --ink: #1b1f33;
+  --muted: #54596d;
+  --line: #bec2cf;
+  --accent: #3a5d8f;
+  --accent-strong: #27416b;
+
+  --jeskai-blue-bg: #edf0f7;
+  --jeskai-red: #584a6d;
+  --jeskai-red-soft: #7b6e90;
+  --jeskai-red-bg: #eeeaf3;
+  --jeskai-white: #f0eff4;
+
+  --warning: #f0e4c3;
+  --error: #a23838;
+  --info: #e5e8f0;
+
+  --panel-inferred-border: #71778a;
+  --panel-inferred-bg: #edeef3;
+  --panel-live-border: #3a5d8f;
+  --panel-live-bg: #edf0f7;
+  --panel-edhrec-border: #584a6d;
+  --panel-edhrec-bg: #eeeaf3;
+  --panel-retry-border: #6d7180;
+  --panel-retry-bg: #eaebf0;
+  --panel-summary-border: #4e6f6a;
+  --panel-summary-bg: #e9efee;
+  --panel-fallback-border: #8a90a0;
+  --panel-fallback-bg: #eff0f4;
+}

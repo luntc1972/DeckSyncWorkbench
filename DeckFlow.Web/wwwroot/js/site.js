@@ -9,14 +9,12 @@
     let archidektCacheJobLocked = false;
     let archidektCacheJobResolveVersion = 0;
     let archidektCacheJobRecordMemory = null;
-    let suppressPageSnapshotPersistence = false;
     const themeStorageKey = 'deckflow-theme';
     const themeCookieMaxAgeSeconds = 60 * 60 * 24 * 365;
     const archidektCacheJobStorageKey = 'deckflow-archidekt-cache-job';
     const archidektCacheJobDismissedKey = 'deckflow-archidekt-cache-job-dismissed';
     const archidektCacheJobPendingKey = 'deckflow-archidekt-cache-job-pending';
     const pageSnapshotStoragePrefix = 'decksync-page-snapshot-';
-    const tabNavigationKey = 'decksync-tab-navigation';
     const archidektCacheJobPollIntervalMs = 5000;
     const getSessionStorage = () => {
         try {
@@ -30,24 +28,7 @@
         }
     };
     const getPageSnapshotKey = () => `${pageSnapshotStoragePrefix}${window.location.pathname}`;
-    const canPersistCurrentPage = () => document.querySelector('form[data-cache-key]') !== null;
-    const persistCurrentPageSnapshot = () => {
-        if (suppressPageSnapshotPersistence || !canPersistCurrentPage()) {
-            return;
-        }
-        const storage = getSessionStorage();
-        const main = document.querySelector('main.content-shell');
-        if (!storage || !main) {
-            return;
-        }
-        try {
-            storage.setItem(getPageSnapshotKey(), main.innerHTML);
-        }
-        catch (_a) {
-            // Ignore storage failures and continue without page snapshot persistence.
-        }
-    };
-    const clearCurrentPageSnapshot = () => {
+    const clearLegacyPageSnapshot = () => {
         const storage = getSessionStorage();
         if (!storage) {
             return;
@@ -59,41 +40,8 @@
             // Ignore storage failures and continue without page snapshot persistence.
         }
     };
-    const restoreCurrentPageSnapshot = () => {
-        const storage = getSessionStorage();
-        const main = document.querySelector('main.content-shell');
-        if (!storage || !main || storage.getItem(tabNavigationKey) !== '1' || !canPersistCurrentPage()) {
-            return;
-        }
-        const snapshot = storage.getItem(getPageSnapshotKey());
-        if (!snapshot) {
-            return;
-        }
-        main.innerHTML = snapshot;
-    };
-    const attachPageSnapshotPersistence = () => {
-        if (!canPersistCurrentPage()) {
-            return;
-        }
-        document.querySelectorAll('.tool-nav__link').forEach(link => {
-            link.addEventListener('click', () => {
-                const storage = getSessionStorage();
-                persistCurrentPageSnapshot();
-                storage === null || storage === void 0 ? void 0 : storage.setItem(tabNavigationKey, '1');
-            });
-        });
-        document.querySelectorAll('[data-clear-cache]').forEach(button => {
-            button.addEventListener('click', () => {
-                suppressPageSnapshotPersistence = true;
-                clearCurrentPageSnapshot();
-            });
-        });
-        window.addEventListener('pagehide', () => {
-            if (suppressPageSnapshotPersistence) {
-                return;
-            }
-            persistCurrentPageSnapshot();
-        });
+    const clearLegacyPageSnapshotsOnLoad = () => {
+        clearLegacyPageSnapshot();
     };
     const attachBackToTop = () => {
         if (backToTopInitialized) {
@@ -576,8 +524,7 @@
             }
         }
     };
-    restoreCurrentPageSnapshot();
-    attachPageSnapshotPersistence();
+    clearLegacyPageSnapshotsOnLoad();
     document.addEventListener('DOMContentLoaded', attachBackToTop);
     document.addEventListener('DOMContentLoaded', attachThemePicker);
     document.addEventListener('DOMContentLoaded', attachArchidektCacheJobUi);

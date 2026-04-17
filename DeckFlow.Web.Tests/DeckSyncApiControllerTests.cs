@@ -8,6 +8,7 @@ using DeckFlow.Web.Controllers.Api;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -25,7 +26,7 @@ public sealed class DeckSyncApiControllerTests
     [Fact]
     public async Task PostDiffAsync_ReturnsBadRequest_WhenMoxfieldInputMissing()
     {
-        var controller = new DeckSyncApiController(new FakeDeckSyncService(), NullLogger<DeckSyncApiController>.Instance);
+        var controller = CreateController();
 
         var response = await controller.PostDiffAsync(new DeckSyncApiRequest
         {
@@ -44,7 +45,7 @@ public sealed class DeckSyncApiControllerTests
     [Fact]
     public async Task PostDiffAsync_ReturnsStructuredResponse()
     {
-        var controller = new DeckSyncApiController(new FakeDeckSyncService(), NullLogger<DeckSyncApiController>.Instance);
+        var controller = CreateController();
 
         var response = await controller.PostDiffAsync(new DeckSyncApiRequest
         {
@@ -77,6 +78,7 @@ public sealed class DeckSyncApiControllerTests
         var controller = new DeckSyncApiController(
             new ThrowingDeckSyncService(new HttpRequestException("Archidekt returned HTTP 503.", null, System.Net.HttpStatusCode.ServiceUnavailable)),
             NullLogger<DeckSyncApiController>.Instance);
+        SetSameOriginHeaders(controller);
 
         var response = await controller.PostDiffAsync(new DeckSyncApiRequest
         {
@@ -98,7 +100,7 @@ public sealed class DeckSyncApiControllerTests
     [Fact]
     public async Task PostDiffAsync_ReturnsSameSystemLabels_ForMoxfieldToMoxfield()
     {
-        var controller = new DeckSyncApiController(new FakeDeckSyncService(), NullLogger<DeckSyncApiController>.Instance);
+        var controller = CreateController();
 
         var response = await controller.PostDiffAsync(new DeckSyncApiRequest
         {
@@ -113,6 +115,61 @@ public sealed class DeckSyncApiControllerTests
         var payload = Assert.IsType<DeckSyncApiResponse>(ok.Value);
         Assert.Equal("Moxfield", payload.SourceSystem);
         Assert.Equal("Moxfield", payload.TargetSystem);
+    }
+
+    /// <summary>
+    /// Rejects cross-site browser POSTs before running the sync workflow.
+    /// </summary>
+    [Fact]
+    public async Task PostDiffAsync_ReturnsForbidden_WhenOriginIsCrossSite()
+    {
+        var controller = new DeckSyncApiController(new FakeDeckSyncService(), NullLogger<DeckSyncApiController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+        controller.Request.Scheme = "https";
+        controller.Request.Host = new HostString("deckflow.test");
+        controller.Request.Headers.Origin = "https://evil.test";
+
+        var response = await controller.PostDiffAsync(new DeckSyncApiRequest
+        {
+            MoxfieldInputSource = DeckInputSource.PasteText,
+            MoxfieldText = "1 Sol Ring",
+            ArchidektInputSource = DeckInputSource.PasteText,
+            ArchidektText = "1 Arcane Signet"
+        }, CancellationToken.None);
+
+        var forbidden = Assert.IsType<ObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+    }
+
+    /// <summary>
+    /// Creates a controller configured with same-origin headers for tests that exercise the happy path.
+    /// </summary>
+    /// <returns>Configured deck-sync API controller.</returns>
+    private static DeckSyncApiController CreateController()
+    {
+        var controller = new DeckSyncApiController(new FakeDeckSyncService(), NullLogger<DeckSyncApiController>.Instance);
+        SetSameOriginHeaders(controller);
+        return controller;
+    }
+
+    /// <summary>
+    /// Adds same-origin request headers to a controller test context.
+    /// </summary>
+    /// <param name="controller">Controller to configure.</param>
+    private static void SetSameOriginHeaders(ControllerBase controller)
+    {
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext()
+        };
+        controller.Request.Scheme = "https";
+        controller.Request.Host = new HostString("deckflow.test");
+        controller.Request.Headers.Origin = "https://deckflow.test";
     }
 
     private sealed class FakeDeckSyncService : IDeckSyncService

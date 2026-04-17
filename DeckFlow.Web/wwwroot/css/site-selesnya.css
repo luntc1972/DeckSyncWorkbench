@@ -1,0 +1,35 @@
+/* Guild theme: Selesnya (GW) — conclave emerald and cream. */
+@import url('site.css');
+
+:root {
+  --bg: #eaf0e9;
+  --panel: #fafbf8;
+  --ink: #1e2b22;
+  --muted: #57655a;
+  --line: #c1cbbf;
+  --accent: #3a7a52;
+  --accent-strong: #285938;
+
+  --jeskai-blue-bg: #ebf3ed;
+  --jeskai-red: #caa858;
+  --jeskai-red-soft: #dec184;
+  --jeskai-red-bg: #f8f0dc;
+  --jeskai-white: #f4f1e7;
+
+  --warning: #f1e6bd;
+  --error: #a24a2a;
+  --info: #e7f0e9;
+
+  --panel-inferred-border: #7b8f80;
+  --panel-inferred-bg: #edf1ea;
+  --panel-live-border: #3a7a52;
+  --panel-live-bg: #ebf3ed;
+  --panel-edhrec-border: #caa858;
+  --panel-edhrec-bg: #f8f0dc;
+  --panel-retry-border: #7f8a7b;
+  --panel-retry-bg: #edf0e9;
+  --panel-summary-border: #47805a;
+  --panel-summary-bg: #e9f2ec;
+  --panel-fallback-border: #9aaa96;
+  --panel-fallback-bg: #eef1e9;
+}

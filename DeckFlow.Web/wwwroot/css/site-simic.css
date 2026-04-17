@@ -1,0 +1,35 @@
+/* Guild theme: Simic (GU) — biomancy teal and sea-foam. */
+@import url('site.css');
+
+:root {
+  --bg: #e6eff0;
+  --panel: #f6fafa;
+  --ink: #14262a;
+  --muted: #4a6469;
+  --line: #bacdd0;
+  --accent: #1f7685;
+  --accent-strong: #155763;
+
+  --jeskai-blue-bg: #e3eff2;
+  --jeskai-red: #4ca482;
+  --jeskai-red-soft: #7bbea0;
+  --jeskai-red-bg: #e2f2ea;
+  --jeskai-white: #ecf3f2;
+
+  --warning: #eee2b3;
+  --error: #8d3b32;
+  --info: #e2eef0;
+
+  --panel-inferred-border: #6f8a8f;
+  --panel-inferred-bg: #e6eff0;
+  --panel-live-border: #1f7685;
+  --panel-live-bg: #e3eff2;
+  --panel-edhrec-border: #4ca482;
+  --panel-edhrec-bg: #e2f2ea;
+  --panel-retry-border: #73888c;
+  --panel-retry-bg: #e6edee;
+  --panel-summary-border: #428878;
+  --panel-summary-bg: #e3f0ea;
+  --panel-fallback-border: #9eb3b5;
+  --panel-fallback-bg: #e8eeef;
+}

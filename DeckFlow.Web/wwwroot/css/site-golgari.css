@@ -1,0 +1,35 @@
+/* Guild theme: Golgari (BG) — swarm rot and moss. */
+@import url('site.css');
+
+:root {
+  --bg: #edefe6;
+  --panel: #f8f9f2;
+  --ink: #1f2620;
+  --muted: #5d6354;
+  --line: #bfc3b2;
+  --accent: #4b6e2a;
+  --accent-strong: #36511f;
+
+  --jeskai-blue-bg: #ecf1e0;
+  --jeskai-red: #3d2c3e;
+  --jeskai-red-soft: #5a4a5b;
+  --jeskai-red-bg: #e8e3ea;
+  --jeskai-white: #eff0e5;
+
+  --warning: #eee1b4;
+  --error: #7a341e;
+  --info: #ecefe1;
+
+  --panel-inferred-border: #7d8367;
+  --panel-inferred-bg: #eef1df;
+  --panel-live-border: #4b6e2a;
+  --panel-live-bg: #ecf1e0;
+  --panel-edhrec-border: #3d2c3e;
+  --panel-edhrec-bg: #e8e3ea;
+  --panel-retry-border: #747966;
+  --panel-retry-bg: #ebeedd;
+  --panel-summary-border: #55783d;
+  --panel-summary-bg: #e8efde;
+  --panel-fallback-border: #9ea28b;
+  --panel-fallback-bg: #edefdf;
+}

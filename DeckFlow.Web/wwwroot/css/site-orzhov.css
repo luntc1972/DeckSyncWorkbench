@@ -1,0 +1,35 @@
+/* Guild theme: Orzhov (WB) — antique gold and gothic obsidian. */
+@import url('site.css');
+
+:root {
+  --bg: #f1ede3;
+  --panel: #faf7ef;
+  --ink: #23201b;
+  --muted: #655d4b;
+  --line: #cdc3a9;
+  --accent: #8a6a1e;
+  --accent-strong: #6e5215;
+
+  --jeskai-blue-bg: #f6eed6;
+  --jeskai-red: #2a272d;
+  --jeskai-red-soft: #4e4a55;
+  --jeskai-red-bg: #e6e3e8;
+  --jeskai-white: #f6f2e5;
+
+  --warning: #f3e2b2;
+  --error: #8a2d1e;
+  --info: #f0ebdd;
+
+  --panel-inferred-border: #85775a;
+  --panel-inferred-bg: #f1ebd9;
+  --panel-live-border: #8a6a1e;
+  --panel-live-bg: #f6eed6;
+  --panel-edhrec-border: #2a272d;
+  --panel-edhrec-bg: #e6e3e8;
+  --panel-retry-border: #6f6858;
+  --panel-retry-bg: #eee9d8;
+  --panel-summary-border: #6b7a4b;
+  --panel-summary-bg: #efeeda;
+  --panel-fallback-border: #a59c82;
+  --panel-fallback-bg: #f0ecdd;
+}

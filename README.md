@@ -27,7 +27,13 @@ DeckFlow helps deck builders translate decks between Moxfield and Archidekt with
 ### UI styling
 - `DeckFlow.Web/wwwroot/css/site-common.css` contains shared shell and view-level styles that apply regardless of the selected color theme.
 - `DeckFlow.Web/wwwroot/css/site*.css` files remain responsible for theme palettes and component styling.
+- The theme picker now includes all ten two-color guild themes in addition to the existing wedges, shards, and specialty themes.
 - Keep long-lived CSS out of Razor views; prefer shared stylesheets so caching and theme behavior stay predictable.
+
+### Browser/API hardening
+- Browser-facing JSON POST APIs now enforce same-origin `Origin`/`Referer` checks before processing deck sync, suggestion, mechanic lookup, and Archidekt cache-harvest requests.
+- The old sessionStorage page-snapshot restore path was removed. DeckFlow no longer writes `main.content-shell.innerHTML` into storage or rehydrates raw HTML from storage on load.
+- These checks are meant to reduce cross-site request abuse and avoid re-inserting stale or storage-poisoned markup into the DOM.
 
 ### IIS publish
 - Publish the web app with `dotnet publish DeckFlow.Web/DeckFlow.Web.csproj /p:PublishProfile=IIS-LocalFolder`
@@ -47,6 +53,7 @@ DeckFlow helps deck builders translate decks between Moxfield and Archidekt with
 ### Browser extension install
 - Extension folder: `browser-extensions/moxfield-tag-exporter`
 - Current install mode: unpacked extension via `chrome://extensions` or `edge://extensions`
+- Security default: the DeckFlow bridge content script only matches `localhost` and `127.0.0.1` so the extension does not inject into arbitrary sites
 - The extension contains:
   - `content.js` for exporting directly on `moxfield.com/decks/*`
   - `deckflow-bridge.js` for the optional DeckFlow web-app bridge
