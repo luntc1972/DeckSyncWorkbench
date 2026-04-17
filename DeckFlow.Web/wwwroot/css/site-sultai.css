@@ -944,11 +944,23 @@ select {
   resize: vertical;
 }
 
+.result-panel {
+  /* Contain wide children so long unbroken strings never push the panel past the viewport. */
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .result-panel textarea,
 .result-panel pre {
   margin: 0;
   min-height: 16rem;
   white-space: pre-wrap;
+  max-width: 100%;
+  width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  box-sizing: border-box;
 }
 
 .run-button,
