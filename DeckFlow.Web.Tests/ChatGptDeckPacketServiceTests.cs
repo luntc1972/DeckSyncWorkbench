@@ -1,7 +1,5 @@
 using System.Net;
 using System.IO;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.FileProviders;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
@@ -1401,7 +1399,6 @@ Commander
             new FakeCommanderBanListService(),
             new FakeScryfallSetService(),
             new FakeCommanderSpellbookService(),
-            new FakeWebHostEnvironment(rootPath),
             executeCollectionAsync: executeCollectionAsync ?? ((request, _) => Task.FromResult(CreateCollectionResponse(request))),
             executeSearchAsync: executeSearchAsync ?? ((request, _) => Task.FromResult(CreateSearchResponse(request))),
             executeNamedAsync: executeNamedAsync ?? ((request, _) => Task.FromResult(CreateNamedResponse(request))),
@@ -1580,13 +1577,4 @@ Test Card | 1W | Creature | Survival — Test text.
             => Task.FromResult<CommanderSpellbookResult?>(null);
     }
 
-    private sealed class FakeWebHostEnvironment(string contentRootPath) : IWebHostEnvironment
-    {
-        public string ApplicationName { get; set; } = "DeckFlow.Tests";
-        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
-        public string WebRootPath { get; set; } = contentRootPath;
-        public string EnvironmentName { get; set; } = "Development";
-        public string ContentRootPath { get; set; } = contentRootPath;
-        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
-    }
 }

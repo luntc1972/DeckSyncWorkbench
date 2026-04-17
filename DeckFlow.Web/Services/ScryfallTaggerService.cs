@@ -31,6 +31,10 @@ public sealed partial class ScryfallTaggerService : IScryfallTaggerService
     private readonly RestClient _scryfallClient;
     private readonly ILogger<ScryfallTaggerService> _logger;
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="ScryfallTaggerService"/>.
+    /// </summary>
+    /// <param name="logger">Logger used for upstream warnings.</param>
     public ScryfallTaggerService(ILogger<ScryfallTaggerService> logger)
     {
         _scryfallClient = ScryfallRestClientFactory.Create();
@@ -87,7 +91,11 @@ public sealed partial class ScryfallTaggerService : IScryfallTaggerService
     /// <summary>
     /// Fetches a Tagger card page to obtain the CSRF token and session cookies required for the GraphQL endpoint.
     /// </summary>
-    private async Task<(string CsrfToken, CookieCollection? Cookies)> FetchCsrfTokenAsync(string set, string collectorNumber, CancellationToken cancellationToken)
+    /// <param name="set">Card set code used by the Tagger card page.</param>
+    /// <param name="collectorNumber">Collector number used by the Tagger card page.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The CSRF token and cookies required for the GraphQL request.</returns>
+    private static async Task<(string CsrfToken, CookieCollection? Cookies)> FetchCsrfTokenAsync(string set, string collectorNumber, CancellationToken cancellationToken)
     {
         using var handler = new HttpClientHandler { UseCookies = true };
         using var httpClient = new HttpClient(handler);
@@ -115,6 +123,12 @@ public sealed partial class ScryfallTaggerService : IScryfallTaggerService
     /// <summary>
     /// Posts the GraphQL query to the Tagger endpoint and extracts oracle tags from the response.
     /// </summary>
+    /// <param name="set">Set code of the resolved printing.</param>
+    /// <param name="collectorNumber">Collector number of the resolved printing.</param>
+    /// <param name="csrfToken">CSRF token required by the Tagger endpoint.</param>
+    /// <param name="cookies">Cookies captured from the Tagger card page.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The distinct oracle tags returned by Scryfall Tagger.</returns>
     private async Task<IReadOnlyList<string>> QueryTaggerGraphQlAsync(
         string set,
         string collectorNumber,
@@ -187,6 +201,8 @@ public sealed partial class ScryfallTaggerService : IScryfallTaggerService
     /// <summary>
     /// Normalizes a tagger tag slug/name to title case (e.g. "spot-removal" -> "Spot Removal").
     /// </summary>
+    /// <param name="tag">Raw tag value from the Tagger response.</param>
+    /// <returns>A UI-friendly tag label.</returns>
     private static string NormalizeTagName(string tag)
     {
         var text = tag.Replace('-', ' ').Replace('_', ' ').Trim();

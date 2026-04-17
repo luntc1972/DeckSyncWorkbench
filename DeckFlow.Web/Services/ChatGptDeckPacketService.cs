@@ -6,7 +6,6 @@ using System.Diagnostics;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using RestSharp;
 using DeckFlow.Web.Models;
@@ -49,6 +48,10 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 {
     private const int ScryfallBatchSize = 75;
     private static readonly Regex AbilityWordRegex = AbilityWordPattern();
+    private static readonly JsonSerializerOptions IndentedJsonSerializerOptions = new()
+    {
+        WriteIndented = true
+    };
     private readonly IMoxfieldDeckImporter _moxfieldDeckImporter;
     private readonly IArchidektDeckImporter _archidektDeckImporter;
     private readonly MoxfieldParser _moxfieldParser;
@@ -75,7 +78,6 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
         ICommanderBanListService commanderBanListService,
         IScryfallSetService scryfallSetService,
         ICommanderSpellbookService commanderSpellbookService,
-        IWebHostEnvironment environment,
         ILogger<ChatGptDeckPacketService>? logger = null,
         RestClient? scryfallRestClient = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
@@ -517,16 +519,17 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
 
 
     /// <summary>
-    /// Loads deck entries from a public URL or pasted export text.
-    /// </summary>
-    /// <param name="deckSource">Deck URL or pasted export text.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <summary>
     /// Warning surfaced to the UI when the Moxfield fallback (Commander Spellbook) was used.
     /// Set during LoadDeckEntriesAsync, read during BuildAsync, cleared per call.
     /// </summary>
     private string? _lastImportNotice;
 
+    /// <summary>
+    /// Loads deck entries from a public URL or pasted export text.
+    /// </summary>
+    /// <param name="deckSource">Deck URL or pasted export text.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The parsed deck entries.</returns>
     private async Task<List<DeckEntry>> LoadDeckEntriesAsync(string deckSource, CancellationToken cancellationToken)
     {
         _lastImportNotice = null;
@@ -1365,10 +1368,7 @@ public sealed partial class ChatGptDeckPacketService : IChatGptDeckPacketService
             };
         }
 
-        return JsonSerializer.Serialize(payload, new JsonSerializerOptions
-        {
-            WriteIndented = true
-        });
+        return JsonSerializer.Serialize(payload, IndentedJsonSerializerOptions);
     }
 
     private async Task<CardReferenceBundle> LookupCardReferencesAsync(IReadOnlyList<CardReferenceRequest> cardRequests, CancellationToken cancellationToken)

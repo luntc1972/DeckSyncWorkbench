@@ -39,6 +39,11 @@ public sealed record CategorySuggestionResult(
     int AdditionalDecksFound,
     bool CacheHarvestTriggered)
 {
+    /// <summary>
+    /// Creates an empty result for a card that produced no suggestions from any source.
+    /// </summary>
+    /// <param name="cardName">Card name that was queried.</param>
+    /// <returns>An empty suggestion result.</returns>
     public static CategorySuggestionResult Empty(string cardName) => new(
         cardName,
         Array.Empty<string>(),
@@ -84,14 +89,11 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
     /// <inheritdoc />
     public async Task<CategorySuggestionResult> SuggestAsync(CategorySuggestionRequest request, CancellationToken cancellationToken = default)
     {
-        if (request is null)
-        {
-            throw new ArgumentNullException(nameof(request));
-        }
+        ArgumentNullException.ThrowIfNull(request);
 
         if (string.IsNullOrWhiteSpace(request.CardName))
         {
-            throw new ArgumentException("Card name is required.", nameof(request.CardName));
+            throw new ArgumentException("Card name is required.", nameof(request));
         }
 
         if (request.Mode == CategorySuggestionMode.ReferenceDeck && !HasSuggestionInput(request))
@@ -180,11 +182,21 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
             runCachedPath);
     }
 
+    /// <summary>
+    /// Determines whether the request contains the deck input needed for reference-deck mode.
+    /// </summary>
+    /// <param name="request">Suggestion request to validate.</param>
     private static bool HasSuggestionInput(CategorySuggestionRequest request)
         => request.ArchidektInputSource == DeckInputSource.PublicUrl
             ? !string.IsNullOrWhiteSpace(request.ArchidektUrl)
             : !string.IsNullOrWhiteSpace(request.ArchidektText);
 
+    /// <summary>
+    /// Loads the reference deck entries from either a public URL or pasted deck text.
+    /// </summary>
+    /// <param name="request">Suggestion request with the reference deck input.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The parsed reference deck entries.</returns>
     private async Task<List<DeckEntry>> LoadReferenceEntriesAsync(CategorySuggestionRequest request, CancellationToken cancellationToken)
     {
         if (request.ArchidektInputSource == DeckInputSource.PublicUrl)

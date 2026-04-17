@@ -1,14 +1,17 @@
-using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json.Serialization;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Parsing;
+using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Services;
 
 namespace DeckFlow.Web;
 
+/// <summary>
+/// Configures and starts the DeckFlow web application.
+/// </summary>
 public class Program
 {
     /// <summary>
@@ -94,38 +97,7 @@ public class Program
             app.UseHsts();
         }
 
-        app.Use(async (context, next) =>
-        {
-            context.Response.OnStarting(() =>
-            {
-                var headers = context.Response.Headers;
-                headers["X-Content-Type-Options"] = "nosniff";
-                headers["X-Frame-Options"] = "DENY";
-                headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-                headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
-
-                var path = context.Request.Path.Value ?? string.Empty;
-                var skipCsp = path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase);
-                if (!skipCsp)
-                {
-                    headers["Content-Security-Policy"] =
-                        "default-src 'self'; " +
-                        "script-src 'self'; " +
-                        "style-src 'self' 'unsafe-inline'; " +
-                        "img-src 'self' data:; " +
-                        "font-src 'self'; " +
-                        "connect-src 'self'; " +
-                        "object-src 'none'; " +
-                        "base-uri 'self'; " +
-                        "form-action 'self'; " +
-                        "frame-ancestors 'none'";
-                }
-
-                return Task.CompletedTask;
-            });
-
-            await next();
-        });
+        app.UseDeckFlowSecurityHeaders();
 
         app.UseHttpsRedirection();
         app.UseStaticFiles();
@@ -165,7 +137,7 @@ public class Program
 
                 try
                 {
-                    OpenChromeWindow(launchUrl);
+                    DevelopmentBrowserLauncher.OpenNewWindow(launchUrl);
                 }
                 catch (Exception exception)
                 {
@@ -175,42 +147,5 @@ public class Program
         }
 
         app.Run();
-    }
-
-    private static void OpenChromeWindow(string launchUrl)
-    {
-        var chromePath = GetChromePath();
-        if (!string.IsNullOrWhiteSpace(chromePath))
-        {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = chromePath,
-                Arguments = $"--new-window \"{launchUrl}\"",
-                UseShellExecute = true
-            });
-            return;
-        }
-
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = launchUrl,
-            UseShellExecute = true
-        });
-    }
-
-    private static string? GetChromePath()
-    {
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-
-        var candidates = new[]
-        {
-            Path.Combine(localAppData, "Google", "Chrome", "Application", "chrome.exe"),
-            Path.Combine(programFiles, "Google", "Chrome", "Application", "chrome.exe"),
-            Path.Combine(programFilesX86, "Google", "Chrome", "Application", "chrome.exe")
-        };
-
-        return candidates.FirstOrDefault(File.Exists);
     }
 }
