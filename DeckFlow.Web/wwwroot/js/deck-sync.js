@@ -920,24 +920,27 @@ const applyChatGptUiMode = (form, mode) => {
     });
 };
 const validateChatGptPacketsStep = (form, step) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x;
     const importArtifactsPath = (_b = (_a = form.querySelector('input[name="ImportArtifactsPath"]')) === null || _a === void 0 ? void 0 : _a.value.trim()) !== null && _b !== void 0 ? _b : '';
     if (importArtifactsPath) {
         // When importing a saved artifacts folder, the server rehydrates DeckProfileJson / SetUpgradeResponseJson —
         // skip client-side field validation and let the import path run.
         return null;
     }
-    const deckSource = (_d = (_c = form.querySelector('textarea[name="DeckSource"]')) === null || _c === void 0 ? void 0 : _c.value.trim()) !== null && _d !== void 0 ? _d : '';
-    const deckProfileJson = (_f = (_e = form.querySelector('textarea[name="DeckProfileJson"]')) === null || _e === void 0 ? void 0 : _e.value.trim()) !== null && _f !== void 0 ? _f : '';
-    const targetCommanderBracket = (_h = (_g = form.querySelector('select[name="TargetCommanderBracket"]')) === null || _g === void 0 ? void 0 : _g.value.trim()) !== null && _h !== void 0 ? _h : '';
-    const cardSpecificQuestionCardName = (_k = (_j = form.querySelector('input[name="CardSpecificQuestionCardName"]')) === null || _j === void 0 ? void 0 : _j.value.trim()) !== null && _k !== void 0 ? _k : '';
-    const budgetUpgradeAmount = (_m = (_l = form.querySelector('input[name="BudgetUpgradeAmount"]')) === null || _l === void 0 ? void 0 : _l.value.trim()) !== null && _m !== void 0 ? _m : '';
-    const setPacketText = (_p = (_o = form.querySelector('textarea[name="SetPacketText"]')) === null || _o === void 0 ? void 0 : _o.value.trim()) !== null && _p !== void 0 ? _p : '';
+    const deckInputSource = (_d = (_c = form.querySelector('select[name="DeckInputSource"]')) === null || _c === void 0 ? void 0 : _c.value) !== null && _d !== void 0 ? _d : DeckInputSource.PasteText;
+    const deckSource = deckInputSource === DeckInputSource.PublicUrl
+        ? (_f = (_e = form.querySelector('input[name="DeckUrl"]')) === null || _e === void 0 ? void 0 : _e.value.trim()) !== null && _f !== void 0 ? _f : ''
+        : (_h = (_g = form.querySelector('textarea[name="DeckText"]')) === null || _g === void 0 ? void 0 : _g.value.trim()) !== null && _h !== void 0 ? _h : '';
+    const deckProfileJson = (_k = (_j = form.querySelector('textarea[name="DeckProfileJson"]')) === null || _j === void 0 ? void 0 : _j.value.trim()) !== null && _k !== void 0 ? _k : '';
+    const targetCommanderBracket = (_m = (_l = form.querySelector('select[name="TargetCommanderBracket"]')) === null || _l === void 0 ? void 0 : _l.value.trim()) !== null && _m !== void 0 ? _m : '';
+    const cardSpecificQuestionCardName = (_p = (_o = form.querySelector('input[name="CardSpecificQuestionCardName"]')) === null || _o === void 0 ? void 0 : _o.value.trim()) !== null && _p !== void 0 ? _p : '';
+    const budgetUpgradeAmount = (_r = (_q = form.querySelector('input[name="BudgetUpgradeAmount"]')) === null || _q === void 0 ? void 0 : _q.value.trim()) !== null && _r !== void 0 ? _r : '';
+    const setPacketText = (_t = (_s = form.querySelector('textarea[name="SetPacketText"]')) === null || _s === void 0 ? void 0 : _s.value.trim()) !== null && _t !== void 0 ? _t : '';
     const selectedSetCodes = Array.from(form.querySelectorAll('select[name="SelectedSetCodes"] option:checked'));
     const selectedCardSpecificQuestions = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="card-worth-it"]:checked, input[name="SelectedAnalysisQuestions"][value="better-alternatives"]:checked').length;
     const selectedBudgetQuestions = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="budget-upgrades"]:checked').length;
     const selectedCategoryQuestions = form.querySelectorAll('input[name="SelectedAnalysisQuestions"][value="add-categories"]:checked, input[name="SelectedAnalysisQuestions"][value="update-categories"]:checked').length;
-    const decklistExportFormat = (_r = (_q = form.querySelector('select[name="DecklistExportFormat"]')) === null || _q === void 0 ? void 0 : _q.value.trim()) !== null && _r !== void 0 ? _r : '';
+    const decklistExportFormat = (_v = (_u = form.querySelector('select[name="DecklistExportFormat"]')) === null || _u === void 0 ? void 0 : _u.value.trim()) !== null && _v !== void 0 ? _v : '';
     if (step < 3 && !deckSource) {
         return 'Paste a deck URL or deck export before generating ChatGPT packets.';
     }
@@ -971,7 +974,7 @@ const validateChatGptPacketsStep = (form, step) => {
         }
     }
     if (step === 5) {
-        const setUpgradeResponseJson = (_t = (_s = form.querySelector('textarea[name="SetUpgradeResponseJson"]')) === null || _s === void 0 ? void 0 : _s.value.trim()) !== null && _t !== void 0 ? _t : '';
+        const setUpgradeResponseJson = (_x = (_w = form.querySelector('textarea[name="SetUpgradeResponseJson"]')) === null || _w === void 0 ? void 0 : _w.value.trim()) !== null && _x !== void 0 ? _x : '';
         if (!setUpgradeResponseJson) {
             return 'Paste the set_upgrade_report JSON returned from ChatGPT before rendering the set upgrade results.';
         }

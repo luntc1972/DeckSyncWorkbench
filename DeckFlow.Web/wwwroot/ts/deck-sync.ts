@@ -1201,7 +1201,10 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
     return null;
   }
 
-  const deckSource = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckSource"]')?.value.trim() ?? '';
+  const deckInputSource = form.querySelector<HTMLSelectElement>('select[name="DeckInputSource"]')?.value ?? DeckInputSource.PasteText;
+  const deckSource = deckInputSource === DeckInputSource.PublicUrl
+    ? form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')?.value.trim() ?? ''
+    : form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')?.value.trim() ?? '';
   const deckProfileJson = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckProfileJson"]')?.value.trim() ?? '';
   const targetCommanderBracket = form.querySelector<HTMLSelectElement>('select[name="TargetCommanderBracket"]')?.value.trim() ?? '';
   const cardSpecificQuestionCardName = form.querySelector<HTMLInputElement>('input[name="CardSpecificQuestionCardName"]')?.value.trim() ?? '';
