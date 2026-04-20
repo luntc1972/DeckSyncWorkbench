@@ -1,34 +1,34 @@
 :root {
   /* Abzan: White (W) / Black (B) / Green (G) */
-  --bg: #efede7;
-  --panel: #fbfaf7;
-  --ink: #2c261f;
-  --muted: #6c6359;
-  --line: #d2cabb;
-  --accent: #6b7d46;          /* Abzan green / endurance crest */
-  --accent-strong: #56663a;
-  --abzan-charcoal: #4a433c;  /* Abzan black / weathered obsidian */
-  --abzan-charcoal-soft: #70675e;
-  --abzan-charcoal-bg: #f0ece6;
-  --abzan-sand-bg: #f5f0e5;
-  --abzan-bone: #f4f0e8;     /* Abzan white / sun-bleached bone */
-  --warning: #f3e5be;
-  --error: #8f3f36;
-  --info: #ece9df;
+  --bg: #080905;
+  --panel: #12150d;
+  --ink: #f4f0e8;
+  --muted: #c2bfb3;
+  --line: #425137;
+  --accent: #86a35a;           /* Abzan green / endurance crest */
+  --accent-strong: #a3c776;
+  --abzan-charcoal: #060704;   /* Abzan black / weathered obsidian */
+  --abzan-charcoal-soft: #59614f;
+  --abzan-charcoal-bg: #0d1008;
+  --abzan-sand-bg: #172013;
+  --abzan-bone: #f4f0e8;       /* Abzan white / sun-bleached bone */
+  --warning: #3a321d;
+  --error: #9a4a3f;
+  --info: #151b12;
 
-  /* semantic panel tokens — shifted into Jeskai palette */
-  --panel-inferred-border: #8d8779;
-  --panel-inferred-bg: #f3f0e8;
-  --panel-live-border: #6b7d46;
-  --panel-live-bg: #eef3e7;
-  --panel-edhrec-border: #4a433c;
-  --panel-edhrec-bg: #f0ece6;
-  --panel-retry-border: #8d8479;
-  --panel-retry-bg: #f2efe8;
-  --panel-summary-border: #73865b;
-  --panel-summary-bg: #eef3ea;
-  --panel-fallback-border: #a69d90;
-  --panel-fallback-bg: #f5f2ed;
+  /* semantic panel tokens — tuned for dark Abzan surfaces */
+  --panel-inferred-border: #6b7461;
+  --panel-inferred-bg: #141710;
+  --panel-live-border: #86a35a;
+  --panel-live-bg: #151d13;
+  --panel-edhrec-border: #59614f;
+  --panel-edhrec-bg: #0d1008;
+  --panel-retry-border: #67685f;
+  --panel-retry-bg: #141610;
+  --panel-summary-border: #9ec16f;
+  --panel-summary-bg: #172013;
+  --panel-fallback-border: #696f62;
+  --panel-fallback-bg: #13160f;
 }
 
 * {
@@ -135,7 +135,7 @@ summary:focus-visible,
 }
 
 .info-banner {
-  border: 1px solid #8aaac8;
+  border: 1px solid #86a35a;
   border-radius: 10px;
   background: var(--info);
   color: var(--ink);
@@ -242,6 +242,7 @@ summary:focus-visible,
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  margin-top: 1rem;
   margin-bottom: 1rem;
 }
 
@@ -258,7 +259,7 @@ summary:focus-visible,
   padding: 0.85rem 1rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--abzan-bone);
+  background: var(--abzan-charcoal-bg);
 }
 
 .chatgpt-layout-picker__copy {
@@ -276,8 +277,8 @@ summary:focus-visible,
 
 .chatgpt-layout-picker [data-chatgpt-ui-mode-button].is-active {
   border-color: var(--accent);
-  color: var(--accent);
-  background: rgba(43, 108, 176, 0.08);
+  color: var(--abzan-bone);
+  background: rgba(134, 163, 90, 0.24);
 }
 
 .chatgpt-step-tab {
@@ -344,7 +345,7 @@ summary:focus-visible,
   padding: 0.95rem 1rem;
   border: 1px dashed var(--line);
   border-radius: 10px;
-  background: var(--abzan-bone);
+  background: var(--abzan-charcoal-bg);
 }
 
 .chatgpt-instructions strong {
@@ -382,7 +383,7 @@ summary:focus-visible,
 
 .chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-instructions {
   padding: 0.7rem 0.8rem;
-  background: var(--abzan-bone);
+  background: var(--abzan-charcoal-bg);
 }
 
 .chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-step-heading {
@@ -433,7 +434,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   padding: 0.9rem 1rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--abzan-bone);
+  background: var(--abzan-charcoal-bg);
   color: var(--muted);
 }
 
@@ -469,7 +470,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   padding: 0.9rem 1rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--abzan-bone);
+  background: var(--abzan-charcoal-bg);
 }
 
 .chatgpt-question-bucket__label,
@@ -580,7 +581,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 .clear-cache-button:hover {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(43, 108, 176, 0.08);
+  background: rgba(134, 163, 90, 0.12);
 }
 
 .stack {
@@ -978,7 +979,8 @@ select {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.75rem 0.85rem;
-  background: #fff;
+  background: var(--panel);
+  color: var(--ink);
 }
 
 .field textarea {

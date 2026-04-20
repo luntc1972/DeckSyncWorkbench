@@ -5,20 +5,22 @@
   --ink: #d8d8e2;
   --muted: #91889d;
   --line: #4a4256;
-  --accent: #4a78b8;          /* Grixis blue / cruel command */
-  --accent-strong: #6b8fd0;
+  --accent: #b44a52;          /* Grixis red / cruel command */
+  --accent-strong: #d16670;
   --warning: #3f3125;
   --error: #b6484f;
   --info: #20283c;
-  --grixis-red: #9a474d;
+  --grixis-red: #b44a52;
   --grixis-red-bg: #2b2024;
+  --grixis-blue: #5f8fd4;
+  --grixis-blue-bg: #1d2537;
 
   /* semantic panel tokens — dark-adjusted */
   --panel-inferred-border: #52566d;
   --panel-inferred-bg: #1f2230;
-  --panel-live-border: #4a78b8;
+  --panel-live-border: #5f8fd4;
   --panel-live-bg: #1d2537;
-  --panel-edhrec-border: #9a474d;
+  --panel-edhrec-border: #b44a52;
   --panel-edhrec-bg: #2b2024;
   --panel-retry-border: #544d5f;
   --panel-retry-bg: #1f212d;
@@ -216,7 +218,7 @@ summary:focus-visible,
   width: 1.2rem;
   height: 1.2rem;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--grixis-blue);
   color: #fff;
   font-size: 0.75rem;
   font-weight: 600;
@@ -242,6 +244,7 @@ summary:focus-visible,
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  margin-top: 1rem;
   margin-bottom: 1rem;
 }
 
@@ -277,22 +280,22 @@ summary:focus-visible,
 .chatgpt-layout-picker [data-chatgpt-ui-mode-button].is-active {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(77, 143, 204, 0.1);
+  background: rgba(180, 74, 82, 0.16);
 }
 
 .chatgpt-step-tab {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 0.7rem 1rem;
-  background: #2a3048;
+  background: var(--grixis-blue-bg);
   color: var(--ink);
   cursor: pointer;
 }
 
 .chatgpt-step-tab.is-active {
-  border-color: var(--accent);
-  background: #1e2d44;
-  color: var(--accent);
+  border-color: var(--grixis-blue);
+  background: var(--grixis-blue-bg);
+  color: var(--grixis-blue);
   font-weight: 600;
 }
 
@@ -317,7 +320,7 @@ summary:focus-visible,
   font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--grixis-blue);
 }
 
 .chatgpt-step-heading h2 {
@@ -581,7 +584,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 .clear-cache-button:hover {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(77, 143, 204, 0.1);
+  background: rgba(180, 74, 82, 0.16);
 }
 
 .stack {

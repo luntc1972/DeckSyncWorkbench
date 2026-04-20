@@ -5,11 +5,12 @@
   --ink: #1a1f2e;
   --muted: #5c6478;
   --line: #c4c9d6;
-  --accent: #2b6cb0;          /* Jeskai blue — monastery sky */
-  --accent-strong: #1e4f82;
+  --accent: #b83a2e;          /* Jeskai red — dragon fire */
+  --accent-strong: #922b23;
   --jeskai-red: #b83a2e;      /* Jeskai red — dragon fire */
   --jeskai-red-soft: #d4574a;
   --jeskai-red-bg: #fdf0ee;
+  --jeskai-blue: #2b6cb0;     /* Jeskai blue — monastery sky */
   --jeskai-blue-bg: #edf3fa;
   --jeskai-white: #f5f3ee;    /* Jeskai white — monastery stone */
   --warning: #fef3d0;
@@ -216,7 +217,7 @@ summary:focus-visible,
   width: 1.2rem;
   height: 1.2rem;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--jeskai-blue);
   color: #fff;
   font-size: 0.75rem;
   font-weight: 600;
@@ -242,6 +243,7 @@ summary:focus-visible,
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  margin-top: 1rem;
   margin-bottom: 1rem;
 }
 
@@ -277,7 +279,7 @@ summary:focus-visible,
 .chatgpt-layout-picker [data-chatgpt-ui-mode-button].is-active {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(43, 108, 176, 0.08);
+  background: rgba(184, 58, 46, 0.08);
 }
 
 .chatgpt-step-tab {
@@ -290,9 +292,9 @@ summary:focus-visible,
 }
 
 .chatgpt-step-tab.is-active {
-  border-color: var(--accent);
+  border-color: var(--jeskai-blue);
   background: var(--jeskai-blue-bg);
-  color: var(--accent-strong);
+  color: var(--jeskai-blue);
   font-weight: 600;
 }
 
@@ -580,7 +582,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 .clear-cache-button:hover {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(43, 108, 176, 0.08);
+  background: rgba(184, 58, 46, 0.08);
 }
 
 .stack {

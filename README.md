@@ -476,7 +476,7 @@ See [`browser-extensions/moxfield-tag-exporter/README.md`](browser-extensions/mo
 ### Visual themes
 A persistent theme picker in the shared layout lets users switch between visual themes. The selection is stored in `localStorage` and applied on page load. Available themes:
 - **Default** — the base site stylesheet
-- **Abzan**, **Bant**, **Esper**, **Grixis**, **Jeskai**, **Jund**, **Mardu**, **Naya**, **Sultai**, **Temur** — color-shard/wedge-inspired palettes
+- **Abzan (WBG)**, **Bant (GWU)**, **Esper (WUB)**, **Grixis (UBR)**, **Jeskai (URW)**, **Jund (BRG)**, **Mardu (RWB)**, **Naya (RGW)**, **Sultai (BGU)**, **Temur (GUR)** — color-shard/wedge-inspired palettes
 - **Nyx** — enchantment-themed dark palette
 - **Planeswalker Dark** — dark-mode palette
 - **Commander Table** — warm tabletop-inspired palette

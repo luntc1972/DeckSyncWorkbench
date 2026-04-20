@@ -1,34 +1,34 @@
 :root {
   /* Esper: White (W) / Blue (U) / Black (B) */
-  --bg: #eceff2;
-  --panel: #fbfcfd;
-  --ink: #1f2630;
-  --muted: #627082;
-  --line: #c9d1de;
-  --accent: #3a6fa4;          /* Esper blue / etherium focus */
-  --accent-strong: #2a5682;
-  --esper-obsidian: #4a505d; /* Esper black / polished alloy shadow */
-  --esper-obsidian-soft: #6b7280;
-  --esper-obsidian-bg: #edf0f5;
-  --esper-blue-bg: #edf3f9;
-  --esper-ivory: #f5f6f8;    /* Esper white / cathedral porcelain */
-  --warning: #f3ead0;
-  --error: #9d4652;
-  --info: #e8eef5;
+  --bg: #06080c;
+  --panel: #0f141c;
+  --ink: #f5f6f8;
+  --muted: #b8c3d3;
+  --line: #31465f;
+  --accent: #5f9fe3;          /* Esper blue / etherium focus */
+  --accent-strong: #86b7ee;
+  --esper-obsidian: #05070a;  /* Esper black / polished alloy shadow */
+  --esper-obsidian-soft: #566171;
+  --esper-obsidian-bg: #0b1017;
+  --esper-blue-bg: #0f1b2d;
+  --esper-ivory: #f5f6f8;     /* Esper white / cathedral porcelain */
+  --warning: #3b3320;
+  --error: #a84c57;
+  --info: #0f1b2d;
 
-  /* semantic panel tokens — shifted into Jeskai palette */
-  --panel-inferred-border: #8393a7;
-  --panel-inferred-bg: #eef3f8;
-  --panel-live-border: #3a6fa4;
-  --panel-live-bg: #edf3f9;
-  --panel-edhrec-border: #4a505d;
-  --panel-edhrec-bg: #edf0f5;
-  --panel-retry-border: #838c99;
-  --panel-retry-bg: #eef1f4;
-  --panel-summary-border: #648199;
-  --panel-summary-bg: #edf3f2;
-  --panel-fallback-border: #9fa7b4;
-  --panel-fallback-bg: #f3f5f8;
+  /* semantic panel tokens — tuned for dark Esper surfaces */
+  --panel-inferred-border: #65788f;
+  --panel-inferred-bg: #101720;
+  --panel-live-border: #5f9fe3;
+  --panel-live-bg: #0f1b2d;
+  --panel-edhrec-border: #566171;
+  --panel-edhrec-bg: #0b1017;
+  --panel-retry-border: #5c6675;
+  --panel-retry-bg: #10151d;
+  --panel-summary-border: #76a8df;
+  --panel-summary-bg: #11202d;
+  --panel-fallback-border: #59687d;
+  --panel-fallback-bg: #10161f;
 }
 
 * {
@@ -135,7 +135,7 @@ summary:focus-visible,
 }
 
 .info-banner {
-  border: 1px solid #8aaac8;
+  border: 1px solid #5f9fe3;
   border-radius: 10px;
   background: var(--info);
   color: var(--ink);
@@ -242,6 +242,7 @@ summary:focus-visible,
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  margin-top: 1rem;
   margin-bottom: 1rem;
 }
 
@@ -258,7 +259,7 @@ summary:focus-visible,
   padding: 0.85rem 1rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--esper-ivory);
+  background: var(--esper-obsidian-bg);
 }
 
 .chatgpt-layout-picker__copy {
@@ -276,8 +277,8 @@ summary:focus-visible,
 
 .chatgpt-layout-picker [data-chatgpt-ui-mode-button].is-active {
   border-color: var(--accent);
-  color: var(--accent);
-  background: rgba(43, 108, 176, 0.08);
+  color: var(--esper-ivory);
+  background: rgba(95, 159, 227, 0.24);
 }
 
 .chatgpt-step-tab {
@@ -344,7 +345,7 @@ summary:focus-visible,
   padding: 0.95rem 1rem;
   border: 1px dashed var(--line);
   border-radius: 10px;
-  background: var(--esper-ivory);
+  background: var(--esper-obsidian-bg);
 }
 
 .chatgpt-instructions strong {
@@ -382,7 +383,7 @@ summary:focus-visible,
 
 .chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-instructions {
   padding: 0.7rem 0.8rem;
-  background: var(--esper-ivory);
+  background: var(--esper-obsidian-bg);
 }
 
 .chatgpt-packets-form[data-chatgpt-ui-mode="expert"] .chatgpt-step-heading {
@@ -433,7 +434,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   padding: 0.9rem 1rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--esper-ivory);
+  background: var(--esper-obsidian-bg);
   color: var(--muted);
 }
 
@@ -469,7 +470,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   padding: 0.9rem 1rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--esper-ivory);
+  background: var(--esper-obsidian-bg);
 }
 
 .chatgpt-question-bucket__label,
@@ -580,7 +581,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 .clear-cache-button:hover {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(43, 108, 176, 0.08);
+  background: rgba(95, 159, 227, 0.12);
 }
 
 .stack {
@@ -978,7 +979,8 @@ select {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.75rem 0.85rem;
-  background: #fff;
+  background: var(--panel);
+  color: var(--ink);
 }
 
 .field textarea {
