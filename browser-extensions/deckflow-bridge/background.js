@@ -12,23 +12,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message?.type === 'download-file' && typeof message.fileName === 'string' && typeof message.url === 'string') {
-    chrome.downloads.download({
-      url: message.url,
-      filename: message.fileName,
-      saveAs: true
-    }, (downloadId) => {
-      if (chrome.runtime.lastError) {
-        sendResponse({ ok: false, error: chrome.runtime.lastError.message });
-        return;
-      }
-
-      sendResponse({ ok: true, downloadId });
-    });
-
-    return true;
-  }
-
   return false;
 });
 

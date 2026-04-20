@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Install DeckFlow Moxfield Extension</title>
+    <title>Install the DeckFlow Bridge extension</title>
     <link rel="stylesheet" href="/css/site-common.css" />
     <link rel="stylesheet" href="/css/site.css" />
 </head>
@@ -12,35 +12,35 @@
         <div class="page-frame">
             <main class="content-shell">
                 <section class="hero">
-                    <h1>Install The Optional DeckFlow Moxfield Extension</h1>
-                    <p class="lede">Browsers do not allow this site to install the extension automatically. You need to load it yourself, then return to DeckFlow and retry the import.</p>
+                    <h1>Install the DeckFlow Bridge extension</h1>
+                    <p class="lede">Browsers do not allow this site to install the extension automatically. Download it, load it unpacked, then return to DeckFlow and retry the import.</p>
+                    <p><a class="run-button" href="/extensions/deckflow-bridge.zip" download>Download the DeckFlow Bridge (.zip)</a></p>
                 </section>
 
                 <section class="result-panel">
                     <h2>Current status</h2>
-                    <p>The extension is not published to the Chrome Web Store yet, so the current install path is <strong>Load unpacked</strong>.</p>
+                    <p>Load-unpacked only for now — no Chrome Web Store listing yet.</p>
                     <p>The DeckFlow bridge now uses an allowed-origins list in the extension settings. Add each DeckFlow origin you trust there before using browser-side Moxfield imports.</p>
                 </section>
 
                 <section class="result-panel">
                     <h2>Install steps</h2>
                     <ol>
-                        <li>Open the repository or downloaded project files on your machine.</li>
-                        <li>Open <code>browser-extensions/moxfield-tag-exporter</code>.</li>
+                        <li>Click Download above to save <code>deckflow-bridge.zip</code>.</li>
+                        <li>Unzip it anywhere on your machine.</li>
                         <li>In Chrome or Edge, open <code>chrome://extensions</code>.</li>
                         <li>Turn on <strong>Developer mode</strong>.</li>
                         <li>Click <strong>Load unpacked</strong>.</li>
-                        <li>Select the <code>browser-extensions/moxfield-tag-exporter</code> folder.</li>
-                        <li>Open the extension details page, then open <strong>Extension options</strong>.</li>
-                        <li>Add your DeckFlow origin, such as <code>https://deckflow.example.com</code> or <code>https://mybox.local:7173</code>.</li>
+                        <li>Select the unzipped <code>deckflow-bridge</code> folder.</li>
+                        <li>Click the extension's details page, open <strong>Extension options</strong>, and add this DeckFlow origin to the allow list.</li>
                         <li>Return to DeckFlow and submit the Moxfield URL again.</li>
                     </ol>
                 </section>
 
                 <section class="result-panel">
                     <h2>What it does</h2>
-                    <p>The extension fetches the Moxfield deck in the browser, converts it to Moxfield bulk-edit text, and passes that text back to DeckFlow so the normal import flow can continue.</p>
-                    <p>The extension injects broadly, but it only responds to origins you explicitly allow in extension options.</p>
+                    <p>The DeckFlow Bridge fetches the Moxfield deck in your logged-in browser session when the DeckFlow server cannot reach it directly, then hands the deck data back to DeckFlow so the normal import flow can continue.</p>
+                    <p>The bridge injects broadly, but it only responds to origins you explicitly allow in extension options.</p>
                 </section>
             </main>
         </div>

@@ -9,3 +9,4 @@ node_modules/
 package.json
 package-lock.json
 AGENTS.md
+DeckFlow.Web/wwwroot/extensions/*.zip

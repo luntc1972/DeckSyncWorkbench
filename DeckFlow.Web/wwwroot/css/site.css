@@ -10,7 +10,7 @@
   --jeskai-red: #b83a2e;      /* Jeskai red — dragon fire */
   --jeskai-red-soft: #d4574a;
   --jeskai-red-bg: #fdf0ee;
-  --jeskai-blue-bg: #edf3fa;
+  --panel-soft-bg: #edf3fa;
   --jeskai-white: #f5f3ee;    /* Jeskai white — monastery stone */
   --warning: #fef3d0;
   --error: #b83a2e;
@@ -285,14 +285,14 @@ summary:focus-visible,
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 0.7rem 1rem;
-  background: var(--jeskai-blue-bg);
+  background: var(--panel-soft-bg);
   color: var(--ink);
   cursor: pointer;
 }
 
 .chatgpt-step-tab.is-active {
   border-color: var(--accent);
-  background: var(--jeskai-blue-bg);
+  background: var(--panel-soft-bg);
   color: var(--accent-strong);
   font-weight: 600;
 }
@@ -636,7 +636,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 .busy-indicator__spinner {
   width: 1.25rem;
   height: 1.25rem;
-  border: 3px solid var(--jeskai-blue-bg);
+  border: 3px solid var(--panel-soft-bg);
   border-top-color: var(--accent);
   border-radius: 999px;
   animation: busy-spin 0.9s linear infinite;
@@ -720,7 +720,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   padding: 0.6rem 0.9rem;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--jeskai-blue-bg);
+  background: var(--panel-soft-bg);
   color: var(--ink);
   font: inherit;
   font-size: 0.9rem;
@@ -777,7 +777,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 }
 
 .tool-nav__link:hover {
-  background: var(--jeskai-blue-bg);
+  background: var(--panel-soft-bg);
 }
 
 .tool-nav__link.is-active {
@@ -818,7 +818,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
   border: 1px dashed var(--line);
   border-radius: 8px;
   color: var(--muted);
-  background: var(--jeskai-blue-bg);
+  background: var(--panel-soft-bg);
 }
 
 .card-lookup-editor-note {
@@ -879,7 +879,7 @@ body[data-chatgpt-ui-mode="expert"] .chatgpt-global-note {
 
 .autocomplete-option:hover,
 .autocomplete-option:focus-visible {
-  background: var(--jeskai-blue-bg);
+  background: var(--panel-soft-bg);
   outline: 0;
 }
 
@@ -1220,7 +1220,7 @@ pre {
   padding: 0.85rem 0.95rem;
   border: 1px dashed var(--line);
   border-radius: 8px;
-  background: var(--jeskai-blue-bg);
+  background: var(--panel-soft-bg);
 }
 
 .judge-suggested textarea {
@@ -1258,7 +1258,7 @@ pre {
   padding: 0.85rem 1rem;
   border: 1px dashed var(--line);
   border-radius: 8px;
-  background: var(--jeskai-blue-bg);
+  background: var(--panel-soft-bg);
 }
 
 .judge-howto > summary {
@@ -1298,3 +1298,86 @@ pre {
   font-size: 0.95rem;
 }
 
+.deckflow-bridge-hint {
+  margin-top: 0.85rem;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft-bg);
+}
+
+.deckflow-bridge-hint > summary {
+  cursor: pointer;
+  padding: 0.85rem 1rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.deckflow-bridge-hint__body {
+  padding: 0 1rem 0.9rem;
+}
+
+.deckflow-bridge-hint__download {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.deckflow-bridge-hint__details-link {
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-decoration: underline;
+}
+
+.deckflow-bridge-hint__steps {
+  margin: 0.5rem 0 0.75rem 1.25rem;
+  padding: 0;
+  line-height: 1.55;
+}
+
+.deckflow-bridge-hint__steps li {
+  margin-bottom: 0.55rem;
+}
+
+.deckflow-bridge-hint__fallback {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.moxfield-bulkedit-hint {
+  margin-top: 0.85rem;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft-bg);
+}
+
+.moxfield-bulkedit-hint > summary {
+  cursor: pointer;
+  padding: 0.85rem 1rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.moxfield-bulkedit-hint__body {
+  padding: 0 1rem 0.9rem;
+}
+
+.moxfield-bulkedit-hint__steps {
+  margin: 0.5rem 0 0.75rem 1.25rem;
+  padding: 0;
+  line-height: 1.55;
+}
+
+.moxfield-bulkedit-hint__steps li {
+  margin-bottom: 0.55rem;
+}
+
+.moxfield-bulkedit-hint p {
+  color: var(--muted);
+}
+
+.moxfield-bulkedit-hint code {
+  color: var(--ink);
+}

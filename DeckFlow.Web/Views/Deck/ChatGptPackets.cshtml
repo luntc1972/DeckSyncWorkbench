@@ -141,11 +141,13 @@ Do not omit any fields from the schema.
                 <span>Public deck URL</span>
                 <input type="url" name="DeckUrl" value="@Model.Request.DeckUrl" placeholder="https://moxfield.com/decks/... or https://archidekt.com/decks/..." />
                 <small class="sync-column__hint">Required. Paste a public Moxfield or Archidekt deck URL.</small>
+                @await Html.PartialAsync("_DeckFlowBridgeHint")
             </label>
             <label class="field sync-column__input-field @(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="chatgpt-deck-text">
                 <span>Deck export text</span>
                 <textarea name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
                 <small class="sync-column__hint">Required. Paste deck export text directly.</small>
+                @await Html.PartialAsync("_MoxfieldBulkEditHint")
             </label>
         </div>
         <div class="toolbar chatgpt-step-actions">

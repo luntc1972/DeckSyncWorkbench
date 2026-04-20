@@ -221,6 +221,9 @@ Deck B ([DECK B NAME]):
             </div>
         </details>
 
+        @await Html.PartialAsync("_DeckFlowBridgeHint")
+        @await Html.PartialAsync("_MoxfieldBulkEditHint")
+
         <div class="sync-columns">
             <section class="sync-column sync-column--moxfield">
                 <div class="sync-column__header">

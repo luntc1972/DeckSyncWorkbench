@@ -54,10 +54,18 @@
     <label class="field @(inputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-convert-panel="url">
         <span>Public deck URL</span>
         <input type="url" name="DeckUrl" value="@Model.Request.DeckUrl" placeholder="https://moxfield.com/decks/... or https://archidekt.com/decks/..." />
+        @if (isMoxfieldSource)
+        {
+            @await Html.PartialAsync("_DeckFlowBridgeHint")
+        }
     </label>
     <label class="field @(inputSource == DeckFlow.Web.Models.DeckInputSource.PasteText ? string.Empty : "hidden")" data-convert-panel="text">
         <span>Deck export text</span>
         <textarea name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
+        @if (isMoxfieldSource)
+        {
+            @await Html.PartialAsync("_MoxfieldBulkEditHint")
+        }
     </label>
 
     <label class="field @(isMoxfieldSource ? string.Empty : "hidden")" data-convert-panel="commander">

@@ -98,11 +98,19 @@
                 <label class="field sync-column__input-field @(moxfieldInputSource == DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="moxfield-url">
                     <span data-sync-role="moxfield-url-label">@leftSystem public deck URL</span>
                     <input type="url" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" placeholder="@(string.Equals(leftSystem, "Archidekt", StringComparison.OrdinalIgnoreCase) ? "https://archidekt.com/decks/..." : "https://moxfield.com/decks/...")" />
+                    @if (string.Equals(leftSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
+                    {
+                        @await Html.PartialAsync("_DeckFlowBridgeHint")
+                    }
                 </label>
                 <label class="field sync-column__input-field @(moxfieldInputSource == DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="moxfield-text">
                     <span data-sync-role="moxfield-text-label">@leftSystem export text</span>
                     <textarea name="MoxfieldText" spellcheck="false">@Model.Request.MoxfieldText</textarea>
                     <small class="sync-column__hint" data-sync-role="moxfield-hint">Use this when the @leftSystem deck is @(leftIsSource ? "the source" : "the target").</small>
+                    @if (string.Equals(leftSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
+                    {
+                        @await Html.PartialAsync("_MoxfieldBulkEditHint")
+                    }
                 </label>
             </div>
         </section>
@@ -125,11 +133,19 @@
                 <label class="field sync-column__input-field @(archidektInputSource == DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="archidekt-url">
                     <span data-sync-role="archidekt-url-label">@rightSystem public deck URL</span>
                     <input type="url" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" placeholder="@(string.Equals(rightSystem, "Moxfield", StringComparison.OrdinalIgnoreCase) ? "https://moxfield.com/decks/..." : "https://archidekt.com/decks/...")" />
+                    @if (string.Equals(rightSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
+                    {
+                        @await Html.PartialAsync("_DeckFlowBridgeHint")
+                    }
                 </label>
                 <label class="field sync-column__input-field @(archidektInputSource == DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="archidekt-text">
                     <span data-sync-role="archidekt-text-label">@rightSystem export text</span>
                     <textarea name="ArchidektText" spellcheck="false">@Model.Request.ArchidektText</textarea>
                     <small class="sync-column__hint" data-sync-role="archidekt-hint">Use this when the @rightSystem deck is @(leftIsSource ? "the target" : "the source").</small>
+                    @if (string.Equals(rightSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
+                    {
+                        @await Html.PartialAsync("_MoxfieldBulkEditHint")
+                    }
                 </label>
             </div>
         </section>

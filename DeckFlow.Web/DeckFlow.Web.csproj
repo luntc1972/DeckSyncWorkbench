@@ -46,4 +46,12 @@
       StandardErrorImportance="High" />
   </Target>
 
+  <Target Name="ZipDeckFlowBridge" BeforeTargets="Build;Publish"
+          Condition="Exists('$(MSBuildThisFileDirectory)../browser-extensions/deckflow-bridge')">
+    <MakeDir Directories="$(MSBuildThisFileDirectory)wwwroot/extensions" />
+    <ZipDirectory SourceDirectory="$(MSBuildThisFileDirectory)../browser-extensions/deckflow-bridge"
+                  DestinationFile="$(MSBuildThisFileDirectory)wwwroot/extensions/deckflow-bridge.zip"
+                  Overwrite="true" />
+  </Target>
+
 </Project>

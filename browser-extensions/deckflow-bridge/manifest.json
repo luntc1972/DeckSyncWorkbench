@@ -1,11 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Moxfield Tag Exporter",
+  "name": "DeckFlow Bridge",
   "version": "0.1.0",
-  "description": "Export a Moxfield deck with visible tags in Archidekt and Moxfield text formats.",
+  "description": "Lets DeckFlow fetch Moxfield decks from your logged-in browser session when the server can't reach them.",
   "permissions": [
-    "downloads",
-    "clipboardWrite",
     "storage"
   ],
   "host_permissions": [
@@ -17,18 +15,6 @@
     "service_worker": "background.js"
   },
   "content_scripts": [
-    {
-      "matches": [
-        "https://moxfield.com/decks/*"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "css": [
-        "content.css"
-      ],
-      "run_at": "document_idle"
-    },
     {
       "matches": [
         "http://*/*",

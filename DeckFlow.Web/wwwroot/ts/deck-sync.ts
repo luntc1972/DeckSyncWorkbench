@@ -90,7 +90,6 @@ type ExtensionBridgePingResponse = {
 
 type ExtensionBridgeResponse = ExtensionBridgeSuccessResponse | ExtensionBridgeErrorResponse | ExtensionBridgePingResponse;
 
-const MoxfieldExtensionPromptDismissKey = 'deckflow-moxfield-extension-dismissed';
 const moxfieldUrlPattern = /^https?:\/\/(?:www\.)?moxfield\.com\/decks\/[^/?#\s]+\/?$/i;
 let extensionRequestCounter = 0;
 
@@ -175,28 +174,6 @@ const importMoxfieldDeckTextViaExtension = async (url: string): Promise<string> 
   }
 
   return response.deckText;
-};
-
-const promptToInstallMoxfieldExtension = (): boolean => {
-  if (isMobileBrowser()) {
-    return false;
-  }
-
-  if (window.sessionStorage.getItem(MoxfieldExtensionPromptDismissKey) === '1') {
-    return false;
-  }
-
-  const shouldOpenInstallPage = window.confirm(
-    'Moxfield often blocks server-side URL imports. Install the optional DeckFlow browser extension now? Click OK for install instructions, or Cancel to continue without it.'
-  );
-
-  if (shouldOpenInstallPage) {
-    window.open(getExtensionInstallUrl(), '_blank', 'noopener');
-  } else {
-    window.sessionStorage.setItem(MoxfieldExtensionPromptDismissKey, '1');
-  }
-
-  return shouldOpenInstallPage;
 };
 
 const promptToConfigureMoxfieldExtensionOrigin = (optionsUrl?: string): boolean => {
@@ -348,23 +325,36 @@ const attachMoxfieldExtensionImport = (): void => {
 
     event.preventDefault();
     const submitter = (event as SubmitEvent).submitter as HTMLElement | null;
+
+    if (isMobileBrowser()) {
+      window.alert(
+        'Moxfield URLs require the desktop DeckFlow Bridge extension, which is not available on mobile browsers. '
+        + 'Open your deck in Moxfield, tap Bulk Edit, copy the Main Deck contents, and paste them into the text field here. '
+        + 'Tags are preserved.'
+      );
+      return;
+    }
+
     const extensionStatus = await getDeckFlowExtensionStatus();
 
     if (!extensionStatus.installed) {
-      const openedInstallPage = promptToInstallMoxfieldExtension();
-      if (!openedInstallPage) {
-        resubmitFormBypassingExtension(form, submitter);
-      }
-
+      window.alert(
+        'Moxfield URLs require the DeckFlow Bridge extension. '
+        + 'Opening the install page now — come back and retry after installing. '
+        + 'If you cannot install the extension, switch this field to Paste text and use Moxfield Bulk Edit instead.'
+      );
+      window.open(getExtensionInstallUrl(), '_blank', 'noopener');
       return;
     }
 
     if (!extensionStatus.allowed) {
-      const openedOptions = promptToConfigureMoxfieldExtensionOrigin(extensionStatus.optionsUrl);
-      if (!openedOptions) {
-        resubmitFormBypassingExtension(form, submitter);
+      window.alert(
+        `The DeckFlow Bridge extension is installed but ${window.location.origin} is not on its allow list. `
+        + 'Opening extension Options now — add this origin, then retry.'
+      );
+      if (extensionStatus.optionsUrl) {
+        window.open(extensionStatus.optionsUrl, '_blank', 'noopener');
       }
-
       return;
     }
 
@@ -382,8 +372,12 @@ const attachMoxfieldExtensionImport = (): void => {
       if (optionsUrl && /not allowed/i.test(message)) {
         promptToConfigureMoxfieldExtensionOrigin(optionsUrl);
       } else {
-        window.alert(`DeckFlow could not import this Moxfield URL through the browser extension. The original form submission will continue.\n\n${message}`);
+        window.alert(
+          `DeckFlow could not import this Moxfield URL through the browser extension:\n\n${message}\n\nRetry, or switch to Paste text and use Moxfield Bulk Edit.`
+        );
       }
+
+      return;
     }
 
     resubmitFormBypassingExtension(form, submitter);
