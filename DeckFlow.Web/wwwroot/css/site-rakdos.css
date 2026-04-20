@@ -1,35 +1,42 @@
-/* Guild theme: Rakdos (BR) — crimson carnage and charcoal. */
+/* Guild theme: Rakdos (BR) — black pit lit by blood-red lanterns. */
 @import url('site.css');
 
 :root {
-  --bg: #f3e9e9;
-  --panel: #fbf7f7;
-  --ink: #241a1e;
-  --muted: #6b5a5c;
-  --line: #d3c2c4;
-  --accent: #a83232;
-  --accent-strong: #822323;
+  --bg: #0a0606;
+  --panel: #1a0f10;
+  --ink: #e24545;
+  --muted: #9a5555;
+  --line: #3d1a1a;
+  --accent: #d63030;
+  --accent-strong: #a62020;
 
-  --jeskai-blue-bg: #faecec;
-  --jeskai-red: #251316;
-  --jeskai-red-soft: #473036;
-  --jeskai-red-bg: #d8c3c6;
-  --jeskai-white: #f4ecec;
+  --jeskai-blue-bg: #1a0f10;
+  --jeskai-red: #e24545;
+  --jeskai-red-soft: #b83838;
+  --jeskai-red-bg: #2a1414;
+  --jeskai-white: #1f1212;
 
-  --warning: #f4dcc0;
-  --error: #a83232;
-  --info: #f5e6e6;
+  --warning: #d68a4a;
+  --error: #ff5a5a;
+  --info: #2a1414;
 
-  --panel-inferred-border: #8b6b6d;
-  --panel-inferred-bg: #f3e8e8;
-  --panel-live-border: #a83232;
-  --panel-live-bg: #faecec;
-  --panel-edhrec-border: #251316;
-  --panel-edhrec-bg: #d8c3c6;
-  --panel-retry-border: #80696b;
-  --panel-retry-bg: #f2eaea;
-  --panel-summary-border: #7e6e4a;
-  --panel-summary-bg: #f4efe0;
-  --panel-fallback-border: #a89798;
-  --panel-fallback-bg: #f4eded;
+  --panel-inferred-border: #5a2222;
+  --panel-inferred-bg: #1f1212;
+  --panel-live-border: #d63030;
+  --panel-live-bg: #2a1414;
+  --panel-edhrec-border: #e24545;
+  --panel-edhrec-bg: #2a1414;
+  --panel-retry-border: #4a2525;
+  --panel-retry-bg: #1d1010;
+  --panel-summary-border: #7a3030;
+  --panel-summary-bg: #251414;
+  --panel-fallback-border: #3a1f1f;
+  --panel-fallback-bg: #1c1010;
+}
+
+textarea,
+input,
+select {
+  background: var(--panel);
+  color: var(--ink);
 }

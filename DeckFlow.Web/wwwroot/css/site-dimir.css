@@ -1,35 +1,42 @@
-/* Guild theme: Dimir (UB) — midnight blue and obsidian. */
+/* Guild theme: Dimir (UB) — obsidian halls lit by cobalt lanterns. */
 @import url('site.css');
 
 :root {
-  --bg: #e9ebf2;
-  --panel: #f7f7fb;
-  --ink: #1b1f33;
-  --muted: #54596d;
-  --line: #bec2cf;
-  --accent: #3a5d8f;
-  --accent-strong: #27416b;
+  --bg: #0a0e1a;
+  --panel: #13182a;
+  --ink: #6ba8f5;
+  --muted: #4b6a9a;
+  --line: #1e2a44;
+  --accent: #3a82f7;
+  --accent-strong: #2464d6;
 
-  --jeskai-blue-bg: #edf0f7;
-  --jeskai-red: #3a3050;
-  --jeskai-red-soft: #5f5177;
-  --jeskai-red-bg: #d8cfdf;
-  --jeskai-white: #f0eff4;
+  --jeskai-blue-bg: #13182a;
+  --jeskai-red: #6ba8f5;
+  --jeskai-red-soft: #3a74c4;
+  --jeskai-red-bg: #1a2540;
+  --jeskai-white: #161c30;
 
-  --warning: #f0e4c3;
-  --error: #a23838;
-  --info: #e5e8f0;
+  --warning: #d6b254;
+  --error: #d65a5a;
+  --info: #161c30;
 
-  --panel-inferred-border: #71778a;
-  --panel-inferred-bg: #edeef3;
-  --panel-live-border: #3a5d8f;
-  --panel-live-bg: #edf0f7;
-  --panel-edhrec-border: #3a3050;
-  --panel-edhrec-bg: #d8cfdf;
-  --panel-retry-border: #6d7180;
-  --panel-retry-bg: #eaebf0;
-  --panel-summary-border: #4e6f6a;
-  --panel-summary-bg: #e9efee;
-  --panel-fallback-border: #8a90a0;
-  --panel-fallback-bg: #eff0f4;
+  --panel-inferred-border: #2e4470;
+  --panel-inferred-bg: #161c30;
+  --panel-live-border: #3a82f7;
+  --panel-live-bg: #1a2540;
+  --panel-edhrec-border: #6ba8f5;
+  --panel-edhrec-bg: #1a2540;
+  --panel-retry-border: #253350;
+  --panel-retry-bg: #141a2e;
+  --panel-summary-border: #4a7ab4;
+  --panel-summary-bg: #18223c;
+  --panel-fallback-border: #2a3a5a;
+  --panel-fallback-bg: #151b2e;
+}
+
+textarea,
+input,
+select {
+  background: var(--panel);
+  color: var(--ink);
 }

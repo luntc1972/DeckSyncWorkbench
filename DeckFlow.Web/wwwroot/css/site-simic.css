@@ -1,4 +1,4 @@
-/* Guild theme: Simic (GU) — biomancy teal and sea-foam. */
+/* Guild theme: Simic (GU) — biomancy teal with spring green buttons. */
 @import url('site.css');
 
 :root {
@@ -7,11 +7,11 @@
   --ink: #14262a;
   --muted: #4a6469;
   --line: #bacdd0;
-  --accent: #1f7685;
-  --accent-strong: #155763;
+  --accent: #2e8a47;
+  --accent-strong: #1f6432;
 
   --jeskai-blue-bg: #e3eff2;
-  --jeskai-red: #4ca482;
+  --jeskai-red: #2e8a47;
   --jeskai-red-soft: #7bbea0;
   --jeskai-red-bg: #e2f2ea;
   --jeskai-white: #ecf3f2;
@@ -22,8 +22,8 @@
 
   --panel-inferred-border: #6f8a8f;
   --panel-inferred-bg: #e6eff0;
-  --panel-live-border: #1f7685;
-  --panel-live-bg: #e3eff2;
+  --panel-live-border: #2e8a47;
+  --panel-live-bg: #e2f2ea;
   --panel-edhrec-border: #4ca482;
   --panel-edhrec-bg: #e2f2ea;
   --panel-retry-border: #73888c;

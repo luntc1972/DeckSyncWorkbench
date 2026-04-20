@@ -1,35 +1,35 @@
-/* Guild theme: Gruul (RG) — burnt clay and forest moss. */
+/* Guild theme: Gruul (RG) — forest green canopy with red war paint. */
 @import url('site.css');
 
 :root {
-  --bg: #f0ece4;
-  --panel: #faf8f1;
-  --ink: #271f17;
-  --muted: #665a47;
-  --line: #c9bfaa;
-  --accent: #8f4323;
-  --accent-strong: #6f321a;
+  --bg: #dbe8cf;
+  --panel: #b5d09a;
+  --ink: #1b2a14;
+  --muted: #4e6340;
+  --line: #7fa263;
+  --accent: #b53122;
+  --accent-strong: #8a2417;
 
-  --jeskai-blue-bg: #f7ebe1;
-  --jeskai-red: #2e5027;
-  --jeskai-red-soft: #507845;
-  --jeskai-red-bg: #d4e6c8;
-  --jeskai-white: #f5efe1;
+  --jeskai-blue-bg: #b5d09a;
+  --jeskai-red: #b53122;
+  --jeskai-red-soft: #d26a5c;
+  --jeskai-red-bg: #f4d8d0;
+  --jeskai-white: #e4eed8;
 
-  --warning: #f4e1b5;
-  --error: #a33c25;
-  --info: #f1ece0;
+  --warning: #f0dba3;
+  --error: #b53122;
+  --info: #cfe0bd;
 
-  --panel-inferred-border: #8a7d61;
-  --panel-inferred-bg: #f2ecdd;
-  --panel-live-border: #8f4323;
-  --panel-live-bg: #f7ebe1;
-  --panel-edhrec-border: #2e5027;
-  --panel-edhrec-bg: #d4e6c8;
-  --panel-retry-border: #847a64;
-  --panel-retry-bg: #f0ebde;
-  --panel-summary-border: #45683a;
-  --panel-summary-bg: #d9ebca;
-  --panel-fallback-border: #a89b82;
-  --panel-fallback-bg: #f1ece0;
+  --panel-inferred-border: #6a8a4a;
+  --panel-inferred-bg: #c3d6ab;
+  --panel-live-border: #b53122;
+  --panel-live-bg: #f4d8d0;
+  --panel-edhrec-border: #4e7a2e;
+  --panel-edhrec-bg: #cfe0bd;
+  --panel-retry-border: #6a7d50;
+  --panel-retry-bg: #c8d9b6;
+  --panel-summary-border: #3d5f25;
+  --panel-summary-bg: #c5d9a8;
+  --panel-fallback-border: #7a9460;
+  --panel-fallback-bg: #cadbb8;
 }

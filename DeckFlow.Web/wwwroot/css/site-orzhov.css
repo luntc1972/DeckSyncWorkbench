@@ -1,35 +1,35 @@
-/* Guild theme: Orzhov (WB) — antique gold and gothic obsidian. */
+/* Guild theme: Orzhov (WB) — stark whites, slate greys, and obsidian. */
 @import url('site.css');
 
 :root {
-  --bg: #f1ede3;
-  --panel: #faf7ef;
-  --ink: #23201b;
-  --muted: #655d4b;
-  --line: #cdc3a9;
-  --accent: #8a6a1e;
-  --accent-strong: #6e5215;
+  --bg: #f0f0f0;
+  --panel: #fafafa;
+  --ink: #0a0a0a;
+  --muted: #5c5c5c;
+  --line: #b0b0b0;
+  --accent: #2a2a2a;
+  --accent-strong: #000000;
 
-  --jeskai-blue-bg: #f6eed6;
-  --jeskai-red: #19171d;
-  --jeskai-red-soft: #3a3640;
-  --jeskai-red-bg: #d0cbd5;
-  --jeskai-white: #f6f2e5;
+  --jeskai-blue-bg: #e8e8e8;
+  --jeskai-red: #0a0a0a;
+  --jeskai-red-soft: #3a3a3a;
+  --jeskai-red-bg: #d0d0d0;
+  --jeskai-white: #f4f4f4;
 
-  --warning: #f3e2b2;
-  --error: #8a2d1e;
-  --info: #f0ebdd;
+  --warning: #d4d4d4;
+  --error: #3a3a3a;
+  --info: #ebebeb;
 
-  --panel-inferred-border: #85775a;
-  --panel-inferred-bg: #f1ebd9;
-  --panel-live-border: #8a6a1e;
-  --panel-live-bg: #f6eed6;
-  --panel-edhrec-border: #19171d;
-  --panel-edhrec-bg: #d0cbd5;
-  --panel-retry-border: #6f6858;
-  --panel-retry-bg: #eee9d8;
-  --panel-summary-border: #6b7a4b;
-  --panel-summary-bg: #efeeda;
-  --panel-fallback-border: #a59c82;
-  --panel-fallback-bg: #f0ecdd;
+  --panel-inferred-border: #7a7a7a;
+  --panel-inferred-bg: #ebebeb;
+  --panel-live-border: #2a2a2a;
+  --panel-live-bg: #e0e0e0;
+  --panel-edhrec-border: #0a0a0a;
+  --panel-edhrec-bg: #d0d0d0;
+  --panel-retry-border: #6a6a6a;
+  --panel-retry-bg: #e5e5e5;
+  --panel-summary-border: #555555;
+  --panel-summary-bg: #e3e3e3;
+  --panel-fallback-border: #909090;
+  --panel-fallback-bg: #eaeaea;
 }

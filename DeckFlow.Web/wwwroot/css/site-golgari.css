@@ -1,35 +1,42 @@
-/* Guild theme: Golgari (BG) — swarm rot and moss. */
+/* Guild theme: Golgari (BG) — swarm rot with moss green glow. */
 @import url('site.css');
 
 :root {
-  --bg: #edefe6;
-  --panel: #f8f9f2;
-  --ink: #1f2620;
-  --muted: #5d6354;
-  --line: #bfc3b2;
-  --accent: #4b6e2a;
-  --accent-strong: #36511f;
+  --bg: #080c08;
+  --panel: #121812;
+  --ink: #6fb93c;
+  --muted: #577043;
+  --line: #1e2a1e;
+  --accent: #5da030;
+  --accent-strong: #3e7a1d;
 
-  --jeskai-blue-bg: #ecf1e0;
-  --jeskai-red: #271828;
-  --jeskai-red-soft: #433443;
-  --jeskai-red-bg: #d2c6d4;
-  --jeskai-white: #eff0e5;
+  --jeskai-blue-bg: #121812;
+  --jeskai-red: #6fb93c;
+  --jeskai-red-soft: #4a8028;
+  --jeskai-red-bg: #1a2614;
+  --jeskai-white: #141b14;
 
-  --warning: #eee1b4;
-  --error: #7a341e;
-  --info: #ecefe1;
+  --warning: #c9a44a;
+  --error: #d85a30;
+  --info: #141b14;
 
-  --panel-inferred-border: #7d8367;
-  --panel-inferred-bg: #eef1df;
-  --panel-live-border: #4b6e2a;
-  --panel-live-bg: #ecf1e0;
-  --panel-edhrec-border: #271828;
-  --panel-edhrec-bg: #d2c6d4;
-  --panel-retry-border: #747966;
-  --panel-retry-bg: #ebeedd;
-  --panel-summary-border: #55783d;
-  --panel-summary-bg: #e8efde;
-  --panel-fallback-border: #9ea28b;
-  --panel-fallback-bg: #edefdf;
+  --panel-inferred-border: #3a4a2e;
+  --panel-inferred-bg: #141b14;
+  --panel-live-border: #5da030;
+  --panel-live-bg: #1a2614;
+  --panel-edhrec-border: #6fb93c;
+  --panel-edhrec-bg: #1a2614;
+  --panel-retry-border: #2e3a22;
+  --panel-retry-bg: #121612;
+  --panel-summary-border: #4a7a2e;
+  --panel-summary-bg: #1a2214;
+  --panel-fallback-border: #33452a;
+  --panel-fallback-bg: #141a14;
+}
+
+textarea,
+input,
+select {
+  background: var(--panel);
+  color: var(--ink);
 }
