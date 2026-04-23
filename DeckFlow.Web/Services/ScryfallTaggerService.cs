@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using RestSharp;
 
 namespace DeckFlow.Web.Services;
@@ -20,7 +19,7 @@ public interface IScryfallTaggerService
 /// Default implementation of <see cref="IScryfallTaggerService"/>.
 /// Resolves the card via the Scryfall REST API, then queries the Tagger GraphQL endpoint for oracle tags.
 /// </summary>
-public sealed partial class ScryfallTaggerService : IScryfallTaggerService
+public sealed class ScryfallTaggerService : IScryfallTaggerService
 {
     private const string TaggerGraphQlUrl = "https://tagger.scryfall.com/graphql";
     private const string TaggerBaseUrl = "https://tagger.scryfall.com";
@@ -109,13 +108,12 @@ public sealed partial class ScryfallTaggerService : IScryfallTaggerService
         }
 
         var html = await pageResponse.Content.ReadAsStringAsync(cancellationToken);
-        var match = CsrfMetaTagRegex().Match(html);
-        if (!match.Success)
+        var token = ScryfallTaggerParsers.TryExtractCsrfToken(html);
+        if (string.IsNullOrEmpty(token))
         {
             return (string.Empty, null);
         }
 
-        var token = match.Groups[1].Value;
         var cookies = handler.CookieContainer.GetCookies(new Uri(TaggerBaseUrl));
         return (token, cookies);
     }
@@ -164,52 +162,6 @@ public sealed partial class ScryfallTaggerService : IScryfallTaggerService
         }
 
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        using var document = JsonDocument.Parse(body);
-
-        if (!document.RootElement.TryGetProperty("data", out var data)
-            || !data.TryGetProperty("card", out var card)
-            || !card.TryGetProperty("taggings", out var taggings)
-            || taggings.ValueKind != JsonValueKind.Array)
-        {
-            return [];
-        }
-
-        var tags = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var tagging in taggings.EnumerateArray())
-        {
-            if (!tagging.TryGetProperty("tag", out var tag))
-            {
-                continue;
-            }
-
-            var type = tag.TryGetProperty("type", out var typeProp) ? typeProp.GetString() : null;
-            if (!string.Equals(type, "ORACLE_CARD_TAG", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            var name = tag.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : null;
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                tags.Add(NormalizeTagName(name));
-            }
-        }
-
-        return tags.ToList();
+        return ScryfallTaggerParsers.ParseOracleTagsFromJson(body);
     }
-
-    /// <summary>
-    /// Normalizes a tagger tag slug/name to title case (e.g. "spot-removal" -> "Spot Removal").
-    /// </summary>
-    /// <param name="tag">Raw tag value from the Tagger response.</param>
-    /// <returns>A UI-friendly tag label.</returns>
-    private static string NormalizeTagName(string tag)
-    {
-        var text = tag.Replace('-', ' ').Replace('_', ' ').Trim();
-        return string.Join(' ', text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(word => char.ToUpperInvariant(word[0]) + word[1..]));
-    }
-
-    [GeneratedRegex("<meta\\s+name=\"csrf-token\"\\s+content=\"([^\"]+)\"", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
-    private static partial Regex CsrfMetaTagRegex();
 }
