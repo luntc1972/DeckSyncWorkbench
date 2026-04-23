@@ -2,6 +2,9 @@
 
 DeckFlow helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides ChatGPT prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, and head-to-head deck comparison, Commander Spellbook combo lookup, Scryfall card and mechanic references, and a cache-backed category suggestion engine.
 
+## User help
+End-user documentation is served by the running web app at `/help` (feature guides) and `/about` (version, source, credits). This README keeps the developer-facing material (build, publish, API, CLI, deployment).
+
 **Repository description (≤350 characters):** DeckFlow unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, ChatGPT deck-analysis, cEDH meta-gap, and deck-comparison prompt generation with Scryfall references, Commander Spellbook combos, and cache-backed category suggestions.
 
 ## Highlights
