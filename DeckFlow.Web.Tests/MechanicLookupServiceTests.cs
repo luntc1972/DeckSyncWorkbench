@@ -22,6 +22,12 @@ public sealed class MechanicLookupServiceTests
 
         207.2c An ability word appears in italics at the beginning of some abilities. Ability words are similar to keywords in that they tie together cards that have similar functionality, but they have no special rules meaning and no individual entries in the Comprehensive Rules. The ability words are landfall and magecraft.
 
+        310. Battles
+
+        310. Battles
+        310.1. A player who casts a battle spell chooses an opponent to protect it. That player becomes its protector.
+        310.2. Only a battle's protector may be attacked.
+
         702. Keyword Abilities
 
         702.108. Prowess
@@ -37,6 +43,9 @@ public sealed class MechanicLookupServiceTests
 
         Prowess
         A keyword ability that causes a creature to get +1/+1 whenever its controller casts a noncreature spell. See rule 702.108, “Prowess.”
+
+        Battle
+        A card type. A battle is a permanent. See rule 310, “Battles.”
 
         Squad
         A keyword ability that lets you pay an additional cost to create token copies. See rule 702.157, “Squad.”
@@ -94,6 +103,24 @@ public sealed class MechanicLookupServiceTests
         Assert.Equal("Referenced in rule text", result.MatchType);
         Assert.Contains("ability word", result.RulesText);
         Assert.Contains("landfall", result.RulesText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task LookupAsync_ReturnsTopLevelRulesSection_WhenGlossaryEntryReferencesMajorRule()
+    {
+        using var memoryCache = new MemoryCache(new MemoryCacheOptions());
+        var service = new WotcMechanicLookupService(memoryCache, FakeFetchAsync);
+
+        var result = await service.LookupAsync("Battle");
+
+        Assert.True(result.Found);
+        Assert.Equal("Battle", result.MechanicName);
+        Assert.Equal("310", result.RuleReference);
+        Assert.Equal("Glossary entry with rules section", result.MatchType);
+        Assert.Contains("310. Battles", result.RulesText);
+        Assert.Contains("310.1. A player who casts a battle spell", result.RulesText);
+        Assert.Contains("310.2. Only a battle's protector", result.RulesText);
+        Assert.Contains("A card type. A battle is a permanent.", result.SummaryText);
     }
 
     [Fact]

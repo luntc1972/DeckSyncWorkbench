@@ -105,13 +105,17 @@ public sealed partial class WotcMechanicLookupService : IMechanicLookupService
         var glossaryEntry = rulesDocument.GlossaryEntries.FirstOrDefault(entry => Normalize(entry.Title) == normalizedQuery);
         if (glossaryEntry is not null)
         {
+            var referencedSection = string.IsNullOrWhiteSpace(glossaryEntry.RuleReference)
+                ? null
+                : rulesDocument.Sections.FirstOrDefault(section => string.Equals(section.RuleReference, glossaryEntry.RuleReference, StringComparison.OrdinalIgnoreCase));
+
             return new MechanicLookupResult(
                 trimmedName,
                 true,
                 glossaryEntry.Title,
                 glossaryEntry.RuleReference,
-                "Glossary entry",
-                glossaryEntry.RulesText,
+                referencedSection is null ? "Glossary entry" : "Glossary entry with rules section",
+                referencedSection?.RulesText ?? glossaryEntry.RulesText,
                 glossaryEntry.Description,
                 RulesPageUrl,
                 rulesDocument.RulesTextUrl);
@@ -205,14 +209,14 @@ public sealed partial class WotcMechanicLookupService : IMechanicLookupService
                 var nextLine = lines[nextIndex].TrimEnd();
                 if (string.IsNullOrWhiteSpace(nextLine))
                 {
-                    // Peek past blank lines to see if more subrules follow for this section.
+                    // Peek past blank lines to see if more descendant rules follow for this section.
                     var peekIndex = nextIndex + 1;
                     while (peekIndex < lines.Count && string.IsNullOrWhiteSpace(lines[peekIndex]))
                     {
                         peekIndex++;
                     }
 
-                    if (peekIndex < lines.Count && lines[peekIndex].TrimStart().StartsWith(prefix, StringComparison.Ordinal))
+                    if (peekIndex < lines.Count && IsSectionLineDescendant(lines[peekIndex].Trim(), ruleReference))
                     {
                         collectedLines.Add(string.Empty);
                         continue;
@@ -221,12 +225,7 @@ public sealed partial class WotcMechanicLookupService : IMechanicLookupService
                     break;
                 }
 
-                if (SectionHeaderRegex.IsMatch(nextLine))
-                {
-                    break;
-                }
-
-                if (RuleLineRegex.IsMatch(nextLine) && !nextLine.StartsWith(prefix, StringComparison.Ordinal))
+                if (TryGetRuleReference(nextLine, out var nextRuleReference) && !IsSectionDescendant(nextRuleReference, ruleReference))
                 {
                     break;
                 }
@@ -234,7 +233,19 @@ public sealed partial class WotcMechanicLookupService : IMechanicLookupService
                 collectedLines.Add(nextLine.Trim());
             }
 
-            sections.Add(new MechanicSection(title, ruleReference, string.Join(Environment.NewLine, collectedLines)));
+            var section = new MechanicSection(title, ruleReference, string.Join(Environment.NewLine, collectedLines));
+            var existingIndex = sections.FindIndex(existing => string.Equals(existing.RuleReference, ruleReference, StringComparison.OrdinalIgnoreCase));
+            if (existingIndex >= 0)
+            {
+                if (section.RulesText.Length > sections[existingIndex].RulesText.Length)
+                {
+                    sections[existingIndex] = section;
+                }
+
+                continue;
+            }
+
+            sections.Add(section);
         }
 
         return sections;
@@ -272,7 +283,7 @@ public sealed partial class WotcMechanicLookupService : IMechanicLookupService
             }
 
             var description = string.Join(Environment.NewLine, currentLines);
-            var referenceMatch = Regex.Match(description, @"rule\s(?<rule>\d+\.\d+[a-z]?)", RegexOptions.IgnoreCase);
+            var referenceMatch = Regex.Match(description, @"rule\s(?<rule>\d+(?:\.\d+)?[a-z]?)", RegexOptions.IgnoreCase);
             var ruleReference = referenceMatch.Success ? referenceMatch.Groups["rule"].Value : null;
             entries.Add(new GlossaryEntry(currentTitle, description, ruleReference));
         }
@@ -335,6 +346,50 @@ public sealed partial class WotcMechanicLookupService : IMechanicLookupService
         return Regex.IsMatch(text, $@"\b{Regex.Escape(searchTerm.Trim())}\b", RegexOptions.IgnoreCase);
     }
 
+    private static bool TryGetRuleReference(string line, out string ruleReference)
+    {
+        var sectionHeaderMatch = SectionHeaderRegex.Match(line);
+        if (sectionHeaderMatch.Success)
+        {
+            ruleReference = sectionHeaderMatch.Groups["rule"].Value;
+            return true;
+        }
+
+        var ruleLineMatch = RuleLineRegex.Match(line);
+        if (ruleLineMatch.Success)
+        {
+            ruleReference = ruleLineMatch.Groups["rule"].Value;
+            return true;
+        }
+
+        ruleReference = string.Empty;
+        return false;
+    }
+
+    private static bool IsSectionLineDescendant(string line, string sectionRuleReference)
+        => TryGetRuleReference(line, out var candidateReference) && IsSectionDescendant(candidateReference, sectionRuleReference);
+
+    private static bool IsSectionDescendant(string candidateReference, string sectionRuleReference)
+    {
+        if (string.Equals(candidateReference, sectionRuleReference, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (!candidateReference.StartsWith(sectionRuleReference, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (candidateReference.Length == sectionRuleReference.Length)
+        {
+            return true;
+        }
+
+        var nextCharacter = candidateReference[sectionRuleReference.Length];
+        return nextCharacter == '.' || char.IsLetter(nextCharacter);
+    }
+
     /// <summary>
     /// Normalizes mechanic names for case-insensitive exact matching.
     /// </summary>
@@ -387,9 +442,9 @@ public sealed partial class WotcMechanicLookupService : IMechanicLookupService
     [GeneratedRegex(@"https://media\.wizards\.com/\d{4}/downloads/MagicCompRules[^""']+?\.txt", RegexOptions.IgnoreCase)]
     private static partial Regex RulesTextUrlPattern();
 
-    [GeneratedRegex(@"^(?<rule>\d+\.\d+)\.\s(?<title>.+)$", RegexOptions.Compiled)]
+    [GeneratedRegex(@"^(?<rule>\d+(?:\.\d+)?)\.\s(?<title>.+)$", RegexOptions.Compiled)]
     private static partial Regex SectionHeaderPattern();
 
-    [GeneratedRegex(@"^(?<rule>\d+\.\d+[a-z]?)\s(?<text>.+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?<rule>\d+\.\d+[a-z]?)(?:\.)?\s(?<text>.+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
     private static partial Regex RuleLinePattern();
 }
