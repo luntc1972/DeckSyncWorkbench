@@ -31,7 +31,7 @@
     <div class="field-grid">
         <label class="field">
             <span>Mechanic or rules term</span>
-            <input type="text" name="MechanicName" value="@Model.Request.MechanicName" placeholder="Prowess" />
+            <input id="mechanic-lookup-input" type="text" name="MechanicName" value="@Model.Request.MechanicName" placeholder="Prowess" />
         </label>
     </div>
     <div class="toolbar">
@@ -40,17 +40,17 @@
     </div>
 </form>
 
-@if (hasResult)
-{
-    <section class="stack">
-        @if (!string.IsNullOrWhiteSpace(Model.SummaryText))
-        {
-            <section class="result-panel mechanic-summary-panel">
-                <h2>Summary</h2>
-                <pre spellcheck="false">@Model.SummaryText</pre>
-            </section>
-        }
+<section id="mechanic-lookup-results" class="stack@(hasResult ? string.Empty : " hidden")">
+    @if (!string.IsNullOrWhiteSpace(Model.SummaryText))
+    {
+        <section class="result-panel mechanic-summary-panel">
+            <h2>Summary</h2>
+            <pre id="mechanic-summary-output" spellcheck="false">@Model.SummaryText</pre>
+        </section>
+    }
 
+    @if (hasResult)
+    {
         <section class="result-panel">
             <div class="panel-heading">
                 <div>
@@ -69,8 +69,8 @@
                 <p>Official rules text: <a href="@Model.RulesTextUrl" target="_blank" rel="noreferrer">@Model.RulesTextUrl</a></p>
             </section>
         }
-    </section>
-}
+    }
+</section>
 
 @section Scripts {
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>

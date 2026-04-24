@@ -875,6 +875,7 @@ const attachGenericPersistedForms = () => {
             }
             form.reset();
             clearPersistedFormState(form);
+            clearGenericFormUi(form);
         });
     });
     document.querySelectorAll('.tool-nav__link, .page-brand, .hub-card').forEach(link => {
@@ -882,6 +883,21 @@ const attachGenericPersistedForms = () => {
             forms.forEach(form => persistFormState(form));
         });
     });
+};
+const clearGenericFormUi = (form) => {
+    const key = form.getAttribute('data-cache-key');
+    if (key !== 'mechanic-lookup') {
+        return;
+    }
+    const mechanicInput = form.querySelector('#mechanic-lookup-input, input[name="MechanicName"]');
+    if (mechanicInput) {
+        mechanicInput.value = '';
+    }
+    const results = document.getElementById('mechanic-lookup-results');
+    if (results) {
+        results.classList.add('hidden');
+        results.innerHTML = '';
+    }
 };
 const clearDeckSyncUi = () => {
     const results = document.getElementById('deck-sync-results');

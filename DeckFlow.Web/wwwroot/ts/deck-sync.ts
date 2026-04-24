@@ -1160,6 +1160,7 @@ const attachGenericPersistedForms = (): void => {
 
       form.reset();
       clearPersistedFormState(form);
+      clearGenericFormUi(form);
     });
   });
 
@@ -1168,6 +1169,24 @@ const attachGenericPersistedForms = (): void => {
       forms.forEach(form => persistFormState(form));
     });
   });
+};
+
+const clearGenericFormUi = (form: HTMLFormElement): void => {
+  const key = form.getAttribute('data-cache-key');
+  if (key !== 'mechanic-lookup') {
+    return;
+  }
+
+  const mechanicInput = form.querySelector<HTMLInputElement>('#mechanic-lookup-input, input[name="MechanicName"]');
+  if (mechanicInput) {
+    mechanicInput.value = '';
+  }
+
+  const results = document.getElementById('mechanic-lookup-results');
+  if (results) {
+    results.classList.add('hidden');
+    results.innerHTML = '';
+  }
 };
 
 const clearDeckSyncUi = (): void => {
