@@ -1,15 +1,15 @@
 # DeckFlow
 
-DeckFlow helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides ChatGPT prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, and head-to-head deck comparison, Commander Spellbook combo lookup, Scryfall card and mechanic references, and a cache-backed category suggestion engine.
+DeckFlow helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides ChatGPT prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, and head-to-head deck comparison, Commander Spellbook combo lookup, Scryfall card and mechanic references, an Ask-a-Judge handoff flow, public feedback capture, and a cache-backed category suggestion engine.
 
 ## User help
 End-user documentation is served by the running web app at `/help` (feature guides) and `/about` (version, source, credits). This README keeps the developer-facing material (build, publish, API, CLI, deployment).
 
-**Repository description (≤350 characters):** DeckFlow unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, ChatGPT deck-analysis, cEDH meta-gap, and deck-comparison prompt generation with Scryfall references, Commander Spellbook combos, and cache-backed category suggestions.
+**Repository description (≤350 characters):** DeckFlow unifies Moxfield and Archidekt decks, harvests Archidekt category data, and exposes CLI/web tools for diffs, printing conflict reports, card/mechanic lookup, Ask-a-Judge handoff, feedback capture, and ChatGPT deck-analysis, cEDH meta-gap, and deck-comparison prompt generation with Scryfall and Commander Spellbook references.
 
 ## User Feedback
 
-A public **Feedback** form is linked in the site footer (`/Feedback`). Submissions are stored in a SQLite database (`feedback.db`) at `$MTG_DATA_DIR/feedback.db` (falls back to `./artifacts/feedback.db` in development).
+A public **Feedback** form is linked in the site footer (`/feedback`). Submissions are stored in a SQLite database (`feedback.db`) at `$MTG_DATA_DIR/feedback.db` (falls back to `./artifacts/feedback.db` in development).
 
 An admin page at `/Admin/Feedback` displays submissions with filters for status and type, and lets you mark items Read, Archive, or Delete them.
 
@@ -21,7 +21,7 @@ Set these environment variables (via `fly secrets set ...` on Fly.io or the Rend
 - `FEEDBACK_ADMIN_PASSWORD` — basic auth password.
 - `FEEDBACK_IP_SALT` (optional) — salt for hashing submitter IPs. If unset, a random 32-byte salt is generated on first run and persisted alongside `feedback.db`.
 
-If `FEEDBACK_ADMIN_USER` or `FEEDBACK_ADMIN_PASSWORD` are not set, `/Admin/Feedback` returns **503 Service Unavailable**. The public `/Feedback` form continues to accept submissions.
+If `FEEDBACK_ADMIN_USER` or `FEEDBACK_ADMIN_PASSWORD` are not set, `/Admin/Feedback` returns **503 Service Unavailable**. The public `/feedback` form continues to accept submissions.
 
 Public submissions are rate-limited to 5 per hour per IP.
 
@@ -331,7 +331,23 @@ The Card Lookup page (`/card-lookup`) has two modes:
 
 Under the hood all modes use the same `ICardLookupService`: the card collection is fetched via `POST /cards/collection` in batches of 75, and rulings are fetched per-card via `GET /cards/{id}/rulings`.
 
+The Single Card result panel also detects keyword mechanics and ability words on the resolved card, looks up the current official WOTC rules text for each detected term, and renders those entries in a separate **Keyword Rules** panel below the card text. This is intentionally limited to Single Card mode so large list downloads do not fan out into extra mechanic-rule lookups.
+
 The Single Card result panel includes an "Ask a rules question about this card →" link that deep-links into `/judge-questions?card=<name>`.
+
+---
+
+## Mechanic Rules
+
+The Mechanic Rules page (`/mechanic-lookup`) looks up the current official Wizards Comprehensive Rules text for a keyword mechanic or rules term.
+
+Behavior:
+
+- Exact rules sections such as `Prowess` return the matching numbered section and summary.
+- Glossary terms such as `Battle` resolve through the glossary and, when the glossary points to a major rules section like `310`, the page now returns the full referenced section body rather than only the glossary sentence or section header.
+- The Clear button clears the saved input, summary block, and rendered rules text together.
+
+The service caches the parsed Wizards rules document in memory for 6 hours so repeated lookups do not keep re-downloading the full rules text file.
 
 ---
 
