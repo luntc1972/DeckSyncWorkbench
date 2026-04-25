@@ -82,6 +82,63 @@ const hideLookupSuggestionPanel = (panel: HTMLElement): void => {
   panel.replaceChildren();
 };
 
+const toggleMechanic = (row: HTMLButtonElement): void => {
+  const article = row.closest<HTMLElement>('.card-lookup-mechanic');
+  const body = article?.querySelector<HTMLElement>('.mechanic-body');
+  if (!article || !body) {
+    return;
+  }
+  const expanded = row.getAttribute('aria-expanded') === 'true';
+  const next = !expanded;
+  row.setAttribute('aria-expanded', String(next));
+  article.dataset.expanded = String(next);
+  body.hidden = !next;
+};
+
+const SINGLE_CARD_STATE_KEY = 'card-lookup-single-state';
+
+type StoredSingleCardState = {
+  cardName: string;
+  verifiedText: string;
+  mechanicRules: SingleCardMechanicRule[];
+};
+
+const saveSingleCardState = (state: StoredSingleCardState): void => {
+  try {
+    window.sessionStorage.setItem(SINGLE_CARD_STATE_KEY, JSON.stringify(state));
+  } catch {
+    // sessionStorage may be disabled (private mode quotas, etc.) — silently skip.
+  }
+};
+
+const loadSingleCardState = (): StoredSingleCardState | null => {
+  try {
+    const raw = window.sessionStorage.getItem(SINGLE_CARD_STATE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as Partial<StoredSingleCardState> | null;
+    if (!parsed || typeof parsed.cardName !== 'string' || typeof parsed.verifiedText !== 'string' || !Array.isArray(parsed.mechanicRules)) {
+      return null;
+    }
+    return {
+      cardName: parsed.cardName,
+      verifiedText: parsed.verifiedText,
+      mechanicRules: parsed.mechanicRules as SingleCardMechanicRule[]
+    };
+  } catch {
+    return null;
+  }
+};
+
+const clearSingleCardState = (): void => {
+  try {
+    window.sessionStorage.removeItem(SINGLE_CARD_STATE_KEY);
+  } catch {
+    // ignore
+  }
+};
+
 const attachDynamicCopyButton = (button: HTMLButtonElement): void => {
   button.addEventListener('click', async () => {
     const targetId = button.dataset.copyTarget;
@@ -182,13 +239,13 @@ const initializeSingleCardMode = (): void => {
   const clearButton = document.querySelector<HTMLButtonElement>('[data-card-lookup-single-clear]');
   const errorBanner = document.querySelector<HTMLElement>('[data-card-lookup-single-error]');
   const resultPanel = document.querySelector<HTMLElement>('[data-card-lookup-single-result]');
-  const resultTextarea = document.querySelector<HTMLTextAreaElement>('[data-card-lookup-single-output]');
+  const resultOutput = document.querySelector<HTMLElement>('[data-card-lookup-single-output]');
   const resultLabel = document.querySelector<HTMLElement>('[data-card-lookup-single-name-label]');
   const mechanicsPanel = document.querySelector<HTMLElement>('[data-card-lookup-single-mechanics-panel]');
   const mechanicsLabel = document.querySelector<HTMLElement>('[data-card-lookup-single-mechanics-label]');
   const mechanicsContainer = document.querySelector<HTMLElement>('[data-card-lookup-single-mechanics]');
   const anchor = input?.parentElement;
-  if (!input || !submitButton || !errorBanner || !resultPanel || !resultTextarea || !resultLabel || !mechanicsPanel || !mechanicsLabel || !mechanicsContainer || !anchor) {
+  if (!input || !submitButton || !errorBanner || !resultPanel || !resultOutput || !resultLabel || !mechanicsPanel || !mechanicsLabel || !mechanicsContainer || !anchor) {
     return;
   }
 
@@ -218,36 +275,43 @@ const initializeSingleCardMode = (): void => {
   const showResult = (name: string, verifiedText: string, mechanicRules: SingleCardMechanicRule[]): void => {
     clearError();
     resultLabel.textContent = name;
-    resultTextarea.value = verifiedText;
+    resultOutput.textContent = verifiedText;
     resultPanel.classList.remove('hidden');
     clearMechanics();
     const visibleMechanics = mechanicRules.filter(rule => rule.rulesText && rule.mechanicName);
     if (visibleMechanics.length > 0) {
       mechanicsLabel.textContent = `${visibleMechanics.length} official rules entr${visibleMechanics.length === 1 ? 'y' : 'ies'} found on this card.`;
+      const autoExpand = visibleMechanics.length === 1;
       const items = visibleMechanics.map((rule, index) => {
         const wrapper = document.createElement('article');
         wrapper.className = 'card-lookup-mechanic';
+        wrapper.dataset.expanded = autoExpand ? 'true' : 'false';
 
-        const heading = document.createElement('div');
-        heading.className = 'panel-heading';
+        const bodyId = `card-lookup-single-mechanic-body-${index}`;
+        const preId = `card-lookup-single-mechanic-${index}`;
 
-        const headingText = document.createElement('div');
-        const title = document.createElement('h3');
-        title.textContent = rule.mechanicName ?? 'Mechanic';
-        const meta = document.createElement('p');
-        meta.textContent = [rule.matchType, rule.ruleReference].filter(Boolean).join(' · ');
-        headingText.append(title, meta);
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'mechanic-row';
+        row.setAttribute('aria-expanded', autoExpand ? 'true' : 'false');
+        row.setAttribute('aria-controls', bodyId);
 
-        const textareaId = `card-lookup-single-mechanic-${index}`;
-        const copyButton = document.createElement('button');
-        copyButton.type = 'button';
-        copyButton.className = 'copy-button';
-        copyButton.setAttribute('data-copy-target', textareaId);
-        copyButton.textContent = 'Copy';
-        attachDynamicCopyButton(copyButton);
-        heading.append(headingText, copyButton);
+        const name = document.createElement('span');
+        name.className = 'kw-name';
+        name.textContent = rule.mechanicName ?? 'Mechanic';
 
-        wrapper.appendChild(heading);
+        const section = document.createElement('span');
+        section.className = 'kw-section';
+        section.textContent = [rule.matchType, rule.ruleReference].filter(Boolean).join(' · ');
+
+        const chevron = document.createElement('span');
+        chevron.className = 'chevron';
+        chevron.setAttribute('aria-hidden', 'true');
+        chevron.textContent = '▸';
+
+        row.append(name, section, chevron);
+        row.addEventListener('click', () => toggleMechanic(row));
+        wrapper.appendChild(row);
 
         if (rule.summaryText) {
           const summary = document.createElement('p');
@@ -256,12 +320,30 @@ const initializeSingleCardMode = (): void => {
           wrapper.appendChild(summary);
         }
 
-        const rules = document.createElement('textarea');
-        rules.id = textareaId;
-        rules.readOnly = true;
-        rules.spellcheck = false;
-        rules.value = rule.rulesText ?? '';
-        wrapper.appendChild(rules);
+        const body = document.createElement('div');
+        body.className = 'mechanic-body';
+        body.id = bodyId;
+        body.hidden = !autoExpand;
+
+        const copyButton = document.createElement('button');
+        copyButton.type = 'button';
+        copyButton.className = 'copy-button copy-button--icon';
+        copyButton.setAttribute('data-copy-target', preId);
+        copyButton.setAttribute('aria-label', `Copy comprehensive rules text for ${rule.mechanicName ?? 'mechanic'}`);
+        copyButton.setAttribute('title', 'Copy CR text');
+        const glyph = document.createElement('span');
+        glyph.setAttribute('aria-hidden', 'true');
+        glyph.textContent = '📋';
+        copyButton.appendChild(glyph);
+        attachDynamicCopyButton(copyButton);
+
+        const pre = document.createElement('pre');
+        pre.id = preId;
+        pre.className = 'cr-text';
+        pre.textContent = rule.rulesText ?? '';
+
+        body.append(copyButton, pre);
+        wrapper.appendChild(body);
         return wrapper;
       });
 
@@ -275,6 +357,8 @@ const initializeSingleCardMode = (): void => {
     if (askJudgeLink) {
       askJudgeLink.href = `${askJudgeBaseHref}?card=${encodeURIComponent(name)}`;
     }
+
+    saveSingleCardState({ cardName: name, verifiedText, mechanicRules });
   };
 
   const runLookup = async (name: string): Promise<void> => {
@@ -307,7 +391,7 @@ const initializeSingleCardMode = (): void => {
     }
   };
 
-  attachLookaheadInput(input, suggestionPanel, 4, name => {
+  attachLookaheadInput(input, suggestionPanel, 2, name => {
     input.value = name;
     runLookup(name);
   });
@@ -326,12 +410,19 @@ const initializeSingleCardMode = (): void => {
   clearButton?.addEventListener('click', () => {
     input.value = '';
     resultPanel.classList.add('hidden');
-    resultTextarea.value = '';
+    resultOutput.textContent = '';
     clearMechanics();
     clearError();
     hideLookupSuggestionPanel(suggestionPanel);
     input.focus();
+    clearSingleCardState();
   });
+
+  const stored = loadSingleCardState();
+  if (stored) {
+    input.value = stored.cardName;
+    showResult(stored.cardName, stored.verifiedText, stored.mechanicRules);
+  }
 };
 
 const initializeModePicker = (): void => {

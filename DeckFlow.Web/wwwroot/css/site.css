@@ -1006,8 +1006,7 @@ select {
   word-break: break-word;
 }
 
-.result-panel textarea,
-.result-panel pre {
+.result-panel textarea {
   margin: 0;
   min-height: 16rem;
   white-space: pre-wrap;
@@ -1021,35 +1020,6 @@ select {
 .mechanic-summary-panel pre {
   min-height: auto;
   padding: 0.5rem 0;
-}
-
-.card-lookup-mechanics-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.card-lookup-mechanic {
-  padding-top: 1rem;
-  border-top: 1px solid var(--line);
-}
-
-.card-lookup-mechanic:first-child {
-  padding-top: 0;
-  border-top: none;
-}
-
-.card-lookup-mechanic h3 {
-  margin: 0;
-}
-
-.card-lookup-mechanic__summary {
-  margin: 0.5rem 0 0;
-  color: var(--muted);
-}
-
-.card-lookup-mechanic textarea {
-  min-height: 10rem;
 }
 
 /* Cache pill: surfaces when a form's fields were restored from sessionStorage. */

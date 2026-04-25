@@ -44,6 +44,55 @@ const hideLookupSuggestionPanel = (panel) => {
     panel.classList.add('hidden');
     panel.replaceChildren();
 };
+const toggleMechanic = (row) => {
+    const article = row.closest('.card-lookup-mechanic');
+    const body = article === null || article === void 0 ? void 0 : article.querySelector('.mechanic-body');
+    if (!article || !body) {
+        return;
+    }
+    const expanded = row.getAttribute('aria-expanded') === 'true';
+    const next = !expanded;
+    row.setAttribute('aria-expanded', String(next));
+    article.dataset.expanded = String(next);
+    body.hidden = !next;
+};
+const SINGLE_CARD_STATE_KEY = 'card-lookup-single-state';
+const saveSingleCardState = (state) => {
+    try {
+        window.sessionStorage.setItem(SINGLE_CARD_STATE_KEY, JSON.stringify(state));
+    }
+    catch (_a) {
+        // sessionStorage may be disabled (private mode quotas, etc.) — silently skip.
+    }
+};
+const loadSingleCardState = () => {
+    try {
+        const raw = window.sessionStorage.getItem(SINGLE_CARD_STATE_KEY);
+        if (!raw) {
+            return null;
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed.cardName !== 'string' || typeof parsed.verifiedText !== 'string' || !Array.isArray(parsed.mechanicRules)) {
+            return null;
+        }
+        return {
+            cardName: parsed.cardName,
+            verifiedText: parsed.verifiedText,
+            mechanicRules: parsed.mechanicRules
+        };
+    }
+    catch (_a) {
+        return null;
+    }
+};
+const clearSingleCardState = () => {
+    try {
+        window.sessionStorage.removeItem(SINGLE_CARD_STATE_KEY);
+    }
+    catch (_a) {
+        // ignore
+    }
+};
 const attachDynamicCopyButton = (button) => {
     button.addEventListener('click', async () => {
         var _a, _b, _c, _d;
@@ -131,13 +180,13 @@ const initializeSingleCardMode = () => {
     const clearButton = document.querySelector('[data-card-lookup-single-clear]');
     const errorBanner = document.querySelector('[data-card-lookup-single-error]');
     const resultPanel = document.querySelector('[data-card-lookup-single-result]');
-    const resultTextarea = document.querySelector('[data-card-lookup-single-output]');
+    const resultOutput = document.querySelector('[data-card-lookup-single-output]');
     const resultLabel = document.querySelector('[data-card-lookup-single-name-label]');
     const mechanicsPanel = document.querySelector('[data-card-lookup-single-mechanics-panel]');
     const mechanicsLabel = document.querySelector('[data-card-lookup-single-mechanics-label]');
     const mechanicsContainer = document.querySelector('[data-card-lookup-single-mechanics]');
     const anchor = input === null || input === void 0 ? void 0 : input.parentElement;
-    if (!input || !submitButton || !errorBanner || !resultPanel || !resultTextarea || !resultLabel || !mechanicsPanel || !mechanicsLabel || !mechanicsContainer || !anchor) {
+    if (!input || !submitButton || !errorBanner || !resultPanel || !resultOutput || !resultLabel || !mechanicsPanel || !mechanicsLabel || !mechanicsContainer || !anchor) {
         return;
     }
     const suggestionPanel = createLookupSuggestionPanel(anchor);
@@ -161,45 +210,65 @@ const initializeSingleCardMode = () => {
     const showResult = (name, verifiedText, mechanicRules) => {
         clearError();
         resultLabel.textContent = name;
-        resultTextarea.value = verifiedText;
+        resultOutput.textContent = verifiedText;
         resultPanel.classList.remove('hidden');
         clearMechanics();
         const visibleMechanics = mechanicRules.filter(rule => rule.rulesText && rule.mechanicName);
         if (visibleMechanics.length > 0) {
             mechanicsLabel.textContent = `${visibleMechanics.length} official rules entr${visibleMechanics.length === 1 ? 'y' : 'ies'} found on this card.`;
+            const autoExpand = visibleMechanics.length === 1;
             const items = visibleMechanics.map((rule, index) => {
-                var _a, _b;
+                var _a, _b, _c;
                 const wrapper = document.createElement('article');
                 wrapper.className = 'card-lookup-mechanic';
-                const heading = document.createElement('div');
-                heading.className = 'panel-heading';
-                const headingText = document.createElement('div');
-                const title = document.createElement('h3');
-                title.textContent = (_a = rule.mechanicName) !== null && _a !== void 0 ? _a : 'Mechanic';
-                const meta = document.createElement('p');
-                meta.textContent = [rule.matchType, rule.ruleReference].filter(Boolean).join(' · ');
-                headingText.append(title, meta);
-                const textareaId = `card-lookup-single-mechanic-${index}`;
-                const copyButton = document.createElement('button');
-                copyButton.type = 'button';
-                copyButton.className = 'copy-button';
-                copyButton.setAttribute('data-copy-target', textareaId);
-                copyButton.textContent = 'Copy';
-                attachDynamicCopyButton(copyButton);
-                heading.append(headingText, copyButton);
-                wrapper.appendChild(heading);
+                wrapper.dataset.expanded = autoExpand ? 'true' : 'false';
+                const bodyId = `card-lookup-single-mechanic-body-${index}`;
+                const preId = `card-lookup-single-mechanic-${index}`;
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = 'mechanic-row';
+                row.setAttribute('aria-expanded', autoExpand ? 'true' : 'false');
+                row.setAttribute('aria-controls', bodyId);
+                const name = document.createElement('span');
+                name.className = 'kw-name';
+                name.textContent = (_a = rule.mechanicName) !== null && _a !== void 0 ? _a : 'Mechanic';
+                const section = document.createElement('span');
+                section.className = 'kw-section';
+                section.textContent = [rule.matchType, rule.ruleReference].filter(Boolean).join(' · ');
+                const chevron = document.createElement('span');
+                chevron.className = 'chevron';
+                chevron.setAttribute('aria-hidden', 'true');
+                chevron.textContent = '▸';
+                row.append(name, section, chevron);
+                row.addEventListener('click', () => toggleMechanic(row));
+                wrapper.appendChild(row);
                 if (rule.summaryText) {
                     const summary = document.createElement('p');
                     summary.className = 'card-lookup-mechanic__summary';
                     summary.textContent = rule.summaryText;
                     wrapper.appendChild(summary);
                 }
-                const rules = document.createElement('textarea');
-                rules.id = textareaId;
-                rules.readOnly = true;
-                rules.spellcheck = false;
-                rules.value = (_b = rule.rulesText) !== null && _b !== void 0 ? _b : '';
-                wrapper.appendChild(rules);
+                const body = document.createElement('div');
+                body.className = 'mechanic-body';
+                body.id = bodyId;
+                body.hidden = !autoExpand;
+                const copyButton = document.createElement('button');
+                copyButton.type = 'button';
+                copyButton.className = 'copy-button copy-button--icon';
+                copyButton.setAttribute('data-copy-target', preId);
+                copyButton.setAttribute('aria-label', `Copy comprehensive rules text for ${(_b = rule.mechanicName) !== null && _b !== void 0 ? _b : 'mechanic'}`);
+                copyButton.setAttribute('title', 'Copy CR text');
+                const glyph = document.createElement('span');
+                glyph.setAttribute('aria-hidden', 'true');
+                glyph.textContent = '📋';
+                copyButton.appendChild(glyph);
+                attachDynamicCopyButton(copyButton);
+                const pre = document.createElement('pre');
+                pre.id = preId;
+                pre.className = 'cr-text';
+                pre.textContent = (_c = rule.rulesText) !== null && _c !== void 0 ? _c : '';
+                body.append(copyButton, pre);
+                wrapper.appendChild(body);
                 return wrapper;
             });
             const list = document.createElement('div');
@@ -211,6 +280,7 @@ const initializeSingleCardMode = () => {
         if (askJudgeLink) {
             askJudgeLink.href = `${askJudgeBaseHref}?card=${encodeURIComponent(name)}`;
         }
+        saveSingleCardState({ cardName: name, verifiedText, mechanicRules });
     };
     const runLookup = async (name) => {
         var _a, _b, _c;
@@ -241,7 +311,7 @@ const initializeSingleCardMode = () => {
             submitButton.disabled = false;
         }
     };
-    attachLookaheadInput(input, suggestionPanel, 4, name => {
+    attachLookaheadInput(input, suggestionPanel, 2, name => {
         input.value = name;
         runLookup(name);
     });
@@ -257,12 +327,18 @@ const initializeSingleCardMode = () => {
     clearButton === null || clearButton === void 0 ? void 0 : clearButton.addEventListener('click', () => {
         input.value = '';
         resultPanel.classList.add('hidden');
-        resultTextarea.value = '';
+        resultOutput.textContent = '';
         clearMechanics();
         clearError();
         hideLookupSuggestionPanel(suggestionPanel);
         input.focus();
+        clearSingleCardState();
     });
+    const stored = loadSingleCardState();
+    if (stored) {
+        input.value = stored.cardName;
+        showResult(stored.cardName, stored.verifiedText, stored.mechanicRules);
+    }
 };
 const initializeModePicker = () => {
     const picker = document.querySelector('[data-card-lookup-mode-picker]');

@@ -21,10 +21,6 @@
 </div>
 
 <section class="card-lookup-mode-panel" data-card-lookup-mode-panel="single">
-    <div class="warning-banner">
-        Start typing a card name (4+ characters) to see Scryfall suggestions. Picking one runs the lookup.
-    </div>
-
     <div class="field-grid">
         <div class="field">
             <label for="card-lookup-single-name">Card name</label>
@@ -42,31 +38,33 @@
 
     <div class="error-banner hidden" role="alert" data-card-lookup-single-error></div>
 
-    <section class="result-panel hidden" data-card-lookup-single-result>
-        <div class="panel-heading">
-            <div>
-                <h2>Card</h2>
-                <p data-card-lookup-single-name-label></p>
+    <div class="card-lookup-grid">
+        <section class="result-panel hidden card-lookup-grid__oracle" data-card-lookup-single-result>
+            <div class="panel-heading">
+                <div>
+                    <h2>Card</h2>
+                    <p data-card-lookup-single-name-label></p>
+                </div>
+                <button type="button" class="copy-button copy-button--icon" data-copy-target="card-lookup-single-output" aria-label="Copy oracle text" title="Copy oracle text">
+                    <span aria-hidden="true">&#128203;</span>
+                </button>
             </div>
-        </div>
-        <textarea id="card-lookup-single-output" readonly spellcheck="false" data-card-lookup-single-output></textarea>
-        <div class="toolbar">
-            <button type="button" class="copy-button" data-copy-target="card-lookup-single-output">Copy</button>
-        </div>
-        <p class="mode-note">
-            <a data-card-lookup-ask-judge-link href="@Url.Content("~/judge-questions")">Ask a rules question about this card &rarr;</a>
-        </p>
-    </section>
+            <pre id="card-lookup-single-output" class="oracle-text" data-card-lookup-single-output></pre>
+            <p class="mode-note">
+                <a data-card-lookup-ask-judge-link href="@Url.Content("~/judge-questions")">Ask a rules question about this card &rarr;</a>
+            </p>
+        </section>
 
-    <section class="result-panel hidden" data-card-lookup-single-mechanics-panel>
-        <div class="panel-heading">
-            <div>
-                <h2>Keyword Rules</h2>
-                <p data-card-lookup-single-mechanics-label></p>
+        <section class="result-panel hidden card-lookup-grid__rail" data-card-lookup-single-mechanics-panel>
+            <div class="panel-heading">
+                <div>
+                    <h2>Keyword Rules</h2>
+                    <p data-card-lookup-single-mechanics-label></p>
+                </div>
             </div>
-        </div>
-        <div class="stack" data-card-lookup-single-mechanics></div>
-    </section>
+            <div class="stack" data-card-lookup-single-mechanics></div>
+        </section>
+    </div>
 </section>
 
 <section class="card-lookup-mode-panel desktop-only hidden" data-card-lookup-mode-panel="list">

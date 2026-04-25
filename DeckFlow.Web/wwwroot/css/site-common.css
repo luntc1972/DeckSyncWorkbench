@@ -591,3 +591,159 @@
 .detail-message { white-space: pre-wrap; word-wrap: break-word; background: rgba(0,0,0,0.05); padding: 1rem; border-radius: 4px; }
 .detail-actions { margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .detail-actions button.danger { background: #c33; color: #fff; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; }
+
+/* ============================================================
+   Card Lookup readability redesign (shared across all themes)
+   Layout + accordion + icon copy buttons + auto-grow pre.
+   Uses theme CSS variables for palette so it works under every theme.
+   ============================================================ */
+
+.result-panel pre.oracle-text,
+.result-panel pre.cr-text {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  white-space: pre-wrap;
+  max-width: 100%;
+  width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  box-sizing: border-box;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.result-panel pre.cr-text {
+  font-size: 0.9rem;
+}
+
+.card-lookup-mechanics-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-lookup-mechanic {
+  border-top: 1px solid var(--line);
+}
+
+.card-lookup-mechanic:first-child {
+  border-top: none;
+}
+
+.mechanic-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.75rem 0;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.mechanic-row:hover {
+  color: var(--accent-strong);
+}
+
+.mechanic-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.mechanic-row .kw-name {
+  font-weight: 600;
+}
+
+.mechanic-row .kw-section {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.mechanic-row .kw-section:not(:empty)::before {
+  content: "·";
+  margin-right: 0.4rem;
+}
+
+.mechanic-row .chevron {
+  margin-left: auto;
+  transition: transform 150ms ease;
+  color: var(--muted);
+}
+
+.card-lookup-mechanic[data-expanded="true"] .chevron {
+  transform: rotate(90deg);
+}
+
+.card-lookup-mechanic__summary {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  padding: 0;
+}
+
+.mechanic-body {
+  position: relative;
+  padding: 0 0 1rem;
+}
+
+.mechanic-body .copy-button--icon {
+  position: absolute;
+  top: -0.25rem;
+  right: 0;
+  z-index: 1;
+}
+
+.copy-button--icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--line);
+}
+
+.copy-button--icon:hover {
+  background: var(--panel);
+  color: var(--accent-strong);
+  border-color: var(--accent);
+}
+
+.copy-button--icon.is-copied,
+.copy-button--icon.is-copy-failed {
+  color: #fff;
+}
+
+.card-lookup-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .card-lookup-grid {
+    grid-template-columns: 60% 40%;
+    gap: 1.5rem;
+  }
+
+  .card-lookup-grid__rail {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+}
+
+.card-lookup-grid__oracle .panel-heading {
+  align-items: center;
+  gap: 1rem;
+}
