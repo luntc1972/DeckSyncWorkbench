@@ -165,6 +165,84 @@ public sealed class ScryfallSetServiceTests
         Assert.Equal("expansion", expansion.SetType);
     }
 
+    [Fact]
+    public async Task BuildSetPacketAsync_AppendsNotReprintFilterForCommanderSets()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var capturedSearchResources = new List<string>();
+        var service = new ScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("cmm", "Commander Masters", "2025-01-01", "commander", 350, Digital: false)
+                    ])
+                }),
+            executeSearchAsync: (request, _) =>
+            {
+                capturedSearchResources.Add(request.Resource ?? string.Empty);
+                return Task.FromResult(
+                    new RestResponse<ScryfallSearchResponse>(request)
+                    {
+                        StatusCode = HttpStatusCode.OK,
+                        Data = new ScryfallSearchResponse(
+                        [
+                            new ScryfallCard("New Commander Card", "{2}{G}", "Creature", "When this creature enters, draw a card.", "3", "3", [], ["G"], "cmm", "Commander Masters", "1")
+                        ],
+                        false,
+                        null)
+                    });
+            });
+
+        await service.BuildSetPacketAsync(["cmm"]);
+
+        var resource = Assert.Single(capturedSearchResources);
+        Assert.Contains("not%3Areprint", resource);
+    }
+
+    [Fact]
+    public async Task BuildSetPacketAsync_DoesNotAppendNotReprintForExpansionSets()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var capturedSearchResources = new List<string>();
+        var service = new ScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("blb", "Bloomburrow", "2024-08-01", "expansion", 280, Digital: false)
+                    ])
+                }),
+            executeSearchAsync: (request, _) =>
+            {
+                capturedSearchResources.Add(request.Resource ?? string.Empty);
+                return Task.FromResult(
+                    new RestResponse<ScryfallSearchResponse>(request)
+                    {
+                        StatusCode = HttpStatusCode.OK,
+                        Data = new ScryfallSearchResponse(
+                        [
+                            new ScryfallCard("Bloom Card", "{1}{G}", "Creature", "Draw a card.", "2", "2", [], ["G"], "blb", "Bloomburrow", "1")
+                        ],
+                        false,
+                        null)
+                    });
+            });
+
+        await service.BuildSetPacketAsync(["blb"]);
+
+        var resource = Assert.Single(capturedSearchResources);
+        Assert.DoesNotContain("not%3Areprint", resource);
+    }
+
     private sealed class FakeMechanicLookupService : IMechanicLookupService
     {
         public Task<MechanicLookupResult> LookupAsync(string mechanicName, CancellationToken cancellationToken = default)

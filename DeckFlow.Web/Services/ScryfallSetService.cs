@@ -22,6 +22,8 @@ public sealed partial class ScryfallSetService : IScryfallSetService
     private static readonly TimeSpan SetCacheDuration = TimeSpan.FromHours(6);
     private const int MaxCardsPerSetPacket = 60;
     private const int MaxMechanicsPerSetPacket = 12;
+    private static readonly HashSet<string> PreconSetTypes =
+        new(StringComparer.OrdinalIgnoreCase) { "commander", "duel_deck", "starter" };
     private static readonly Regex AbilityWordRegex = AbilityWordPattern();
     private readonly IMemoryCache _cache;
     private readonly IMechanicLookupService _mechanicLookupService;
@@ -102,7 +104,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         {
             var set = knownSets.FirstOrDefault(option => string.Equals(option.Code, setCode, StringComparison.OrdinalIgnoreCase))
                 ?? new ScryfallSetOption(setCode, setCode.ToUpperInvariant(), null);
-            var cards = await FetchCardsForSetAsync(setCode, cancellationToken).ConfigureAwait(false);
+            var cards = await FetchCardsForSetAsync(setCode, set.SetType, cancellationToken).ConfigureAwait(false);
             if (normalizedCommanderIdentity.Count > 0)
             {
                 cards = cards
@@ -172,10 +174,14 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         return builder.ToString().TrimEnd();
     }
 
-    private async Task<IReadOnlyList<ScryfallCard>> FetchCardsForSetAsync(string setCode, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<ScryfallCard>> FetchCardsForSetAsync(string setCode, string? setType, CancellationToken cancellationToken)
     {
         var cards = new List<ScryfallCard>();
-        var nextPage = $"cards/search?q=e%3A{Uri.EscapeDataString(setCode)}&order=set&unique=cards&include_extras=false&include_multilingual=false";
+        var encodedSetCode = Uri.EscapeDataString(setCode);
+        var query = setType is not null && PreconSetTypes.Contains(setType)
+            ? $"e%3A{encodedSetCode}+not%3Areprint"
+            : $"e%3A{encodedSetCode}";
+        var nextPage = $"cards/search?q={query}&order=set&unique=cards&include_extras=false&include_multilingual=false";
 
         while (!string.IsNullOrWhiteSpace(nextPage))
         {
@@ -186,6 +192,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
             }
 
             var request = new RestRequest(resource, Method.Get);
+            request.Resource = resource;
 
             var response = await _executeSearchAsync(request, cancellationToken).ConfigureAwait(false);
             if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
