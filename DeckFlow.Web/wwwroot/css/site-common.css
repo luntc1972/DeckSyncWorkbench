@@ -96,6 +96,12 @@
   border-color: inherit;
 }
 
+.back-to-top-button.is-theme-locked,
+.back-to-top-button.is-theme-locked:hover,
+.back-to-top-button.is-theme-locked:focus-visible {
+  background: var(--accent-strong) !important;
+}
+
 .global-job-notice {
   position: sticky;
   top: 0.75rem;

@@ -55,7 +55,21 @@
         // Keep the control available across the full page, including near the footer.
         button.setAttribute('aria-hidden', 'false');
         button.tabIndex = 0;
+        let themeResetTimer;
+        const releaseThemeLock = () => {
+            button.classList.remove('is-theme-locked');
+            if (themeResetTimer !== undefined) {
+                window.clearTimeout(themeResetTimer);
+                themeResetTimer = undefined;
+            }
+        };
         button.addEventListener('click', () => {
+            button.classList.add('is-theme-locked');
+            button.blur();
+            if (themeResetTimer !== undefined) {
+                window.clearTimeout(themeResetTimer);
+            }
+            themeResetTimer = window.setTimeout(releaseThemeLock, 500);
             window.scrollTo({
                 top: 0,
                 behavior: 'smooth'
