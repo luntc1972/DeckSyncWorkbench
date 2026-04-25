@@ -139,6 +139,32 @@ public sealed class ScryfallSetServiceTests
         Assert.DoesNotContain("Temple Campus", packet);
     }
 
+    [Fact]
+    public async Task GetSetsAsync_PopulatesSetTypeFromUpstream()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = new ScryfallSetService(
+            cache,
+            new FakeMechanicLookupService(),
+            executeSetListAsync: (_, _) => Task.FromResult(
+                new RestResponse<ScryfallSetListResponse>(new RestRequest("sets"))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSetListResponse(
+                    [
+                        new ScryfallSet("cmm", "Commander Masters", "2025-01-01", "commander", 350, Digital: false),
+                        new ScryfallSet("blb", "Bloomburrow", "2024-08-01", "expansion", 280, Digital: false)
+                    ])
+                }));
+
+        var sets = await service.GetSetsAsync();
+
+        var commander = Assert.Single(sets, set => set.Code == "cmm");
+        Assert.Equal("commander", commander.SetType);
+        var expansion = Assert.Single(sets, set => set.Code == "blb");
+        Assert.Equal("expansion", expansion.SetType);
+    }
+
     private sealed class FakeMechanicLookupService : IMechanicLookupService
     {
         public Task<MechanicLookupResult> LookupAsync(string mechanicName, CancellationToken cancellationToken = default)

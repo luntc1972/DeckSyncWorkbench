@@ -18,7 +18,7 @@ public interface IScryfallSetService
 
 public sealed partial class ScryfallSetService : IScryfallSetService
 {
-    private const string SetCacheKey = "scryfall-set-options";
+    private const string SetCacheKey = "scryfall-set-options-v2";
     private static readonly TimeSpan SetCacheDuration = TimeSpan.FromHours(6);
     private const int MaxCardsPerSetPacket = 60;
     private const int MaxMechanicsPerSetPacket = 12;
@@ -67,7 +67,7 @@ public sealed partial class ScryfallSetService : IScryfallSetService
             .Where(set => !string.Equals(set.SetType, "memorabilia", StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(set => ParseReleasedAt(set.ReleasedAt))
             .ThenBy(set => set.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(set => new ScryfallSetOption(set.Code, set.Name, set.ReleasedAt))
+            .Select(set => new ScryfallSetOption(set.Code, set.Name, set.ReleasedAt, set.SetType))
             .ToList();
 
         _cache.Set(SetCacheKey, sets, SetCacheDuration);
