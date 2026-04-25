@@ -50,7 +50,7 @@ This step is local to the returned JSON. It does not regenerate the analysis pac
 
 ## Step 4 — Set Upgrade (optional)
 
-Select one or more recent MTG sets, or paste a condensed set packet override. The page generates a set-upgrade prompt that references the parsed deck profile and asks ChatGPT to evaluate new cards from each set as potential inclusions, with suggested cuts, bracket-fit notes, speculative tests, and traps called out per set. A deck in Step 1 is required; the parsed Step 3 deck profile is optional but strongly recommended — without it ChatGPT gets an empty schema and produces generic recommendations.
+Select one or more recent MTG sets, or paste a condensed set packet override. The page generates a set-upgrade prompt that references the parsed deck profile and asks ChatGPT to evaluate new cards from each set as potential inclusions, with suggested cuts, bracket-fit notes, speculative tests, and traps called out per set. For Commander/precon-style sets (`commander`, `duel_deck`, `starter`), the packet is filtered to first-print cards only so reprints don't crowd out genuinely new candidates; standard expansions are unfiltered. A deck in Step 1 is required; the parsed Step 3 deck profile is optional but strongly recommended — without it ChatGPT gets an empty schema and produces generic recommendations.
 
 ## Step 5 — Set Upgrade Results (optional)
 
