@@ -1,81 +1,16 @@
-const debounceJudgeSearch = (fn: () => void, delay: number) => {
-  let timer: number | undefined;
-  return () => {
-    if (timer !== undefined) {
-      window.clearTimeout(timer);
+type JudgeQuestionsDeckFlowNamespace = {
+  attachTypeahead?: (
+    input: HTMLInputElement,
+    panel: HTMLDivElement,
+    minChars: number,
+    onPick: (name: string) => void,
+    options?: {
+      endpoint?: string;
+      debounceMs?: number;
+      onError?: (message?: string) => void;
     }
-
-    timer = window.setTimeout(fn, delay);
-  };
-};
-
-const createJudgeSuggestionPanel = (anchor: HTMLElement): HTMLDivElement => {
-  const panel = document.createElement('div');
-  panel.className = 'autocomplete-panel hidden';
-  panel.setAttribute('role', 'listbox');
-  anchor.appendChild(panel);
-  return panel;
-};
-
-const hideJudgeSuggestionPanel = (panel: HTMLElement): void => {
-  panel.classList.add('hidden');
-  panel.replaceChildren();
-};
-
-const attachJudgeCardLookahead = (
-  input: HTMLInputElement,
-  panel: HTMLDivElement,
-  minChars: number
-): void => {
-  const fetchSuggestions = async (): Promise<void> => {
-    const query = input.value.trim();
-    if (query.length < minChars) {
-      hideJudgeSuggestionPanel(panel);
-      return;
-    }
-
-    try {
-      const response = await fetch(`/suggest-categories/card-search?query=${encodeURIComponent(query)}`);
-      if (!response.ok) {
-        hideJudgeSuggestionPanel(panel);
-        return;
-      }
-
-      const names: string[] = await response.json();
-      panel.replaceChildren();
-      if (names.length === 0) {
-        hideJudgeSuggestionPanel(panel);
-        return;
-      }
-
-      names.forEach(name => {
-        const option = document.createElement('button');
-        option.type = 'button';
-        option.className = 'autocomplete-option';
-        option.textContent = name;
-        option.addEventListener('mousedown', event => {
-          event.preventDefault();
-          input.value = name;
-          hideJudgeSuggestionPanel(panel);
-        });
-        panel.appendChild(option);
-      });
-      panel.classList.remove('hidden');
-    } catch {
-      hideJudgeSuggestionPanel(panel);
-    }
-  };
-
-  const debounced = debounceJudgeSearch(fetchSuggestions, 250);
-  input.addEventListener('input', debounced);
-  input.addEventListener('focus', debounced);
-  document.addEventListener('click', event => {
-    if (!(event.target instanceof Node) || panel.contains(event.target) || input.contains(event.target)) {
-      return;
-    }
-
-    hideJudgeSuggestionPanel(panel);
-  });
+  ) => void;
+  createTypeaheadPanel?: (anchor: HTMLElement) => HTMLDivElement;
 };
 
 const buildJudgePrompt = (question: string, cardName: string, cardDetails: string): string => {
@@ -126,8 +61,11 @@ const initializeJudgeQuestions = (): void => {
 
   const anchor = cardInput.parentElement;
   if (anchor) {
-    const panel = createJudgeSuggestionPanel(anchor);
-    attachJudgeCardLookahead(cardInput, panel, 4);
+    const deckFlowWindow = window as Window & { DeckFlow?: JudgeQuestionsDeckFlowNamespace };
+    const panel = deckFlowWindow.DeckFlow?.createTypeaheadPanel?.(anchor);
+    if (panel) {
+      deckFlowWindow.DeckFlow?.attachTypeahead?.(cardInput, panel, 4, () => {});
+    }
   }
 
   const showError = (message: string): void => {

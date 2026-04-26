@@ -1,71 +1,4 @@
 "use strict";
-const debounceJudgeSearch = (fn, delay) => {
-    let timer;
-    return () => {
-        if (timer !== undefined) {
-            window.clearTimeout(timer);
-        }
-        timer = window.setTimeout(fn, delay);
-    };
-};
-const createJudgeSuggestionPanel = (anchor) => {
-    const panel = document.createElement('div');
-    panel.className = 'autocomplete-panel hidden';
-    panel.setAttribute('role', 'listbox');
-    anchor.appendChild(panel);
-    return panel;
-};
-const hideJudgeSuggestionPanel = (panel) => {
-    panel.classList.add('hidden');
-    panel.replaceChildren();
-};
-const attachJudgeCardLookahead = (input, panel, minChars) => {
-    const fetchSuggestions = async () => {
-        const query = input.value.trim();
-        if (query.length < minChars) {
-            hideJudgeSuggestionPanel(panel);
-            return;
-        }
-        try {
-            const response = await fetch(`/suggest-categories/card-search?query=${encodeURIComponent(query)}`);
-            if (!response.ok) {
-                hideJudgeSuggestionPanel(panel);
-                return;
-            }
-            const names = await response.json();
-            panel.replaceChildren();
-            if (names.length === 0) {
-                hideJudgeSuggestionPanel(panel);
-                return;
-            }
-            names.forEach(name => {
-                const option = document.createElement('button');
-                option.type = 'button';
-                option.className = 'autocomplete-option';
-                option.textContent = name;
-                option.addEventListener('mousedown', event => {
-                    event.preventDefault();
-                    input.value = name;
-                    hideJudgeSuggestionPanel(panel);
-                });
-                panel.appendChild(option);
-            });
-            panel.classList.remove('hidden');
-        }
-        catch (_a) {
-            hideJudgeSuggestionPanel(panel);
-        }
-    };
-    const debounced = debounceJudgeSearch(fetchSuggestions, 250);
-    input.addEventListener('input', debounced);
-    input.addEventListener('focus', debounced);
-    document.addEventListener('click', event => {
-        if (!(event.target instanceof Node) || panel.contains(event.target) || input.contains(event.target)) {
-            return;
-        }
-        hideJudgeSuggestionPanel(panel);
-    });
-};
 const buildJudgePrompt = (question, cardName, cardDetails) => {
     const lines = [];
     lines.push('You are helping with a Magic: The Gathering rules question.');
@@ -99,6 +32,7 @@ const fetchCardDetails = async (cardName) => {
     return (_a = payload === null || payload === void 0 ? void 0 : payload.verifiedText) !== null && _a !== void 0 ? _a : '';
 };
 const initializeJudgeQuestions = () => {
+    var _a, _b, _c, _d;
     const cardInput = document.querySelector('[data-judge-card-input]');
     const questionInput = document.querySelector('[data-judge-question-input]');
     const generateButton = document.querySelector('[data-judge-generate]');
@@ -111,8 +45,11 @@ const initializeJudgeQuestions = () => {
     }
     const anchor = cardInput.parentElement;
     if (anchor) {
-        const panel = createJudgeSuggestionPanel(anchor);
-        attachJudgeCardLookahead(cardInput, panel, 4);
+        const deckFlowWindow = window;
+        const panel = (_b = (_a = deckFlowWindow.DeckFlow) === null || _a === void 0 ? void 0 : _a.createTypeaheadPanel) === null || _b === void 0 ? void 0 : _b.call(_a, anchor);
+        if (panel) {
+            (_d = (_c = deckFlowWindow.DeckFlow) === null || _c === void 0 ? void 0 : _c.attachTypeahead) === null || _d === void 0 ? void 0 : _d.call(_c, cardInput, panel, 4, () => { });
+        }
     }
     const showError = (message) => {
         errorBanner.textContent = message;

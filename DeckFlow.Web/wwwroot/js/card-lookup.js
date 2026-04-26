@@ -13,6 +13,7 @@ const debounceCardLookupSearch = (fn, delay) => {
         timer = window.setTimeout(fn, delay);
     };
 };
+const typeaheadWindow = window;
 const parseLookupLine = (line) => {
     var _a, _b;
     const trimmed = line.trim();
@@ -33,17 +34,11 @@ const buildLookupLine = (quantity, cardName) => {
     }
     return trimmedQuantity ? `${trimmedQuantity} ${trimmedName}` : trimmedName;
 };
-const createLookupSuggestionPanel = (anchor) => {
-    const panel = document.createElement('div');
-    panel.className = 'autocomplete-panel hidden';
-    panel.setAttribute('role', 'listbox');
-    anchor.appendChild(panel);
-    return panel;
-};
 const hideLookupSuggestionPanel = (panel) => {
     panel.classList.add('hidden');
     panel.replaceChildren();
 };
+const createTypeaheadPanel = (anchor) => typeaheadWindow.DeckFlow.createTypeaheadPanel(anchor);
 const toggleMechanic = (row) => {
     const article = row.closest('.card-lookup-mechanic');
     const body = article === null || article === void 0 ? void 0 : article.querySelector('.mechanic-body');
@@ -125,54 +120,6 @@ const attachDynamicCopyButton = (button) => {
         }, 1800);
     });
 };
-const attachLookaheadInput = (input, panel, minChars, onPick) => {
-    const fetchSuggestions = async () => {
-        const query = input.value.trim();
-        if (query.length < minChars) {
-            hideLookupSuggestionPanel(panel);
-            return;
-        }
-        try {
-            const response = await fetch(`/suggest-categories/card-search?query=${encodeURIComponent(query)}`);
-            if (!response.ok) {
-                hideLookupSuggestionPanel(panel);
-                return;
-            }
-            const names = await response.json();
-            panel.replaceChildren();
-            if (names.length === 0) {
-                hideLookupSuggestionPanel(panel);
-                return;
-            }
-            names.forEach(name => {
-                const option = document.createElement('button');
-                option.type = 'button';
-                option.className = 'autocomplete-option';
-                option.textContent = name;
-                option.addEventListener('mousedown', event => {
-                    event.preventDefault();
-                    input.value = name;
-                    hideLookupSuggestionPanel(panel);
-                    onPick(name);
-                });
-                panel.appendChild(option);
-            });
-            panel.classList.remove('hidden');
-        }
-        catch (_a) {
-            hideLookupSuggestionPanel(panel);
-        }
-    };
-    const debounced = debounceCardLookupSearch(fetchSuggestions, 250);
-    input.addEventListener('input', debounced);
-    input.addEventListener('focus', debounced);
-    document.addEventListener('click', event => {
-        if (!(event.target instanceof Node) || panel.contains(event.target) || input.contains(event.target)) {
-            return;
-        }
-        hideLookupSuggestionPanel(panel);
-    });
-};
 const initializeSingleCardMode = () => {
     var _a;
     const input = document.querySelector('[data-card-lookup-single-input]');
@@ -189,7 +136,7 @@ const initializeSingleCardMode = () => {
     if (!input || !submitButton || !errorBanner || !resultPanel || !resultOutput || !resultLabel || !mechanicsPanel || !mechanicsLabel || !mechanicsContainer || !anchor) {
         return;
     }
-    const suggestionPanel = createLookupSuggestionPanel(anchor);
+    const suggestionPanel = createTypeaheadPanel(anchor);
     const showError = (message) => {
         errorBanner.textContent = message;
         errorBanner.classList.remove('hidden');
@@ -311,7 +258,7 @@ const initializeSingleCardMode = () => {
             submitButton.disabled = false;
         }
     };
-    attachLookaheadInput(input, suggestionPanel, 2, name => {
+    typeaheadWindow.DeckFlow.attachTypeahead(input, suggestionPanel, 2, (name) => {
         input.value = name;
         runLookup(name);
     });
@@ -431,8 +378,8 @@ const initializeCardListMode = () => {
         cardInput.dataset.cardLookupName = 'true';
         cardInput.className = 'card-lookup-line-row__name';
         cardInputShell.appendChild(cardInput);
-        const suggestionPanel = createLookupSuggestionPanel(cardInputShell);
-        attachLookaheadInput(cardInput, suggestionPanel, 2, name => {
+        const suggestionPanel = createTypeaheadPanel(cardInputShell);
+        typeaheadWindow.DeckFlow.attachTypeahead(cardInput, suggestionPanel, 2, (name) => {
             cardInput.value = name;
             syncTextareaFromEditor();
         });
@@ -492,8 +439,6 @@ const initializeCardLookupForm = () => {
     initializeSingleCardMode();
     initializeCardListMode();
 };
-window.attachLookaheadInput = attachLookaheadInput;
-window.createLookupSuggestionPanel = createLookupSuggestionPanel;
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeCardLookupForm);
 }

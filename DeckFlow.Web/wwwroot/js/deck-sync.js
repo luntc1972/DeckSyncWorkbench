@@ -9,6 +9,7 @@ const DeckInputSource = {
     PasteText: 'PasteText',
     PublicUrl: 'PublicUrl',
 };
+const deckFlowWindow = window;
 const panelConfigs = [
     {
         selectName: 'MoxfieldInputSource',
@@ -648,7 +649,7 @@ const createCardPickerRow = (value = '') => {
     return row;
 };
 const attachCardPickerRow = (container, row) => {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e;
     const rowsContainer = getCardPickerRowsContainer(container);
     const form = container.closest('form');
     const addButton = row.querySelector('[data-card-picker-add]');
@@ -677,10 +678,10 @@ const attachCardPickerRow = (container, row) => {
     if (input && inputShell instanceof HTMLElement) {
         let suggestionPanel = inputShell.querySelector('.autocomplete-panel');
         if (!suggestionPanel) {
-            suggestionPanel = (_b = (_a = window.createLookupSuggestionPanel) === null || _a === void 0 ? void 0 : _a.call(window, inputShell)) !== null && _b !== void 0 ? _b : null;
+            suggestionPanel = (_c = (_b = (_a = deckFlowWindow.DeckFlow) === null || _a === void 0 ? void 0 : _a.createTypeaheadPanel) === null || _b === void 0 ? void 0 : _b.call(_a, inputShell)) !== null && _c !== void 0 ? _c : null;
         }
         if (suggestionPanel) {
-            (_c = window.attachLookaheadInput) === null || _c === void 0 ? void 0 : _c.call(window, input, suggestionPanel, 2, pickedName => {
+            (_e = (_d = deckFlowWindow.DeckFlow) === null || _d === void 0 ? void 0 : _d.attachTypeahead) === null || _e === void 0 ? void 0 : _e.call(_d, input, suggestionPanel, 2, pickedName => {
                 input.value = pickedName;
                 input.dispatchEvent(new Event('change', { bubbles: true }));
             });
@@ -1456,7 +1457,7 @@ const loadSetOptionsAsync = () => {
             }
             select.appendChild(optgroup);
         }
-        (_d = (_c = window.DeckFlow) === null || _c === void 0 ? void 0 : _c.refreshDfSelect) === null || _d === void 0 ? void 0 : _d.call(_c, select);
+        (_d = (_c = deckFlowWindow.DeckFlow) === null || _c === void 0 ? void 0 : _c.refreshDfSelect) === null || _d === void 0 ? void 0 : _d.call(_c, select);
     })
         .catch(() => {
         const errorHint = document.querySelector('[data-set-options-error]');
@@ -1853,7 +1854,7 @@ const loadSavedSessionsAsync = () => {
             option.textContent = `${session.commander} · ${session.timestamp}  (${created.toLocaleString()})`;
             select.appendChild(option);
         }
-        (_b = (_a = window.DeckFlow) === null || _a === void 0 ? void 0 : _a.refreshDfSelect) === null || _b === void 0 ? void 0 : _b.call(_a, select);
+        (_b = (_a = deckFlowWindow.DeckFlow) === null || _a === void 0 ? void 0 : _a.refreshDfSelect) === null || _b === void 0 ? void 0 : _b.call(_a, select);
         if (sessions.length === 0) {
             (_c = document.querySelector('[data-saved-sessions-empty]')) === null || _c === void 0 ? void 0 : _c.removeAttribute('hidden');
         }

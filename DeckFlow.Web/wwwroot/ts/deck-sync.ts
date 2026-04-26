@@ -37,15 +37,23 @@ type DeckSyncApiResponse = {
 
 type DeckSyncSystem = 'Moxfield' | 'Archidekt';
 
-interface Window {
-  attachLookaheadInput?: (
+interface DeckFlowNamespace {
+  attachTypeahead?: (
     input: HTMLInputElement,
     panel: HTMLDivElement,
     minChars: number,
     onPick: (name: string) => void
   ) => void;
-  createLookupSuggestionPanel?: (anchor: HTMLElement) => HTMLDivElement;
+  createTypeaheadPanel?: (anchor: HTMLElement) => HTMLDivElement;
+  attachDfSelect?: () => void;
+  refreshDfSelect?: (select: HTMLSelectElement) => void;
 }
+
+type DeckFlowWindow = Window & {
+  DeckFlow?: DeckFlowNamespace;
+};
+
+const deckFlowWindow = window as DeckFlowWindow;
 
 const panelConfigs: PanelConfig[] = [
   {
@@ -928,11 +936,11 @@ const attachCardPickerRow = (container: HTMLElement, row: HTMLElement): void => 
   if (input && inputShell instanceof HTMLElement) {
     let suggestionPanel = inputShell.querySelector<HTMLDivElement>('.autocomplete-panel');
     if (!suggestionPanel) {
-      suggestionPanel = window.createLookupSuggestionPanel?.(inputShell) ?? null;
+      suggestionPanel = deckFlowWindow.DeckFlow?.createTypeaheadPanel?.(inputShell) ?? null;
     }
 
     if (suggestionPanel) {
-      window.attachLookaheadInput?.(input, suggestionPanel, 2, pickedName => {
+      deckFlowWindow.DeckFlow?.attachTypeahead?.(input, suggestionPanel, 2, pickedName => {
         input.value = pickedName;
         input.dispatchEvent(new Event('change', { bubbles: true }));
       });
@@ -1870,7 +1878,7 @@ const loadSetOptionsAsync = (): void => {
         select.appendChild(optgroup);
       }
 
-      window.DeckFlow?.refreshDfSelect?.(select);
+      deckFlowWindow.DeckFlow?.refreshDfSelect?.(select);
     })
     .catch(() => {
       const errorHint = document.querySelector<HTMLElement>('[data-set-options-error]');
@@ -2339,7 +2347,7 @@ const loadSavedSessionsAsync = (): void => {
         select.appendChild(option);
       }
 
-      window.DeckFlow?.refreshDfSelect?.(select);
+      deckFlowWindow.DeckFlow?.refreshDfSelect?.(select);
 
       if (sessions.length === 0) {
         document.querySelector<HTMLElement>('[data-saved-sessions-empty]')?.removeAttribute('hidden');

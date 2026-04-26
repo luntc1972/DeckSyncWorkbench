@@ -1,13 +1,3 @@
-interface Window {
-  attachLookaheadInput?: (
-    input: HTMLInputElement,
-    panel: HTMLDivElement,
-    minChars: number,
-    onPick: (name: string) => void
-  ) => void;
-  createLookupSuggestionPanel?: (anchor: HTMLElement) => HTMLDivElement;
-}
-
 const countNonEmptyLines = (value: string): number =>
   value
     .split(/\r?\n/)
@@ -46,6 +36,14 @@ type SingleCardLookupPayload = {
   message?: string;
 };
 
+type TypeaheadWindow = Window & {
+  DeckFlow?: {
+    [key: string]: any;
+  };
+};
+
+const typeaheadWindow = window as TypeaheadWindow;
+
 const parseLookupLine = (line: string): ParsedLookupLine => {
   const trimmed = line.trim();
   const match = trimmed.match(/^(\d+)\s+(.+)$/);
@@ -69,18 +67,12 @@ const buildLookupLine = (quantity: string, cardName: string): string => {
   return trimmedQuantity ? `${trimmedQuantity} ${trimmedName}` : trimmedName;
 };
 
-const createLookupSuggestionPanel = (anchor: HTMLElement): HTMLDivElement => {
-  const panel = document.createElement('div');
-  panel.className = 'autocomplete-panel hidden';
-  panel.setAttribute('role', 'listbox');
-  anchor.appendChild(panel);
-  return panel;
-};
-
 const hideLookupSuggestionPanel = (panel: HTMLElement): void => {
   panel.classList.add('hidden');
   panel.replaceChildren();
 };
+
+const createTypeaheadPanel = (anchor: HTMLElement): HTMLDivElement => typeaheadWindow.DeckFlow!.createTypeaheadPanel!(anchor);
 
 const toggleMechanic = (row: HTMLButtonElement): void => {
   const article = row.closest<HTMLElement>('.card-lookup-mechanic');
@@ -175,64 +167,6 @@ const attachDynamicCopyButton = (button: HTMLButtonElement): void => {
   });
 };
 
-const attachLookaheadInput = (
-  input: HTMLInputElement,
-  panel: HTMLDivElement,
-  minChars: number,
-  onPick: (name: string) => void
-): void => {
-  const fetchSuggestions = async (): Promise<void> => {
-    const query = input.value.trim();
-    if (query.length < minChars) {
-      hideLookupSuggestionPanel(panel);
-      return;
-    }
-
-    try {
-      const response = await fetch(`/suggest-categories/card-search?query=${encodeURIComponent(query)}`);
-      if (!response.ok) {
-        hideLookupSuggestionPanel(panel);
-        return;
-      }
-
-      const names: string[] = await response.json();
-      panel.replaceChildren();
-      if (names.length === 0) {
-        hideLookupSuggestionPanel(panel);
-        return;
-      }
-
-      names.forEach(name => {
-        const option = document.createElement('button');
-        option.type = 'button';
-        option.className = 'autocomplete-option';
-        option.textContent = name;
-        option.addEventListener('mousedown', event => {
-          event.preventDefault();
-          input.value = name;
-          hideLookupSuggestionPanel(panel);
-          onPick(name);
-        });
-        panel.appendChild(option);
-      });
-      panel.classList.remove('hidden');
-    } catch {
-      hideLookupSuggestionPanel(panel);
-    }
-  };
-
-  const debounced = debounceCardLookupSearch(fetchSuggestions, 250);
-  input.addEventListener('input', debounced);
-  input.addEventListener('focus', debounced);
-  document.addEventListener('click', event => {
-    if (!(event.target instanceof Node) || panel.contains(event.target) || input.contains(event.target)) {
-      return;
-    }
-
-    hideLookupSuggestionPanel(panel);
-  });
-};
-
 const initializeSingleCardMode = (): void => {
   const input = document.querySelector<HTMLInputElement>('[data-card-lookup-single-input]');
   const submitButton = document.querySelector<HTMLButtonElement>('[data-card-lookup-single-submit]');
@@ -249,7 +183,7 @@ const initializeSingleCardMode = (): void => {
     return;
   }
 
-  const suggestionPanel = createLookupSuggestionPanel(anchor);
+  const suggestionPanel = createTypeaheadPanel(anchor);
 
   const showError = (message: string): void => {
     errorBanner.textContent = message;
@@ -391,7 +325,7 @@ const initializeSingleCardMode = (): void => {
     }
   };
 
-  attachLookaheadInput(input, suggestionPanel, 2, name => {
+  typeaheadWindow.DeckFlow!.attachTypeahead!(input, suggestionPanel, 2, (name: string) => {
     input.value = name;
     runLookup(name);
   });
@@ -531,8 +465,8 @@ const initializeCardListMode = (): void => {
     cardInput.dataset.cardLookupName = 'true';
     cardInput.className = 'card-lookup-line-row__name';
     cardInputShell.appendChild(cardInput);
-    const suggestionPanel = createLookupSuggestionPanel(cardInputShell);
-    attachLookaheadInput(cardInput, suggestionPanel, 2, name => {
+    const suggestionPanel = createTypeaheadPanel(cardInputShell);
+    typeaheadWindow.DeckFlow!.attachTypeahead!(cardInput, suggestionPanel, 2, (name: string) => {
       cardInput.value = name;
       syncTextareaFromEditor();
     });
@@ -600,9 +534,6 @@ const initializeCardLookupForm = (): void => {
   initializeSingleCardMode();
   initializeCardListMode();
 };
-
-window.attachLookaheadInput = attachLookaheadInput;
-window.createLookupSuggestionPanel = createLookupSuggestionPanel;
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initializeCardLookupForm);
