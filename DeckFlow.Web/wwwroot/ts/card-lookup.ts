@@ -276,7 +276,22 @@ const initializeSingleCardMode = (): void => {
         pre.className = 'cr-text';
         pre.textContent = rule.rulesText ?? '';
 
-        body.append(copyButton, pre);
+        const bottomActions = document.createElement('div');
+        bottomActions.className = 'panel-footer-actions';
+
+        const bottomCopyButton = document.createElement('button');
+        bottomCopyButton.type = 'button';
+        bottomCopyButton.className = 'copy-button';
+        bottomCopyButton.setAttribute('data-copy-target', preId);
+        bottomCopyButton.setAttribute('aria-label', `Copy comprehensive rules text for ${rule.mechanicName ?? 'mechanic'}`);
+        const bottomGlyph = document.createElement('span');
+        bottomGlyph.setAttribute('aria-hidden', 'true');
+        bottomGlyph.textContent = '📋';
+        bottomCopyButton.append(bottomGlyph, document.createTextNode(' Copy CR text'));
+        attachDynamicCopyButton(bottomCopyButton);
+        bottomActions.appendChild(bottomCopyButton);
+
+        body.append(copyButton, pre, bottomActions);
         wrapper.appendChild(body);
         return wrapper;
       });

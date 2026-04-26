@@ -165,7 +165,7 @@ const initializeSingleCardMode = () => {
             mechanicsLabel.textContent = `${visibleMechanics.length} official rules entr${visibleMechanics.length === 1 ? 'y' : 'ies'} found on this card.`;
             const autoExpand = visibleMechanics.length === 1;
             const items = visibleMechanics.map((rule, index) => {
-                var _a, _b, _c;
+                var _a, _b, _c, _d;
                 const wrapper = document.createElement('article');
                 wrapper.className = 'card-lookup-mechanic';
                 wrapper.dataset.expanded = autoExpand ? 'true' : 'false';
@@ -214,7 +214,20 @@ const initializeSingleCardMode = () => {
                 pre.id = preId;
                 pre.className = 'cr-text';
                 pre.textContent = (_c = rule.rulesText) !== null && _c !== void 0 ? _c : '';
-                body.append(copyButton, pre);
+                const bottomActions = document.createElement('div');
+                bottomActions.className = 'panel-footer-actions';
+                const bottomCopyButton = document.createElement('button');
+                bottomCopyButton.type = 'button';
+                bottomCopyButton.className = 'copy-button';
+                bottomCopyButton.setAttribute('data-copy-target', preId);
+                bottomCopyButton.setAttribute('aria-label', `Copy comprehensive rules text for ${(_d = rule.mechanicName) !== null && _d !== void 0 ? _d : 'mechanic'}`);
+                const bottomGlyph = document.createElement('span');
+                bottomGlyph.setAttribute('aria-hidden', 'true');
+                bottomGlyph.textContent = '📋';
+                bottomCopyButton.append(bottomGlyph, document.createTextNode(' Copy CR text'));
+                attachDynamicCopyButton(bottomCopyButton);
+                bottomActions.appendChild(bottomCopyButton);
+                body.append(copyButton, pre, bottomActions);
                 wrapper.appendChild(body);
                 return wrapper;
             });

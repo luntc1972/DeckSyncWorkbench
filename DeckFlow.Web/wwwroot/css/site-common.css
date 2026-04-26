@@ -402,7 +402,7 @@
     padding: 0.25rem;
   }
 
-  .copy-button--icon {
+  .copy-button.copy-button--icon {
     width: 2rem;
     height: 2rem;
   }
@@ -638,6 +638,7 @@
 
 .result-panel pre.cr-text {
   font-size: 0.9rem;
+  padding: 2.5rem 1rem 0.75rem;
 }
 
 .card-lookup-mechanics-list {
@@ -714,12 +715,12 @@
 
 .mechanic-body .copy-button--icon {
   position: absolute;
-  top: -0.25rem;
-  right: 0;
+  top: 0.5rem;
+  right: 0.5rem;
   z-index: 1;
 }
 
-.copy-button--icon {
+.copy-button.copy-button--icon {
   width: 2.25rem;
   height: 2.25rem;
   padding: 0;
@@ -731,14 +732,14 @@
   border: 1px solid var(--line);
 }
 
-.copy-button--icon:hover {
+.copy-button.copy-button--icon:hover {
   background: var(--panel);
   color: var(--accent-strong);
   border-color: var(--accent);
 }
 
-.copy-button--icon.is-copied,
-.copy-button--icon.is-copy-failed {
+.copy-button.copy-button--icon.is-copied,
+.copy-button.copy-button--icon.is-copy-failed {
   color: #fff;
 }
 
@@ -747,6 +748,12 @@
   grid-template-columns: 1fr;
   gap: 1.25rem;
   align-items: start;
+}
+
+.panel-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
 }
 
 @media (min-width: 900px) {
