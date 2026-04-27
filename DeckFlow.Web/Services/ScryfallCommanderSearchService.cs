@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Caching.Memory;
+using Polly;
+using Polly.Registry;
 using RestSharp;
+using DeckFlow.Web.Services.Http;
 
 namespace DeckFlow.Web.Services;
 
@@ -32,17 +35,51 @@ public sealed class ScryfallCommanderSearchService : ICommanderSearchService
     /// Initializes the service with the provided cache and optional REST client.
     /// </summary>
     /// <param name="cache">Memory cache for storing lookups.</param>
-    /// <param name="restClient">Optional REST client to use (tests can supply a fake client).</param>
-    /// <param name="executeAsync">Optional handler to execute RestSharp requests for easier testing.</param>
+    private ScryfallCommanderSearchService(
+        IScryfallRestClientFactory scryfallRestClientFactory,
+        ResiliencePipeline<RestResponse> scryfallPipeline,
+        IMemoryCache cache,
+        RestClient? restClientOverride,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeAsyncOverride)
+    {
+        ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
+        ArgumentNullException.ThrowIfNull(cache);
+        var pipeline = scryfallPipeline ?? ResiliencePipeline<RestResponse>.Empty;
+        _cache = cache;
+        var client = restClientOverride ?? scryfallRestClientFactory.Create();
+        _executeAsync = executeAsyncOverride ?? ((request, cancellationToken) =>
+            ScryfallThrottle.ExecuteAsync(
+                token => pipeline.ExecuteAsync(
+                    async pollyCt => await client.ExecuteAsync<ScryfallSearchResponse>(request, pollyCt).ConfigureAwait(false),
+                    token).AsTask(),
+                cancellationToken));
+    }
+
     public ScryfallCommanderSearchService(
+        IScryfallRestClientFactory scryfallRestClientFactory,
+        ResiliencePipelineProvider<string> pipelineProvider,
+        IMemoryCache cache)
+        : this(
+            scryfallRestClientFactory,
+            pipelineProvider?.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty,
+            cache,
+            null,
+            null)
+    {
+        ArgumentNullException.ThrowIfNull(pipelineProvider);
+    }
+
+    internal ScryfallCommanderSearchService(
         IMemoryCache cache,
         RestClient? restClient = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeAsync = null)
+        : this(
+            NullScryfallRestClientFactory.Instance,
+            ResiliencePipeline<RestResponse>.Empty,
+            cache,
+            restClient,
+            executeAsync)
     {
-        _cache = cache;
-        var client = restClient ?? ScryfallRestClientFactory.Create();
-
-        _executeAsync = executeAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallSearchResponse>(request, token), cancellationToken));
     }
 
     /// <inheritdoc />

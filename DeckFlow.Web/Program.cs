@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Net.Http;
 using System.Threading.RateLimiting;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -10,6 +11,7 @@ using DeckFlow.Core.Loading;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Http;
 
 namespace DeckFlow.Web;
 
@@ -50,6 +52,59 @@ public class Program
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             });
         builder.Services.AddMemoryCache();
+        
+        // HTTP infrastructure: IHttpClientFactory-backed clients (D-01) + Polly v8 pipelines (D-03..05).
+        // Tagger uses a typed client with cookie-disabled SocketsHttpHandler (D-06); other three are named.
+        // Pipelines are registered into IResiliencePipelineRegistry<string> via AddResiliencePipeline<...>;
+        // services resolve them via ResiliencePipelineProvider<string> (no keyed-services attribute - checker B2).
+
+        builder.Services.AddHttpClient("commander-banlist", c =>
+        {
+            c.BaseAddress = new Uri("https://mtgcommander.net/");
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
+        });
+
+        builder.Services.AddHttpClient("commander-spellbook", c =>
+        {
+            c.BaseAddress = new Uri("https://backend.commanderspellbook.com/");
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
+        });
+
+        builder.Services.AddHttpClient("scryfall-rest", c =>
+        {
+            c.BaseAddress = new Uri("https://api.scryfall.com/");
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0 (+https://github.com/luntc1972/DeckFlow)");
+            c.DefaultRequestHeaders.Accept.ParseAdd("application/json;q=0.9,*/*;q=0.8");
+        });
+
+        // Typed client for Tagger - cookie-disabled SocketsHttpHandler per D-06.
+        // HandlerLifetime = 5 min. TaggerSessionCache TTL = 270s (30s below HandlerLifetime)
+        // so session expiry races handler rotation with a safety margin (HIGH-2 fix).
+        builder.Services.AddHttpClient<ScryfallTaggerHttpClient>(c =>
+        {
+            c.BaseAddress = new Uri("https://tagger.scryfall.com/");
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+        {
+            UseCookies = false,
+            AllowAutoRedirect = false,
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+        })
+        .SetHandlerLifetime(TimeSpan.FromMinutes(5));
+
+        builder.Services.AddSingleton<IScryfallTaggerHttpClient>(sp => sp.GetRequiredService<ScryfallTaggerHttpClient>());
+
+        // Polly v8 pipelines registered into IResiliencePipelineRegistry<string>. Services resolve
+        // them via ResiliencePipelineProvider<string>.GetPipeline<RestResponse>(name) - D-05, B2.
+        builder.Services.AddDeckFlowResiliencePipelines();
+
+        // CSRF + cookie session store for the Tagger flow (D-07, HIGH-2: 270s TTL).
+        builder.Services.AddSingleton<ITaggerSessionCache, TaggerSessionCache>();
+
+        // IScryfallRestClientFactory - defined in Task 4 with static back-compat shim;
+        // full IHttpClientFactory wiring lands in Task 10.
+        builder.Services.AddSingleton<IScryfallRestClientFactory, ScryfallRestClientFactory>();
         builder.Services.AddSingleton<IHelpContentService, HelpContentService>();
         builder.Services.AddSingleton<IVersionService, VersionService>();
         builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();

@@ -2,7 +2,10 @@ using System.Text;
 using System.Text.RegularExpressions;
 using DeckFlow.Web.Models;
 using Microsoft.Extensions.Caching.Memory;
+using Polly;
+using Polly.Registry;
 using RestSharp;
+using DeckFlow.Web.Services.Http;
 
 namespace DeckFlow.Web.Services;
 
@@ -30,18 +33,68 @@ public sealed partial class ScryfallSetService : IScryfallSetService
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSetListResponse>>> _executeSetListAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
 
+    private ScryfallSetService(
+        IScryfallRestClientFactory scryfallRestClientFactory,
+        ResiliencePipeline<RestResponse> scryfallPipeline,
+        IMemoryCache cache,
+        IMechanicLookupService mechanicLookupService,
+        RestClient? restClientOverride,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSetListResponse>>>? executeSetListAsyncOverride,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride)
+    {
+        ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
+        ArgumentNullException.ThrowIfNull(cache);
+        ArgumentNullException.ThrowIfNull(mechanicLookupService);
+        var pipeline = scryfallPipeline ?? ResiliencePipeline<RestResponse>.Empty;
+        _cache = cache;
+        _mechanicLookupService = mechanicLookupService;
+        var client = restClientOverride ?? scryfallRestClientFactory.Create();
+        _executeSetListAsync = executeSetListAsyncOverride ?? ((request, cancellationToken) =>
+            ScryfallThrottle.ExecuteAsync(
+                token => pipeline.ExecuteAsync(
+                    async pollyCt => await client.ExecuteAsync<ScryfallSetListResponse>(request, pollyCt).ConfigureAwait(false),
+                    token).AsTask(),
+                cancellationToken));
+        _executeSearchAsync = executeSearchAsyncOverride ?? ((request, cancellationToken) =>
+            ScryfallThrottle.ExecuteAsync(
+                token => pipeline.ExecuteAsync(
+                    async pollyCt => await client.ExecuteAsync<ScryfallSearchResponse>(request, pollyCt).ConfigureAwait(false),
+                    token).AsTask(),
+                cancellationToken));
+    }
+
     public ScryfallSetService(
+        IScryfallRestClientFactory scryfallRestClientFactory,
+        ResiliencePipelineProvider<string> pipelineProvider,
+        IMemoryCache cache,
+        IMechanicLookupService mechanicLookupService)
+        : this(
+            scryfallRestClientFactory,
+            pipelineProvider?.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty,
+            cache,
+            mechanicLookupService,
+            null,
+            null,
+            null)
+    {
+        ArgumentNullException.ThrowIfNull(pipelineProvider);
+    }
+
+    internal ScryfallSetService(
         IMemoryCache cache,
         IMechanicLookupService mechanicLookupService,
         RestClient? restClient = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSetListResponse>>>? executeSetListAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
+        : this(
+            NullScryfallRestClientFactory.Instance,
+            ResiliencePipeline<RestResponse>.Empty,
+            cache,
+            mechanicLookupService,
+            restClient,
+            executeSetListAsync,
+            executeSearchAsync)
     {
-        _cache = cache;
-        _mechanicLookupService = mechanicLookupService;
-        var client = restClient ?? ScryfallRestClientFactory.Create();
-        _executeSetListAsync = executeSetListAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallSetListResponse>(request, token), cancellationToken));
-        _executeSearchAsync = executeSearchAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallSearchResponse>(request, token), cancellationToken));
     }
 
     public async Task<IReadOnlyList<ScryfallSetOption>> GetSetsAsync(CancellationToken cancellationToken = default)

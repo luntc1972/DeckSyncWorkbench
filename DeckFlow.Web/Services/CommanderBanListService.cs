@@ -1,6 +1,11 @@
 using System.Net;
+using System.Net.Http;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Caching.Memory;
+using Polly;
+using Polly.Registry;
+using RestSharp;
+using DeckFlow.Web.Services.Http;
 
 namespace DeckFlow.Web.Services;
 
@@ -24,18 +29,67 @@ public sealed partial class CommanderBanListService : ICommanderBanListService
     private const string CacheKey = "commander-banned-cards";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(6);
     private static readonly Regex SummaryRegex = SummaryPattern();
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ResiliencePipeline<RestResponse> _resiliencePipeline;
     private readonly IMemoryCache _memoryCache;
     private readonly Func<CancellationToken, Task<string>> _fetchPageAsync;
 
     /// <summary>
-    /// Creates a banned-list service using the official Commander site.
+    /// Private ctor accepting a pre-resolved Polly pipeline. Used by both the production
+    /// ctor (which resolves the pipeline from <see cref="ResiliencePipelineProvider{TKey}"/>)
+    /// and the test-compat overload (which passes <see cref="ResiliencePipeline{T}.Empty"/>
+    /// because tests always supply <paramref name="fetchPageAsync"/> and never exercise the
+    /// HTTP/pipeline path).
     /// </summary>
-    public CommanderBanListService(
+    private CommanderBanListService(
+        IHttpClientFactory httpClientFactory,
+        ResiliencePipeline<RestResponse> pipeline,
         IMemoryCache memoryCache,
-        Func<CancellationToken, Task<string>>? fetchPageAsync = null)
+        Func<CancellationToken, Task<string>>? fetchPageAsync)
     {
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
+        ArgumentNullException.ThrowIfNull(memoryCache);
+        _httpClientFactory = httpClientFactory;
+        _resiliencePipeline = pipeline ?? ResiliencePipeline<RestResponse>.Empty;
         _memoryCache = memoryCache;
         _fetchPageAsync = fetchPageAsync ?? FetchPageAsync;
+    }
+
+    /// <summary>
+    /// Production ctor - DI resolves the named "banlist" pipeline from
+    /// <see cref="ResiliencePipelineProvider{TKey}"/> per D-05/B2 (no keyed-services attribute).
+    /// </summary>
+    public CommanderBanListService(
+        IHttpClientFactory httpClientFactory,
+        ResiliencePipelineProvider<string> pipelineProvider,
+        IMemoryCache memoryCache,
+        Func<CancellationToken, Task<string>>? fetchPageAsync = null)
+        : this(
+            httpClientFactory,
+            pipelineProvider?.GetPipeline<RestResponse>("banlist") ?? ResiliencePipeline<RestResponse>.Empty,
+            memoryCache,
+            fetchPageAsync)
+    {
+        ArgumentNullException.ThrowIfNull(pipelineProvider);
+    }
+
+    /// <summary>
+    /// Internal test-compat ctor preserving the legacy (memoryCache, fetchOverride) signature
+    /// used by CommanderBanListServiceTests.GetBannedCardsAsync_CachesResults. Existing tests
+    /// always supply <paramref name="fetchPageAsync"/>, so the production HTTP/pipeline path
+    /// is short-circuited. Internal per pre-existing AssemblyInfo InternalsVisibleTo for
+    /// DeckFlow.Web.Tests - public would create a DI ctor-resolution ambiguity at startup.
+    /// Uses <see cref="ResiliencePipeline{T}.Empty"/> directly per MEDIUM-4 - no custom provider.
+    /// </summary>
+    internal CommanderBanListService(
+        IMemoryCache memoryCache,
+        Func<CancellationToken, Task<string>>? fetchPageAsync)
+        : this(
+            NullHttpClientFactory.Instance,
+            ResiliencePipeline<RestResponse>.Empty,
+            memoryCache,
+            fetchPageAsync)
+    {
     }
 
     /// <summary>
@@ -69,13 +123,25 @@ public sealed partial class CommanderBanListService : ICommanderBanListService
             .ToList();
     }
 
-    private static async Task<string> FetchPageAsync(CancellationToken cancellationToken)
+    private async Task<string> FetchPageAsync(CancellationToken cancellationToken)
     {
-        using var httpClient = new HttpClient();
-        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 DeckFlow");
-        using var response = await httpClient.GetAsync(BannedListUrl, cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        var httpClient = _httpClientFactory.CreateClient("commander-banlist");
+        var restClient = new RestClient(httpClient);
+        var request = new RestRequest(BannedListUrl, Method.Get);
+
+        var response = await _resiliencePipeline.ExecuteAsync(
+            async ct => await restClient.ExecuteAsync(request, ct).ConfigureAwait(false),
+            cancellationToken).ConfigureAwait(false);
+
+        if (!response.IsSuccessful)
+        {
+            throw new HttpRequestException(
+                $"BanList fetch failed: HTTP {(int)response.StatusCode}",
+                inner: null,
+                statusCode: response.StatusCode);
+        }
+
+        return response.Content ?? string.Empty;
     }
 
     [GeneratedRegex(@"<summary>\s*(?<name>[^<]+?)\s*</summary>", RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant)]

@@ -1,10 +1,11 @@
-using System.Net.Http.Json;
-using System.Text;
+using System.Net.Http;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Polly;
+using Polly.Registry;
+using RestSharp;
 using DeckFlow.Core.Models;
 
 namespace DeckFlow.Web.Services;
@@ -57,21 +58,48 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
     private const int MaxAlmostIncluded = 15;
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
 
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ResiliencePipeline<RestResponse> _resiliencePipeline;
     private readonly IMemoryCache _memoryCache;
     private readonly ILogger<CommanderSpellbookService> _logger;
     private readonly Func<string, CancellationToken, Task<string?>> _postJsonAsync;
 
     /// <summary>
-    /// Creates a service that calls the live Commander Spellbook API.
+    /// Private ctor accepting a pre-resolved Polly pipeline.
     /// </summary>
-    public CommanderSpellbookService(
+    private CommanderSpellbookService(
+        IHttpClientFactory httpClientFactory,
+        ResiliencePipeline<RestResponse> pipeline,
         IMemoryCache memoryCache,
-        ILogger<CommanderSpellbookService>? logger = null,
+        ILogger<CommanderSpellbookService>? logger,
         Func<string, CancellationToken, Task<string?>>? postJsonAsync = null)
     {
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
+        ArgumentNullException.ThrowIfNull(memoryCache);
+        _httpClientFactory = httpClientFactory;
+        _resiliencePipeline = pipeline ?? ResiliencePipeline<RestResponse>.Empty;
         _memoryCache = memoryCache;
         _logger = logger ?? NullLogger<CommanderSpellbookService>.Instance;
         _postJsonAsync = postJsonAsync ?? PostJsonAsync;
+    }
+
+    /// <summary>
+    /// Creates a service that calls the live Commander Spellbook API.
+    /// </summary>
+    public CommanderSpellbookService(
+        IHttpClientFactory httpClientFactory,
+        ResiliencePipelineProvider<string> pipelineProvider,
+        IMemoryCache memoryCache,
+        ILogger<CommanderSpellbookService>? logger = null,
+        Func<string, CancellationToken, Task<string?>>? postJsonAsync = null)
+        : this(
+            httpClientFactory,
+            pipelineProvider?.GetPipeline<RestResponse>("spellbook") ?? ResiliencePipeline<RestResponse>.Empty,
+            memoryCache,
+            logger,
+            postJsonAsync)
+    {
+        ArgumentNullException.ThrowIfNull(pipelineProvider);
     }
 
     /// <inheritdoc/>
@@ -268,15 +296,25 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         return string.Empty;
     }
 
-    private static async Task<string?> PostJsonAsync(string requestBody, CancellationToken cancellationToken)
+    private async Task<string?> PostJsonAsync(string requestBody, CancellationToken cancellationToken)
     {
-        using var httpClient = new HttpClient();
-        httpClient.Timeout = TimeSpan.FromSeconds(15);
-        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
+        var httpClient = _httpClientFactory.CreateClient("commander-spellbook");
+        var restClient = new RestClient(httpClient);
+        var request = new RestRequest(ApiUrl, Method.Post);
+        request.AddStringBody(requestBody, ContentType.Json);
 
-        using var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-        using var response = await httpClient.PostAsync(ApiUrl, content, cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        var response = await _resiliencePipeline.ExecuteAsync(
+            async ct => await restClient.ExecuteAsync(request, ct).ConfigureAwait(false),
+            cancellationToken).ConfigureAwait(false);
+
+        if (!response.IsSuccessful)
+        {
+            throw new HttpRequestException(
+                $"Spellbook POST failed: HTTP {(int)response.StatusCode}",
+                inner: null,
+                statusCode: response.StatusCode);
+        }
+
+        return response.Content;
     }
 }

@@ -1,28 +1,43 @@
+using System;
+using System.Net.Http;
 using RestSharp;
 
 namespace DeckFlow.Web.Services;
 
 /// <summary>
-/// Builds RestSharp clients configured for Scryfall's published access requirements.
+/// Creates RestSharp <see cref="RestClient"/> instances configured for the public Scryfall REST API.
+/// Interface defined in Task 4 for green-at-each-step compilation; this file took its full
+/// IHttpClientFactory-backed implementation in Task 10c after Tasks 7-10b migrated every caller
+/// off the previous static <c>Create()</c> shim.
 /// </summary>
-public static class ScryfallRestClientFactory
+public interface IScryfallRestClientFactory
 {
-    private const string UserAgent = "DeckFlow/1.0 (+https://github.com/luntc1972/DeckFlow)";
-    private const string AcceptHeader = "application/json;q=0.9,*/*;q=0.8";
+    /// <summary>Returns a RestClient wrapping a factory-sourced HttpClient. Cheap to call repeatedly.</summary>
+    RestClient Create();
+}
 
-    /// <summary>
-    /// Creates a RestSharp client for Scryfall with the expected headers.
-    /// </summary>
-    public static RestClient Create()
+/// <summary>
+/// DI-friendly Scryfall REST client factory backed by <see cref="IHttpClientFactory"/>.
+/// BaseAddress + UserAgent + Accept headers come from the named "scryfall-rest" registration
+/// in Program.cs (D-01). Recreating the RestClient per call is the canonical pattern when
+/// IHttpClientFactory owns the underlying handler lifecycle — RestClient is a lightweight
+/// wrapper around HttpClient and the factory ensures handler rotation every 5 minutes.
+/// </summary>
+public sealed class ScryfallRestClientFactory : IScryfallRestClientFactory
+{
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    /// <summary>Creates a new factory bound to the supplied <see cref="IHttpClientFactory"/>.</summary>
+    public ScryfallRestClientFactory(IHttpClientFactory httpClientFactory)
     {
-        var client = new RestClient(new RestClientOptions
-        {
-            BaseUrl = new Uri("https://api.scryfall.com"),
-            ThrowOnAnyError = false,
-        });
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
+        _httpClientFactory = httpClientFactory;
+    }
 
-        client.AddDefaultHeader("User-Agent", UserAgent);
-        client.AddDefaultHeader("Accept", AcceptHeader);
-        return client;
+    /// <inheritdoc />
+    public RestClient Create()
+    {
+        var httpClient = _httpClientFactory.CreateClient("scryfall-rest");
+        return new RestClient(httpClient);
     }
 }

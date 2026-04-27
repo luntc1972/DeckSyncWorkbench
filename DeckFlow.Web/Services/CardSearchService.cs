@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Caching.Memory;
+using Polly;
+using Polly.Registry;
 using RestSharp;
+using DeckFlow.Web.Services.Http;
 
 namespace DeckFlow.Web.Services;
 
@@ -32,14 +35,65 @@ public sealed class ScryfallCardSearchService : ICardSearchService
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeAsync;
 
     /// <summary>
-    /// Initializes the search service.
+    /// Private ctor accepting a pre-resolved Polly pipeline. Used by both the production ctor
+    /// and the public test-compat overload.
     /// </summary>
-    public ScryfallCardSearchService(IMemoryCache cache, RestClient? restClient = null, Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeAsync = null)
+    private ScryfallCardSearchService(
+        IScryfallRestClientFactory scryfallRestClientFactory,
+        ResiliencePipeline<RestResponse> scryfallPipeline,
+        IMemoryCache cache,
+        RestClient? restClientOverride,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeAsyncOverride)
     {
+        ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
+        ArgumentNullException.ThrowIfNull(cache);
+        var pipeline = scryfallPipeline ?? ResiliencePipeline<RestResponse>.Empty;
         _cache = cache;
-        var client = restClient ?? ScryfallRestClientFactory.Create();
+        var client = restClientOverride ?? scryfallRestClientFactory.Create();
+        _executeAsync = executeAsyncOverride ?? ((request, cancellationToken) =>
+            ScryfallThrottle.ExecuteAsync(
+                token => pipeline.ExecuteAsync(
+                    async pollyCt => await client.ExecuteAsync<ScryfallSearchResponse>(request, pollyCt).ConfigureAwait(false),
+                    token).AsTask(),
+                cancellationToken));
+    }
 
-        _executeAsync = executeAsync ?? ((request, cancellationToken) => ScryfallThrottle.ExecuteAsync(token => client.ExecuteAsync<ScryfallSearchResponse>(request, token), cancellationToken));
+    /// <summary>
+    /// Production ctor — DI resolves IScryfallRestClientFactory + named "scryfall"
+    /// pipeline from ResiliencePipelineProvider&lt;string&gt;.
+    /// </summary>
+    public ScryfallCardSearchService(
+        IScryfallRestClientFactory scryfallRestClientFactory,
+        ResiliencePipelineProvider<string> pipelineProvider,
+        IMemoryCache cache)
+        : this(
+            scryfallRestClientFactory,
+            pipelineProvider?.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty,
+            cache,
+            null,
+            null)
+    {
+        ArgumentNullException.ThrowIfNull(pipelineProvider);
+    }
+
+    /// <summary>
+    /// Internal test-compat overload preserving the legacy
+    /// <c>(IMemoryCache, RestClient?, Func&lt;...&gt;?)</c> signature used by
+    /// <c>ScryfallCardSearchServiceTests</c>. Internal per pre-existing AssemblyInfo
+    /// InternalsVisibleTo for DeckFlow.Web.Tests - public would create a DI ctor-resolution
+    /// ambiguity at startup. Uses <see cref="ResiliencePipeline{T}.Empty"/> directly per MEDIUM-4.
+    /// </summary>
+    internal ScryfallCardSearchService(
+        IMemoryCache cache,
+        RestClient? restClient = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeAsync = null)
+        : this(
+            NullScryfallRestClientFactory.Instance,
+            ResiliencePipeline<RestResponse>.Empty,
+            cache,
+            restClient,
+            executeAsync)
+    {
     }
 
     /// <inheritdoc />
