@@ -10,6 +10,10 @@ internal sealed class FakeScryfallRestClientFactory : IScryfallRestClientFactory
     public FakeScryfallRestClientFactory(HttpClient httpClient)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
+        if (httpClient.BaseAddress is null)
+            throw new ArgumentException(
+                "FakeScryfallRestClientFactory: HttpClient.BaseAddress must be set before construction.",
+                nameof(httpClient));
         _httpClient = httpClient;
     }
 
