@@ -1058,8 +1058,14 @@ const attachDeckSyncPersistence = () => {
     clearButton === null || clearButton === void 0 ? void 0 : clearButton.addEventListener('click', () => {
         const clearHref = clearButton.getAttribute('data-clear-href');
         if (clearHref) {
-            clearPersistedFormState(form);
-            window.location.href = clearHref;
+            const cacheKey = form.getAttribute('data-cache-key');
+            if (cacheKey === 'chatgpt-packets') {
+                clearChatGptPacketsState(form);
+            }
+            else {
+                clearPersistedFormState(form);
+            }
+            window.location.replace(clearHref);
             return;
         }
         form.reset();
@@ -1136,6 +1142,14 @@ const applyChatGptUiMode = (form, mode) => {
         button.classList.toggle('is-active', buttonMode === mode);
         button.setAttribute('aria-pressed', buttonMode === mode ? 'true' : 'false');
     });
+};
+const clearChatGptPacketsState = (form) => {
+    clearPersistedFormState(form);
+    storageAvailable === null || storageAvailable === void 0 ? void 0 : storageAvailable.removeItem(chatGptUiModeStorageKey);
+    form.reset();
+    applyChatGptUiMode(form, 'guided');
+    showChatGptStep(form, 1);
+    setChatGptValidationMessage(null);
 };
 const validateChatGptPacketsStep = (form, step) => {
     var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v;
