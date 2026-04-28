@@ -86,7 +86,7 @@ public sealed class ScryfallTaggerServiceTests
     }
 
     [Fact]
-    public async Task LookupOracleTagsAsync_WarmCache_SkipsRestAndCsrfLegs()
+    public async Task LookupOracleTagsAsync_WarmCache_SkipsCsrfLeg_RefetchesRestAndGraphQL()
     {
         using var scryfallMock = new MockHttpMessageHandler();
         using var taggerMock = new MockHttpMessageHandler();
@@ -113,7 +113,7 @@ public sealed class ScryfallTaggerServiceTests
 
         // Cold call
         var first = await sut.LookupOracleTagsAsync("Thrasios, Triton Hero", CancellationToken.None);
-        // Warm call — session cached, CSRF+REST should NOT re-fire
+        // Warm call — session cached, CSRF should NOT re-fire; REST+GraphQL re-fire per invocation
         var second = await sut.LookupOracleTagsAsync("Thrasios, Triton Hero", CancellationToken.None);
 
         Assert.NotNull(first);
