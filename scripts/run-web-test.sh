@@ -22,7 +22,7 @@ export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}"
 export FEEDBACK_ADMIN_USER="${FEEDBACK_ADMIN_USER:-admin}"
 export FEEDBACK_ADMIN_PASSWORD="${FEEDBACK_ADMIN_PASSWORD:-changeme-local}"
 
-PORT="${PORT:-5173}"
+PORT="${DECKFLOW_E2E_PORT:-${PORT:-5173}}"
 
 if [ "${FORCE_RESTART:-0}" != "1" ] && command -v curl >/dev/null 2>&1; then
   if curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' "http://localhost:${PORT}/" | grep -Eq '^[23][0-9][0-9]$'; then
@@ -41,7 +41,7 @@ fi
 
 # WSL-exported vars do not cross into Windows .exe processes unless named in WSLENV.
 if [[ "$DOTNET" == *.exe || "$DOTNET" == *"/mnt/c/"* ]]; then
-  export WSLENV="${WSLENV:+${WSLENV}:}DECKFLOW_DISABLE_AUTO_BROWSER:ASPNETCORE_ENVIRONMENT:FEEDBACK_ADMIN_USER:FEEDBACK_ADMIN_PASSWORD"
+  export WSLENV="${WSLENV:+${WSLENV}:}DECKFLOW_DISABLE_AUTO_BROWSER:DECKFLOW_E2E_PORT:ASPNETCORE_ENVIRONMENT:FEEDBACK_ADMIN_USER:FEEDBACK_ADMIN_PASSWORD"
 fi
 
 # Free the port so a stale server does not block the bind (best-effort).

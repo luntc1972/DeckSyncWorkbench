@@ -17,7 +17,7 @@ if (-not $env:ASPNETCORE_ENVIRONMENT) { $env:ASPNETCORE_ENVIRONMENT = "Developme
 if (-not $env:FEEDBACK_ADMIN_USER)     { $env:FEEDBACK_ADMIN_USER = "admin" }
 if (-not $env:FEEDBACK_ADMIN_PASSWORD) { $env:FEEDBACK_ADMIN_PASSWORD = "changeme-local" }
 
-$port = if ($env:PORT) { $env:PORT } else { "5173" }
+$port = if ($env:DECKFLOW_E2E_PORT) { $env:DECKFLOW_E2E_PORT } elseif ($env:PORT) { $env:PORT } else { "5173" }
 
 Write-Host "DeckFlow.Web (headless test mode) -> http://localhost:$port"
 Write-Host "Auto-browser: DISABLED (DECKFLOW_DISABLE_AUTO_BROWSER=true). No Windows browser will open."
