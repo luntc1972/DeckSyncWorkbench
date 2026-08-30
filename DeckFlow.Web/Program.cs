@@ -92,6 +92,7 @@ public partial class Program
             builder.Services.AddDeckFlowResiliencePipelines();
 
             builder.Services.AddDeckFlowScryfallServices();
+            builder.Services.AddDeckFlowCreatorStyle(builder.Environment);
 
             builder.Services.AddSingleton<IHelpContentService, HelpContentService>();
             builder.Services.AddSingleton<IGameChangerCatalogService, GameChangerCatalogService>();
@@ -305,7 +306,9 @@ public partial class Program
             await ValidateDatabaseConnectionsAsync(app.Services, app.Environment, app.Logger);
             app.Logger.LogInformation("Ensuring content site-index schema during startup.");
             await app.Services.GetRequiredService<DeckFlow.Core.Content.IContentSiteIndexStore>().EnsureSchemaAsync();
-            await app.Services.GetRequiredService<IContentKbSeedLoader>().LoadIfPresentAsync();
+            Task contentKbSeedTask = app.Services.GetRequiredService<IContentKbSeedLoader>().LoadIfPresentAsync();
+            Task creatorStyleSeedTask = app.Services.GetRequiredService<ICreatorStyleSeedLoader>().LoadIfPresentAsync();
+            await AwaitStartupSeedTasksAsync(contentKbSeedTask, creatorStyleSeedTask, app.Services.GetRequiredService<ILogger<Program>>());
             app.Logger.LogInformation("Content site-index schema ensured and seed load completed during startup.");
 
             // D-08: one-time deterministic body_sha256 backfill, third step after schema-ensure
@@ -433,6 +436,44 @@ public partial class Program
 
     private static bool IsApiPath(PathString path)
         => path.StartsWithSegments("/api") || path.StartsWithSegments("/Admin/api");
+
+    internal static async Task AwaitStartupSeedTasksAsync(
+        Task contentKbSeedTask,
+        Task creatorStyleSeedTask,
+        ILogger<Program> logger)
+    {
+        ArgumentNullException.ThrowIfNull(contentKbSeedTask);
+        ArgumentNullException.ThrowIfNull(creatorStyleSeedTask);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        try
+        {
+            await Task.WhenAll(contentKbSeedTask, creatorStyleSeedTask);
+        }
+        catch
+        {
+            LogFaultedSeedTask(contentKbSeedTask, nameof(contentKbSeedTask), logger);
+            LogFaultedSeedTask(creatorStyleSeedTask, nameof(creatorStyleSeedTask), logger);
+            throw;
+        }
+    }
+
+    internal static void LogFaultedSeedTask(Task seedTask, string seedTaskName, ILogger<Program> logger)
+    {
+        ArgumentNullException.ThrowIfNull(seedTask);
+        ArgumentException.ThrowIfNullOrWhiteSpace(seedTaskName);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        if (!seedTask.IsFaulted)
+        {
+            return;
+        }
+
+        logger.LogError(
+            seedTask.Exception?.InnerException ?? seedTask.Exception,
+            "Startup seed task {SeedTask} faulted.",
+            seedTaskName);
+    }
 
     private static async Task ValidateDatabaseConnectionsAsync(IServiceProvider services, IWebHostEnvironment environment, Microsoft.Extensions.Logging.ILogger logger)
     {

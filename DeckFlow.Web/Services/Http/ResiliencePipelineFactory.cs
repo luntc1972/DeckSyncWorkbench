@@ -40,6 +40,7 @@ namespace DeckFlow.Web.Services.Http
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "tagger", builder => BuildTagger(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "tagger-post", builder => BuildTaggerPost(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "scryfall", builder => BuildScryfall(builder));
+            DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "archidekt", builder => BuildArchidekt(builder));
             return services;
         }
 
@@ -79,6 +80,25 @@ namespace DeckFlow.Web.Services.Http
                         .Handle<Exception>(static ex => IsTransientException(ex)),
                 })
                 .AddTimeout(attemptTimeout ?? EdhrecAttemptTimeout);
+
+        /// <summary>
+        /// Archidekt: TotalTimeout(30s) as OUTERMOST strategy with Retry(2, exponential+jitter) on 5xx and transient exceptions.
+        /// </summary>
+        private static void BuildArchidekt(ResiliencePipelineBuilder<RestResponse> builder) => builder
+            .AddTimeout(new TimeoutStrategyOptions
+            {
+                Timeout = TimeSpan.FromSeconds(30),
+                Name = "archidekt-total",
+            })
+            .AddRetry(new RetryStrategyOptions<RestResponse>
+            {
+                MaxRetryAttempts = 2,
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                ShouldHandle = new PredicateBuilder<RestResponse>()
+                    .HandleResult(static r => r.StatusCode >= HttpStatusCode.InternalServerError)
+                    .Handle<Exception>(static ex => IsTransientException(ex)),
+            });
 
         /// <summary>Spellbook: Retry(3, exponential+jitter), AttemptTimeout(10s), CB(50% / 30s).</summary>
         private static void BuildSpellbook(ResiliencePipelineBuilder<RestResponse> builder) => builder

@@ -64,7 +64,9 @@ public sealed record ScryfallCard(
     [property: JsonPropertyName("cmc")] double Cmc = 0,
     [property: JsonPropertyName("produced_mana")] IReadOnlyList<string>? ProducedMana = null,
     [property: JsonPropertyName("rarity")] string? Rarity = null,
-    [property: JsonPropertyName("oracle_id")] string? OracleId = null);
+    [property: JsonPropertyName("oracle_id")] string? OracleId = null,
+    [property: JsonPropertyName("legalities")]
+    IReadOnlyDictionary<string, string>? Legalities = null);
 
 /// <summary>
 /// Container for a Scryfall rulings list response.

@@ -55,6 +55,13 @@ public interface IScryfallCardResolver
     }
 
     /// <summary>
+    /// Executes a strict fuzzy <c>/cards/named</c> lookup and returns the raw response for downstream 404-body inspection.
+    /// </summary>
+    Task<RestResponse<ScryfallCard>> ExecuteNamedFuzzyAsync(string cardName, CancellationToken cancellationToken)
+        => throw new NotSupportedException(
+            $"{nameof(ExecuteNamedFuzzyAsync)} requires a concrete {nameof(ScryfallCardResolver)} implementation.");
+
+    /// <summary>
     /// Resolves a single card by name: an exact collection lookup with a normalized-name match, falling
     /// back to the exact-name search when the collection misses. Returns null when nothing matches.
     /// </summary>
@@ -136,6 +143,19 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
     {
         ArgumentNullException.ThrowIfNull(request);
         return _executeCollectionAsync(request, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<RestResponse<ScryfallCard>> ExecuteNamedFuzzyAsync(string cardName, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
+
+        var request = new RestRequest("cards/named", Method.Get);
+        request.AddQueryParameter("fuzzy", NormalizeForScryfall(cardName));
+
+        var response = await _executeNamedAsync(request, cancellationToken).ConfigureAwait(false);
+        ScryfallThrottle.ThrowIfUpstreamUnavailable(response.StatusCode);
+        return response;
     }
 
     /// <inheritdoc/>

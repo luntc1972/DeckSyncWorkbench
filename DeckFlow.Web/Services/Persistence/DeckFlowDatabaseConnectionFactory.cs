@@ -80,6 +80,13 @@ public static class DeckFlowDatabaseConnectionFactory
     }
 
     /// <summary>
+    /// Returns the relational connection used by the creator deck cache.
+    /// </summary>
+    /// <param name="environment">Web host environment used to resolve local artifact paths.</param>
+    public static RelationalDatabaseConnection CreateCreatorDeckCacheConnection(IWebHostEnvironment environment)
+        => CreateConnection(environment, "creator-deck-cache.db");
+
+    /// <summary>
     /// Returns the provider-aware content site-index connection, the only Render-bound content shape for the
     /// slim index (D-12/D-14).
     /// </summary>
