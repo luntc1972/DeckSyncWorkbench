@@ -5,7 +5,8 @@ const adminUser = process.env.FEEDBACK_ADMIN_USER ?? 'admin';
 const adminPassword = process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local';
 const basicAuthHeader = `Basic ${Buffer.from(`${adminUser}:${adminPassword}`).toString('base64')}`;
 
-export const adminLockPath = '/tmp/deckflow-admin-e2e.lock';
+const adminLockPort = process.env.DECKFLOW_E2E_PORT ?? '5173';
+export const adminLockPath = `/tmp/deckflow-admin-e2e-${adminLockPort}.lock`;
 export const adminLockTimeoutMs = 90_000;
 
 type LockHandle = Awaited<ReturnType<typeof open>>;
