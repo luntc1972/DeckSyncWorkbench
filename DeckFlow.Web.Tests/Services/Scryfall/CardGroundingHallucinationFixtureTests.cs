@@ -225,7 +225,7 @@ public sealed class CardGroundingHallucinationFixtureTests
     private static RestResponse<ScryfallCollectionResponse> CollectionResponse(
         HttpStatusCode statusCode,
         IReadOnlyList<ScryfallCard>? cards = null,
-        IReadOnlyList<ScryfallCollectionIdentifier>? notFound = null)
+        IReadOnlyList<DeckFlow.Web.Services.ScryfallCollectionIdentifier>? notFound = null)
         => new(new RestRequest())
         {
             StatusCode = statusCode,

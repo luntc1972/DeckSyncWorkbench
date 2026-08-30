@@ -284,8 +284,8 @@ public sealed class CardGroundingGuardTests
                 ],
                 notFound:
                 [
-                    new ScryfallCollectionIdentifier("Made Up Card"),
-                    new ScryfallCollectionIdentifier("Counterspell"),
+                    new DeckFlow.Web.Services.ScryfallCollectionIdentifier("Made Up Card"),
+                    new DeckFlow.Web.Services.ScryfallCollectionIdentifier("Counterspell"),
                 ])),
             ExecuteNamedFuzzyAsyncImpl = cardName => cardName == "Counterspell"
                 ? throw new HttpRequestException("upstream")
@@ -364,7 +364,7 @@ public sealed class CardGroundingGuardTests
     private static RestResponse<ScryfallCollectionResponse> CollectionResponse(
         HttpStatusCode statusCode,
         IReadOnlyList<ScryfallCard>? cards = null,
-        IReadOnlyList<ScryfallCollectionIdentifier>? notFound = null)
+        IReadOnlyList<DeckFlow.Web.Services.ScryfallCollectionIdentifier>? notFound = null)
         => new(new RestRequest())
         {
             StatusCode = statusCode,
