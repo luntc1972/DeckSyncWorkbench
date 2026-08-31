@@ -72,6 +72,33 @@ public sealed class MeasuredStyleProfileBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_MultipleDecks_BoundsConcurrentComboLookups()
+    {
+        // Why (WR-09): BuildComboDensityMetricAsync used to Task.WhenAll every deck's combo lookup
+        // with no cap, so a large creator could fan out hundreds of concurrent Scryfall-backed
+        // calls. This pins the MaxConcurrentDeckAnalyses bound against the 6-deck Snail corpus.
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await TestHarness.CreateAsync(now);
+        await harness.SeedSourceAsync(
+            SnailSeedCorpusFixture.CreatorSlug,
+            SnailSeedCorpusFixture.Username,
+            SnailSeedCorpusFixture.DeckSummaries,
+            SnailSeedCorpusFixture.Samples);
+        await harness.SeedCategoriesAsync();
+        await harness.SeedBaselineAsync();
+
+        var comboService = new ConcurrencyTrackingCommanderSpellbookService();
+        var builder = harness.CreateBuilder(comboService);
+
+        await builder.BuildAsync(SnailSeedCorpusFixture.CreatorSlug, SnailSeedCorpusFixture.Platform);
+
+        Assert.True(
+            comboService.PeakConcurrency <= 4,
+            $"Expected combo lookups to be bounded to 4 concurrent callers but observed {comboService.PeakConcurrency}.");
+        Assert.True(comboService.PeakConcurrency > 1, "Expected some overlap so the assertion is not trivially true.");
+    }
+
+    [Fact]
     public async Task MeasuredStyleProfileBuilder_SnailSeedCorpus_ExtractorInvariants()
     {
         var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
@@ -461,6 +488,49 @@ public sealed class MeasuredStyleProfileBuilderTests
             };
 
             return Task.FromResult(_resultsByDeckId.TryGetValue(deckId, out var result) ? result : null);
+        }
+    }
+
+    private sealed class ConcurrencyTrackingCommanderSpellbookService : ICommanderSpellbookService
+    {
+        private readonly object _lock = new();
+        private int _current;
+        private int _peak;
+
+        public int PeakConcurrency
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _peak;
+                }
+            }
+        }
+
+        public async Task<CommanderSpellbookResult?> FindCombosAsync(IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)
+        {
+            lock (_lock)
+            {
+                _current++;
+                if (_current > _peak)
+                {
+                    _peak = _current;
+                }
+            }
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(20), cancellationToken).ConfigureAwait(false);
+                return null;
+            }
+            finally
+            {
+                lock (_lock)
+                {
+                    _current--;
+                }
+            }
         }
     }
 

@@ -20,6 +20,12 @@ namespace DeckFlow.Web.Services.CreatorStyle;
 public sealed class MeasuredStyleProfileBuilder
 {
     private const int MaxLiftMetrics = 25;
+
+    // Why: bounds per-creator combo/manabase fan-out (up to ArchidektOwnerClient.MaxDecks = 500
+    // decks) so a large creator cannot launch hundreds of concurrent Scryfall-backed analyses on
+    // the 512MB Render tier; each caller still funnels through the process-wide ScryfallThrottle,
+    // this just caps how many are queued behind it at once.
+    private const int MaxConcurrentDeckAnalyses = 4;
     private static readonly HashSet<string> AnalyzedBoards = new(StringComparer.OrdinalIgnoreCase)
     {
         "mainboard",
@@ -208,9 +214,14 @@ public sealed class MeasuredStyleProfileBuilder
         double effectiveSampleSize,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<double> comboCounts = await Task.WhenAll(
-                samples.Select(sample => ResolveComboCountAsync(sample.Entries, cancellationToken)))
-            .ConfigureAwait(false);
+        var comboCounts = new double[samples.Count];
+        await Parallel.ForEachAsync(
+            Enumerable.Range(0, samples.Count),
+            new ParallelOptions { MaxDegreeOfParallelism = MaxConcurrentDeckAnalyses, CancellationToken = cancellationToken },
+            async (index, ct) =>
+            {
+                comboCounts[index] = await ResolveComboCountAsync(samples[index].Entries, ct).ConfigureAwait(false);
+            }).ConfigureAwait(false);
 
         return AverageMetric("combo_density:included_per_deck", comboCounts, rawDeckCount, effectiveSampleSize);
     }
@@ -221,9 +232,14 @@ public sealed class MeasuredStyleProfileBuilder
         double effectiveSampleSize,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<ManabaseReport> reports = await Task.WhenAll(
-                samples.Select(sample => AnalyzeDeckAsync(sample.Entries, cancellationToken)))
-            .ConfigureAwait(false);
+        var reports = new ManabaseReport[samples.Count];
+        await Parallel.ForEachAsync(
+            Enumerable.Range(0, samples.Count),
+            new ParallelOptions { MaxDegreeOfParallelism = MaxConcurrentDeckAnalyses, CancellationToken = cancellationToken },
+            async (index, ct) =>
+            {
+                reports[index] = await AnalyzeDeckAsync(samples[index].Entries, ct).ConfigureAwait(false);
+            }).ConfigureAwait(false);
 
         IReadOnlyList<double> landDelta = reports.Select(report => report.LandDelta).ToArray();
         IReadOnlyList<double> targetLands = reports.Select(report => report.TargetLands).ToArray();
