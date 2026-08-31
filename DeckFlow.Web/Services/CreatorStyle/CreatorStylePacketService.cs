@@ -119,6 +119,18 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
     private const string CritiqueInstruction = "Critique this deck ONLY using the cards provided above. Do not invent, suggest, or reference any card that is not listed here.";
     private const string SupersededVerdict = "superseded";
     internal const string CreatorStyleToolEnabledFlag = "tool.creator-style.enabled";
+
+    // Why (WR-15 tracking note, see WR-08 in 112-REVIEW.md): CreatorStyleToolEnabledFlag is the
+    // sole gate that makes this service reachable at all - every packet built here necessarily
+    // has the flag ON, so registering it as "prompt mutating" makes ShouldBypassPacketCache()
+    // return true unconditionally in every state this code can actually run in. That makes
+    // PacketSessionCache's read/write wiring for this tool a total no-op today, not the
+    // conditional no-op the comment below used to claim. Left unresolved pending a maintainer
+    // decision between two mutually exclusive fixes (either drop this flag from the list below,
+    // which would also require rewriting the three tests in CreatorStylePacketServiceTests.cs
+    // that currently pin today's always-bypass behavior as intentional, or delete the cache
+    // wiring and CreatorStyleCacheInputs entirely) - see 112-REVIEW-FIX.md for the fuller
+    // rationale.
     internal static readonly IReadOnlyList<string> PromptMutatingCreatorStyleFlags = new[]
     {
         CreatorStyleToolEnabledFlag,
@@ -326,8 +338,13 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         {
             if (!bypassCacheWrite && _packetCache is not null)
             {
-                // Why: the single-flag topology currently makes creator-style cache bypass a no-op,
-                // but the wiring must still mirror DeckAnalysisPacketService to prevent cross-flip replay.
+                // Why (WR-08 in 112-REVIEW.md): this branch never actually runs today - it is the
+                // *cache*, not the bypass, that is the no-op. CreatorStyleToolEnabledFlag is the
+                // sole flag in PromptMutatingCreatorStyleFlags and also the sole gate that makes
+                // this service reachable, so bypassCacheWrite is always true whenever BuildAsync
+                // executes. The wiring is left in place, mirroring DeckAnalysisPacketService's
+                // shape, pending a maintainer decision on how to resolve WR-08 (see the constant
+                // declaration above and 112-REVIEW-FIX.md for the two candidate fixes).
                 string cacheKey = PacketSessionCache.ComputeKey(BuildCacheInputs(request));
                 _packetCache.Set(cacheKey, result, PacketSizeEstimator.EstimateSizeBytes(result));
             }
