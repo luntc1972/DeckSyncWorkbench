@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using System.Text.Json.Serialization;
+
 namespace DeckFlow.Web.Models;
 
 /// <summary>
@@ -46,22 +49,16 @@ public sealed class CreatorStyleRequest
     /// Returns the raw deck input routed through <see cref="DeckUrl"/> or <see cref="DeckText"/>
     /// based on <see cref="DeckInputSource"/>.
     /// </summary>
-    public string DeckSource
-    {
-        get => DeckInputSource == DeckInputSource.PublicUrl ? _deckUrl : _deckText;
-        set
-        {
-            var normalized = value ?? string.Empty;
-            if (DeckInputSource == DeckInputSource.PublicUrl)
-            {
-                _deckUrl = normalized;
-            }
-            else
-            {
-                _deckText = normalized;
-            }
-        }
-    }
+    /// <remarks>
+    /// Why (WR-12): this is a computed, read-only projection, not a settable field. A settable
+    /// <c>DeckSource</c> on a form-bound DTO would let a posted <c>DeckSource</c> field populate
+    /// <see cref="DeckUrl"/> depending on whichever order the model binder happens to visit
+    /// properties in, bypassing whatever validation the caller expected on <see cref="DeckUrl"/>
+    /// or <see cref="DeckText"/> directly. Callers must set those explicitly.
+    /// </remarks>
+    [BindNever]
+    [JsonIgnore]
+    public string DeckSource => DeckInputSource == DeckInputSource.PublicUrl ? _deckUrl : _deckText;
 
     /// <summary>
     /// Magic: The Gathering format the deck targets; defaults to "Commander".
