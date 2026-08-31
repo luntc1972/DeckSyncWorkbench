@@ -22,7 +22,19 @@ export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}"
 export FEEDBACK_ADMIN_USER="${FEEDBACK_ADMIN_USER:-admin}"
 export FEEDBACK_ADMIN_PASSWORD="${FEEDBACK_ADMIN_PASSWORD:-changeme-local}"
 
-PORT="${DECKFLOW_E2E_PORT:-${PORT:-5173}}"
+if [ -n "${DECKFLOW_E2E_PORT:-}" ]; then
+  PORT="$DECKFLOW_E2E_PORT"
+elif [ -n "${PORT:-}" ]; then
+  PORT="$PORT"
+else
+  WEB_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../DeckFlow.Web" && pwd)"
+  PORT_HASH=0
+  for ((INDEX = 0; INDEX < ${#WEB_ROOT}; INDEX++)); do
+    printf -v CHAR_CODE '%d' "'${WEB_ROOT:INDEX:1}"
+    PORT_HASH=$(((PORT_HASH * 31 + CHAR_CODE) % 10000))
+  done
+  PORT=$((20000 + PORT_HASH))
+fi
 
 if [ "${FORCE_RESTART:-0}" != "1" ] && command -v curl >/dev/null 2>&1; then
   if curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' "http://localhost:${PORT}/" | grep -Eq '^[23][0-9][0-9]$'; then

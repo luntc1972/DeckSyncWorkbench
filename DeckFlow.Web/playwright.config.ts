@@ -1,11 +1,11 @@
 import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
+import { resolveE2EPort } from './e2e/support/e2e-port';
 
 const windowsDotnetPath = '/mnt/c/Program Files/dotnet/dotnet.exe';
 const dotnetCommand = existsSync(windowsDotnetPath) ? `"${windowsDotnetPath}"` : 'dotnet';
 const reuseExistingServer = !process.env.CI || Boolean(process.env.WSL_DISTRO_NAME);
-// Why: concurrent worktree E2E runs must not collide on the same port.
-const e2ePort = process.env.DECKFLOW_E2E_PORT ?? '5173';
+const e2ePort = resolveE2EPort();
 
 export default defineConfig({
   testDir: './e2e',
