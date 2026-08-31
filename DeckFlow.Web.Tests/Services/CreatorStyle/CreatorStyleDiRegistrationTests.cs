@@ -50,6 +50,7 @@ public sealed class CreatorStyleDiRegistrationTests
 
     private static readonly HashSet<Type> ScopedCreatorStyleServices =
     [
+        typeof(IArchidektOwnerClient),
         typeof(CreatorProfileDeckCrawler),
         typeof(CreatorDeckCategoryResolver),
         typeof(MeasuredStyleProfileBuilder),
