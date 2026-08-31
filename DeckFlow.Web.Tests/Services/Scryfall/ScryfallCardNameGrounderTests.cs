@@ -49,6 +49,19 @@ public sealed class ScryfallCardNameGrounderTests
     }
 
     [Fact]
+    public async Task TryGroundAsync_ResolverThrows_DoesNotCacheFailure()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var resolver = new FakeResolver(_ => throw new HttpRequestException("upstream"));
+        var sut = new ScryfallCardNameGrounder(resolver, cache);
+
+        await sut.TryGroundAsync("Explosive Vegetaion", CancellationToken.None);
+        await sut.TryGroundAsync("Explosive Vegetaion", CancellationToken.None);
+
+        Assert.Equal(2, resolver.SearchPrintingFallbackCallCount);
+    }
+
+    [Fact]
     public async Task TryGroundAsync_SameNormalizedName_HitsResolverOnce()
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());

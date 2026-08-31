@@ -36,16 +36,22 @@ internal static class CachedNameResolution
         }
 
         T result;
+        bool failed = false;
         try
         {
             result = await fetchAsync(cancellationToken).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception exception)
         {
             result = onFailure(exception);
+            failed = true;
         }
 
-        TimeSpan? ttl = selectTtl(result);
+        TimeSpan? ttl = failed ? null : selectTtl(result);
         if (ttl.HasValue)
         {
             cache.Set(cacheKey, result, ttl.Value);

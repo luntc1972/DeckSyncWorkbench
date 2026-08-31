@@ -480,11 +480,13 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
             foreach (CreatorStyleExemplarDeck exemplar in exemplars)
             {
                 sb.Append("- DeckId: ");
-                sb.Append(exemplar.DeckId);
+                sb.Append(SanitizeUserText(exemplar.DeckId, fallback: "(unknown)"));
                 sb.Append("; FolderName: ");
-                sb.Append(string.IsNullOrWhiteSpace(exemplar.FolderName) ? "(none)" : exemplar.FolderName);
+                sb.Append(string.IsNullOrWhiteSpace(exemplar.FolderName)
+                    ? "(none)"
+                    : SanitizeUserText(exemplar.FolderName, fallback: "(none)"));
                 sb.Append("; ConfidenceMarker: ");
-                sb.Append(exemplar.ConfidenceMarker);
+                sb.Append(SanitizeUserText(exemplar.ConfidenceMarker, fallback: "unknown"));
                 sb.Append("; Cards: ");
                 sb.AppendLine(exemplar.CardNames.Count == 0 ? "(none)" : string.Join(", ", exemplar.CardNames));
             }
@@ -536,7 +538,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
 
     private static string SanitizeUserText(string? value, string fallback)
     {
-        // Why: folder and card names in the artifact are guard/whitelist-grounded; only the raw request slug is untrusted free text, hence the single sanitize site.
+        // Why: raw request slug plus upstream exemplar DeckId, FolderName, and ConfidenceMarker are free text; each artifact site is sanitized to retain its one-line contract.
         string singleLine = JsonTextFormatterService.NormalizeSingleLine(value, fallback).Trim();
         if (singleLine.Length == 0)
         {
