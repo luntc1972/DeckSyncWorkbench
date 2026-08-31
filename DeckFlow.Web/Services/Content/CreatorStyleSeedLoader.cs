@@ -63,11 +63,22 @@ public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
             return 0;
         }
 
-        await using var stream = File.OpenRead(seedFilePath);
-        var profiles = await JsonSerializer
-            .DeserializeAsync<CreatorStyleProfile[]>(stream, SeedJson.Options, cancellationToken)
-            .ConfigureAwait(false)
-            ?? Array.Empty<CreatorStyleProfile>();
+        CreatorStyleProfile[] profiles;
+        try
+        {
+            await using var stream = File.OpenRead(seedFilePath);
+            profiles = await JsonSerializer
+                .DeserializeAsync<CreatorStyleProfile[]>(stream, SeedJson.Options, cancellationToken)
+                .ConfigureAwait(false)
+                ?? Array.Empty<CreatorStyleProfile>();
+        }
+        catch (JsonException exception)
+        {
+            // Why: creator-style is admin-only and optional (D-10); a corrupt seed file must
+            // degrade this one feature, not abort startup for the whole deployment.
+            _logger.LogError(exception, "Creator style profile seed file is malformed; skipping profile seed load.");
+            return 0;
+        }
 
         foreach (var profile in profiles)
         {
@@ -86,11 +97,22 @@ public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
             return 0;
         }
 
-        await using var stream = File.OpenRead(seedFilePath);
-        var entries = await JsonSerializer
-            .DeserializeAsync<CreatorDeckCacheEntry[]>(stream, SeedJson.Options, cancellationToken)
-            .ConfigureAwait(false)
-            ?? Array.Empty<CreatorDeckCacheEntry>();
+        CreatorDeckCacheEntry[] entries;
+        try
+        {
+            await using var stream = File.OpenRead(seedFilePath);
+            entries = await JsonSerializer
+                .DeserializeAsync<CreatorDeckCacheEntry[]>(stream, SeedJson.Options, cancellationToken)
+                .ConfigureAwait(false)
+                ?? Array.Empty<CreatorDeckCacheEntry>();
+        }
+        catch (JsonException exception)
+        {
+            // Why: creator-style is admin-only and optional (D-10); a corrupt seed file must
+            // degrade this one feature, not abort startup for the whole deployment.
+            _logger.LogError(exception, "Creator deck-cache seed file is malformed; skipping deck-cache seed load.");
+            return 0;
+        }
 
         foreach (var entry in entries)
         {

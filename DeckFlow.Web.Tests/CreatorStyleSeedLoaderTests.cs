@@ -96,15 +96,57 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
     }
 
     [Fact]
-    public async Task LoadIfPresentAsync_ThrowsJsonException_WhenPresentSeedFileIsMalformed()
+    public async Task LoadIfPresentAsync_MalformedProfileSeedFile_LogsAndReturnsZeroWithoutThrowing()
     {
+        // Why (WR-10): a corrupt seed file must degrade this admin-only, optional feature, not
+        // abort startup for the whole deployment.
         var baseDir = CreateContentKbBase();
         WriteSeed(baseDir, ContentKbPaths.CreatorStyleProfileSeedRelativePath, "{");
         var profileStore = new FakeCreatorStyleProfileStore();
         var deckCacheStore = new FakeCreatorDeckCacheStore();
         var loader = BuildLoader(baseDir, profileStore, deckCacheStore);
 
-        await Assert.ThrowsAsync<JsonException>(() => loader.LoadIfPresentAsync());
+        var count = await loader.LoadIfPresentAsync();
+
+        Assert.Equal(0, count);
+        Assert.Empty(profileStore.Upserts);
+        Assert.Empty(deckCacheStore.Upserts);
+    }
+
+    [Fact]
+    public async Task LoadIfPresentAsync_MalformedProfileSeedFile_StillLoadsUnaffectedDeckCacheSeedFile()
+    {
+        // Why (WR-10): the two seed files must fail independently — a corrupt profile seed must
+        // not also block a healthy deck-cache seed from loading.
+        var baseDir = CreateContentKbBase();
+        WriteSeed(baseDir, ContentKbPaths.CreatorStyleProfileSeedRelativePath, "{");
+        WriteSeed(
+            baseDir,
+            ContentKbPaths.CreatorDeckCacheSeedRelativePath,
+            JsonSerializer.Serialize(new[] { CreateDeckCacheEntry("alpha", "deck-a") }));
+        var profileStore = new FakeCreatorStyleProfileStore();
+        var deckCacheStore = new FakeCreatorDeckCacheStore();
+        var loader = BuildLoader(baseDir, profileStore, deckCacheStore);
+
+        var count = await loader.LoadIfPresentAsync();
+
+        Assert.Equal(1, count);
+        Assert.Empty(profileStore.Upserts);
+        Assert.Single(deckCacheStore.Upserts);
+    }
+
+    [Fact]
+    public async Task LoadIfPresentAsync_MalformedDeckCacheSeedFile_LogsAndReturnsZeroWithoutThrowing()
+    {
+        var baseDir = CreateContentKbBase();
+        WriteSeed(baseDir, ContentKbPaths.CreatorDeckCacheSeedRelativePath, "not json");
+        var profileStore = new FakeCreatorStyleProfileStore();
+        var deckCacheStore = new FakeCreatorDeckCacheStore();
+        var loader = BuildLoader(baseDir, profileStore, deckCacheStore);
+
+        var count = await loader.LoadIfPresentAsync();
+
+        Assert.Equal(0, count);
         Assert.Empty(profileStore.Upserts);
         Assert.Empty(deckCacheStore.Upserts);
     }
