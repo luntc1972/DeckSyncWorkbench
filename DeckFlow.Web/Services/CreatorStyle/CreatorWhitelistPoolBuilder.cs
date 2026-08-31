@@ -107,16 +107,27 @@ public sealed class CreatorWhitelistPoolBuilder
         };
     }
 
-    private Task<IReadOnlyList<string>> GetOrBuildRawPoolAsync(string creatorSlug, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<string>> GetOrBuildRawPoolAsync(string creatorSlug, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var cacheKey = BuildCacheKey(creatorSlug);
-        return _cache.GetOrCreateAsync(
+
+        // Why (WR-15): the factory below runs under CancellationToken.None, not the calling
+        // request's token. IMemoryCache.GetOrCreateAsync gives no stampede protection -
+        // concurrent callers for the same key each run their own factory - so if the request
+        // that happens to populate the cache is the one that gets cancelled, that must not fault
+        // (or leave uncached) an entry that other, still-live callers for the same creator are
+        // relying on.
+        IReadOnlyList<string>? cached = await _cache.GetOrCreateAsync(
             cacheKey,
             async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = RawPoolCacheTtl;
-                return await BuildRawPoolAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
-            })!;
+                return await BuildRawPoolAsync(creatorSlug, CancellationToken.None).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+
+        return cached ?? Array.Empty<string>();
     }
 
     private async Task<IReadOnlyList<string>> BuildRawPoolAsync(string creatorSlug, CancellationToken cancellationToken)

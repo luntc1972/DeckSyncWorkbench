@@ -151,6 +151,37 @@ public sealed class CreatorWhitelistPoolBuilderTests
     }
 
     [Fact]
+    public async Task BuildWithDiagnosticsAsync_CallerCancelsMidBuild_FactoryStillPopulatesCache()
+    {
+        // Why (WR-15): IMemoryCache.GetOrCreateAsync gives no stampede protection, so the
+        // caller that happens to run the raw-pool factory must not fault (or leave the cache
+        // unpopulated) just because that particular caller's own request was cancelled - other
+        // callers for the same creator are relying on the populated entry.
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var store = new GatedCreatorDeckCacheStore(Deck("stampede", "deck-1", Mainboard("Sol Ring")));
+        var guard = new FakeCardGroundingGuard();
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
+        using var cts = new CancellationTokenSource();
+
+        Task<CreatorWhitelistPoolBuildResult> firstCall = sut.BuildWithDiagnosticsAsync("stampede", EmptyDeckContext(), cts.Token);
+        await store.EnteredGetByCreator.Task;
+        cts.Cancel();
+        store.Release();
+
+        CreatorWhitelistPoolBuildResult result = await firstCall;
+
+        Assert.Equal(["Sol Ring"], result.AcceptedNames);
+        Assert.False(
+            store.ReceivedToken.IsCancellationRequested,
+            "The raw-pool factory must run under CancellationToken.None, not the calling request's token.");
+
+        IReadOnlyList<string> second = (await sut.BuildWithDiagnosticsAsync("stampede", EmptyDeckContext())).AcceptedNames;
+
+        Assert.Equal(["Sol Ring"], second);
+        Assert.Equal(1, store.GetByCreatorCallCount);
+    }
+
+    [Fact]
     public void ServiceCollection_ValidateOnBuild_ResolvesCreatorWhitelistPoolBuilder()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), "deckflow-98-03-di", Guid.NewGuid().ToString("N"));
@@ -230,6 +261,45 @@ public sealed class CreatorWhitelistPoolBuilderTests
             CanonicalName = canonicalName,
             RejectReason = reason,
         };
+
+    /// <summary>
+    /// A <see cref="ICreatorDeckCacheStore"/> double whose <see cref="GetByCreatorAsync"/> blocks
+    /// until <see cref="Release"/> is called, recording the token it was invoked with, so a test
+    /// can cancel the calling request's token mid-flight and assert the factory does not observe it.
+    /// </summary>
+    private sealed class GatedCreatorDeckCacheStore(params CreatorDeckCacheEntry[] entries) : ICreatorDeckCacheStore
+    {
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource EnteredGetByCreator { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int GetByCreatorCallCount { get; private set; }
+
+        public CancellationToken ReceivedToken { get; private set; }
+
+        public void Release() => _release.TrySetResult();
+
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<string?> GetContentHashAsync(string creatorSlug, string deckId, CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>(null);
+
+        public async Task<IReadOnlyList<CreatorDeckCacheEntry>> GetByCreatorAsync(string creatorSlug, CancellationToken cancellationToken = default)
+        {
+            GetByCreatorCallCount++;
+            ReceivedToken = cancellationToken;
+            EnteredGetByCreator.TrySetResult();
+            await _release.Task.ConfigureAwait(false);
+
+            return entries
+                .Where(entry => string.Equals(entry.CreatorSlug, creatorSlug, StringComparison.Ordinal))
+                .ToArray();
+        }
+
+        public Task UpsertAsync(CreatorDeckCacheEntry entry, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("Test store does not support writes.");
+    }
 
     private sealed class FakeCreatorDeckCacheStore(params CreatorDeckCacheEntry[] entries) : ICreatorDeckCacheStore
     {
