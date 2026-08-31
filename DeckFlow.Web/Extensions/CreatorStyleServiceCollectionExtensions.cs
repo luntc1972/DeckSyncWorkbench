@@ -30,6 +30,7 @@ public static class CreatorStyleServiceCollectionExtensions
         services.AddHttpClient("archidekt-owner", client =>
         {
             client.BaseAddress = new Uri("https://archidekt.com/");
+            client.MaxResponseContentBufferSize = ArchidektOwnerClient.MaxResponseBytes;
             client.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         });
@@ -53,7 +54,7 @@ public static class CreatorStyleServiceCollectionExtensions
 
         services.AddSingleton<CreatorWhitelistPoolBuilder>();
         services.AddSingleton<ICreatorStyleSeedLoader, CreatorStyleSeedLoader>();
-        services.AddSingleton<IArchidektOwnerClient, ArchidektOwnerClient>();
+        services.AddScoped<IArchidektOwnerClient, ArchidektOwnerClient>();
 
         services.AddScoped<CreatorProfileDeckCrawler>();
         services.AddScoped<CreatorDeckCategoryResolver>();

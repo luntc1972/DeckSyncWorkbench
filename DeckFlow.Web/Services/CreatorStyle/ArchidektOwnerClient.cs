@@ -44,7 +44,7 @@ public interface IArchidektOwnerClient
 }
 
 /// <summary>
-/// Fetches Archidekt owner metadata and public deck summaries with bounded JSON parsing.
+/// Fetches Archidekt owner metadata and public deck summaries with capped JSON parsing input.
 /// </summary>
 public sealed class ArchidektOwnerClient : IArchidektOwnerClient
 {
@@ -69,10 +69,9 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
         ILogger<ArchidektOwnerClient>? logger = null)
         : this(
             pipelineProvider,
-            new RestClient(httpClientFactory.CreateClient("archidekt-owner")),
+            new RestClient(CreateNamedClient(httpClientFactory)),
             logger)
     {
-        ArgumentNullException.ThrowIfNull(httpClientFactory);
     }
 
     internal ArchidektOwnerClient(
@@ -133,7 +132,11 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
                 return null;
             }
 
-            return usernameElement.GetString();
+            var resolvedUsername = usernameElement.GetString();
+            // Why: /api/users is a search endpoint; only an exact match resolves an owner.
+            return string.Equals(resolvedUsername, requestedUsername, StringComparison.OrdinalIgnoreCase)
+                ? resolvedUsername
+                : null;
         }
         catch (JsonException exception)
         {
@@ -240,6 +243,12 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
         }
 
         return true;
+    }
+
+    private static HttpClient CreateNamedClient(IHttpClientFactory factory)
+    {
+        ArgumentNullException.ThrowIfNull(factory);
+        return factory.CreateClient("archidekt-owner");
     }
 
     private static string ReadString(JsonElement item, string propertyName)

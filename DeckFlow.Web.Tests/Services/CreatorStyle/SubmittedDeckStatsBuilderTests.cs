@@ -210,6 +210,28 @@ public sealed class SubmittedDeckStatsBuilderTests
         Assert.Null(result.ResolvedCommanderName);
     }
 
+    [Fact]
+    public async Task BuildAsync_CollectionRequestFails_OmitsKarstenMetricsAndMarksResolutionDegraded()
+    {
+        DeckEntry[] entries =
+        [
+            Entry("Mystery Commander", 1, "commander"),
+            Entry("Unknown Spell", 3, "mainboard"),
+        ];
+
+        var builder = new SubmittedDeckStatsBuilder(
+            loadDeckAsync: (_, _) => Task.FromResult(new DeckSourceLoadResult(entries.ToList(), null)),
+            getCategoriesAsync: (_, _) => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>()),
+            findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(null),
+            executeCollectionAsync: (_, _) => Task.FromException<RestResponse<ScryfallCollectionResponse>>(new HttpRequestException()),
+            searchFallbackCardAsync: (_, _) => Task.FromResult<ScryfallCard?>(null));
+
+        SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
+
+        Assert.DoesNotContain("karsten:target_lands", result.Stats.Metrics.Keys);
+        Assert.True(result.DeckResolutionDegraded);
+    }
+
     private static DeckEntry Entry(string name, int quantity, string board)
     {
         return new DeckEntry

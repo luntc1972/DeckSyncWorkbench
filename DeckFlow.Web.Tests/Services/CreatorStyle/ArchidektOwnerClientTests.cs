@@ -73,6 +73,27 @@ public sealed class ArchidektOwnerClientTests
     }
 
     [Fact]
+    public async Task ResolveUsernameAsync_NonMatchingFirstSearchResult_ReturnsNull()
+    {
+        var stub = new StubHttpMessageHandler();
+        stub.Enqueue(JsonResponse("""
+            {
+              "results": [
+                {
+                  "username": "snailfish"
+                }
+              ]
+            }
+            """));
+
+        var sut = CreateClient(stub);
+
+        var username = await sut.ResolveUsernameAsync("snail");
+
+        Assert.Null(username);
+    }
+
+    [Fact]
     public async Task ResolveUsernameAsync_UsesArchidektNamedHttpClientAndPipeline()
     {
         var stub = new StubHttpMessageHandler();

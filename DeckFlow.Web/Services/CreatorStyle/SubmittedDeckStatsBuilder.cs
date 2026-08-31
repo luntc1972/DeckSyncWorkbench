@@ -146,8 +146,11 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
 
         Task<CommanderSpellbookResult?> comboTask = ResolveCombosAsync(analyzedEntries, cancellationToken);
         Task<SubmittedDeckResolution> resolutionTask = _analyzeSubmittedDeckAsync(analyzedEntries, cancellationToken);
-        IReadOnlyDictionary<string, IReadOnlyList<string>> cardCategories =
-            await ResolveCategoriesAsync(analyzedEntries, cancellationToken).ConfigureAwait(false);
+        Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> categoryTask = ResolveCategoriesAsync(analyzedEntries, cancellationToken);
+
+        await Task.WhenAll(comboTask, resolutionTask, categoryTask).ConfigureAwait(false);
+
+        IReadOnlyDictionary<string, IReadOnlyList<string>> cardCategories = await categoryTask.ConfigureAwait(false);
         IReadOnlyDictionary<string, int> categoryCounts = CountCategories(analyzedEntries, cardCategories);
         CommanderSpellbookResult? comboResult = await comboTask.ConfigureAwait(false);
         SubmittedDeckResolution resolution = await resolutionTask.ConfigureAwait(false);
@@ -248,13 +251,21 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
             return EmptyResolution();
         }
 
-        return await CreatorStyleDeckAnalysis.AnalyzeSubmittedDeckAsync(
-            entries,
-            _executeCollectionAsync,
-            _searchFallbackCardAsync,
-            cardName => _logger.LogDebug("Skipping unresolved submitted-deck manabase card {CardName}.", cardName),
-            "submitted-deck manabase analysis.",
-            cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await CreatorStyleDeckAnalysis.AnalyzeSubmittedDeckAsync(
+                entries,
+                _executeCollectionAsync,
+                _searchFallbackCardAsync,
+                cardName => _logger.LogDebug("Skipping unresolved submitted-deck manabase card {CardName}.", cardName),
+                "submitted-deck manabase analysis.",
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "Submitted-deck Scryfall resolution failed; omitting deck-resolution metrics.");
+            return EmptyResolution();
+        }
     }
 
     private static SubmittedDeckResolution EmptyResolution()

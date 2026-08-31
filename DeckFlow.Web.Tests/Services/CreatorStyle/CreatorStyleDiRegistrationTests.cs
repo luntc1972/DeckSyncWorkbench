@@ -41,6 +41,7 @@ public sealed class CreatorStyleDiRegistrationTests
         typeof(ICreatorStyleSeedLoader),
         typeof(IArchidektOwnerClient),
         typeof(CreatorProfileDeckCrawler),
+        typeof(IArchidektOwnerClient),
         typeof(CreatorDeckCategoryResolver),
         typeof(MeasuredStyleProfileBuilder),
         typeof(ISubmittedDeckStatsBuilder),
@@ -140,11 +141,10 @@ public sealed class CreatorStyleDiRegistrationTests
             ValidateScopes = true,
         });
 
-        // Why: a fake IArchidektOwnerClient cannot catch the missing-pipeline failure mode because ArchidektOwnerClient throws in its constructor.
-        var ownerClient = provider.GetRequiredService<IArchidektOwnerClient>();
-        Assert.IsType<ArchidektOwnerClient>(ownerClient);
-
         using IServiceScope scope = provider.CreateScope();
+        // Why: a fake IArchidektOwnerClient cannot catch the missing-pipeline failure mode because ArchidektOwnerClient throws in its constructor.
+        var ownerClient = scope.ServiceProvider.GetRequiredService<IArchidektOwnerClient>();
+        Assert.IsType<ArchidektOwnerClient>(ownerClient);
         Assert.IsType<CreatorProfileDeckCrawler>(scope.ServiceProvider.GetRequiredService<CreatorProfileDeckCrawler>());
     }
 

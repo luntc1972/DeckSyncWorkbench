@@ -191,7 +191,7 @@ public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCa
                 resolutions[candidateName] = fuzzyResolution;
             }
         }
-        catch
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             foreach (var candidateName in candidateNames)
             {
@@ -278,7 +278,7 @@ public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCa
 
             return CreateUnresolvedCard(candidateName, CardGroundingRejectReason.NotFound);
         }
-        catch
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             return CreateUnresolvedCard(candidateName, CardGroundingRejectReason.UpstreamUnavailable);
         }
@@ -378,10 +378,18 @@ public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCa
             return CardGroundingRejectReason.NotFound;
         }
 
-        var error = JsonSerializer.Deserialize<ScryfallErrorResponse>(content);
-        return string.Equals(error?.Type, "ambiguous", StringComparison.Ordinal)
-            ? CardGroundingRejectReason.Ambiguous
-            : CardGroundingRejectReason.NotFound;
+        try
+        {
+            var error = JsonSerializer.Deserialize<ScryfallErrorResponse>(content);
+            return string.Equals(error?.Type, "ambiguous", StringComparison.Ordinal)
+                ? CardGroundingRejectReason.Ambiguous
+                : CardGroundingRejectReason.NotFound;
+        }
+        catch (JsonException)
+        {
+            // Why: a non-JSON 404 body is still a not-found response, not an outage.
+            return CardGroundingRejectReason.NotFound;
+        }
     }
 
     private void CacheResolution(string candidateName, CardResolution resolution)
