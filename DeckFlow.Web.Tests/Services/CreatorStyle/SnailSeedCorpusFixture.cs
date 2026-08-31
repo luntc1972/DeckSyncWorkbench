@@ -2,7 +2,7 @@ using DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
 using DeckFlow.Core.Models;
 using DeckFlow.Web.Services.CreatorStyle;
 
-namespace DeckFlow.Web.Tests;
+namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 
 /// <summary>
 /// Automated deterministic Snail-representative corpus for extractor invariants.

@@ -5,7 +5,7 @@ using Microsoft.Extensions.Caching.Memory;
 using RestSharp;
 using Xunit;
 
-namespace DeckFlow.Web.Tests;
+namespace DeckFlow.Web.Tests.Services.Scryfall;
 
 public sealed class ScryfallCardNameGrounderTests
 {

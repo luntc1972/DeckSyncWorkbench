@@ -8,7 +8,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace DeckFlow.Web.Tests;
+namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 
 /// <summary>
 /// Automated coverage for creator-whitelist pool assembly and DI composition.

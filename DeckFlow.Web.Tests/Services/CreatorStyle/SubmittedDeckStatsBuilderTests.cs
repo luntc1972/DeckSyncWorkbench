@@ -10,7 +10,7 @@ using DeckFlow.Web.Services.Manabase;
 using RestSharp;
 using Xunit;
 
-namespace DeckFlow.Web.Tests;
+namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 
 public sealed class SubmittedDeckStatsBuilderTests
 {

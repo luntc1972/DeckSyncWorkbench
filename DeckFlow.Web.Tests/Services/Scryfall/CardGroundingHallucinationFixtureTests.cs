@@ -7,7 +7,7 @@ using Microsoft.Extensions.Caching.Memory;
 using RestSharp;
 using Xunit;
 
-namespace DeckFlow.Web.Tests;
+namespace DeckFlow.Web.Tests.Services.Scryfall;
 
 /// <summary>
 /// CS-25 regression fixtures for LLM-typical fake names and the Dockside Extortionist commander-ban case

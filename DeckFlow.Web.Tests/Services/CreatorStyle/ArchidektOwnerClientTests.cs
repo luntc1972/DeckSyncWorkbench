@@ -7,7 +7,7 @@ using Polly.Registry;
 using RestSharp;
 using Xunit;
 
-namespace DeckFlow.Web.Tests;
+namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 
 /// <summary>
 /// Tests for <see cref="ArchidektOwnerClient"/> and <see cref="ArchidektOwnerUrl"/>.

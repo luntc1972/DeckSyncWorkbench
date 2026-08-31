@@ -3,7 +3,7 @@ using DeckFlow.Core.Models;
 using DeckFlow.Web.Services.CreatorStyle;
 using Xunit;
 
-namespace DeckFlow.Web.Tests;
+namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 
 public sealed class CreatorDeckExemplarSelectorTests
 {

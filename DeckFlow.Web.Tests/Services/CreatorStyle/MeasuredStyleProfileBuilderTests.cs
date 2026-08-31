@@ -12,7 +12,7 @@ using Microsoft.Data.Sqlite;
 using RestSharp;
 using Xunit;
 
-namespace DeckFlow.Web.Tests;
+namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 
 /// <summary>
 /// Automated fixture coverage for the measured-style extractor.

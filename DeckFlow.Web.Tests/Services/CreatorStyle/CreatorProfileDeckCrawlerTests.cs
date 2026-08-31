@@ -5,7 +5,7 @@ using DeckFlow.Core.Models;
 using DeckFlow.Web.Services.CreatorStyle;
 using Xunit;
 
-namespace DeckFlow.Web.Tests;
+namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 
 /// <summary>
 /// Tests for <see cref="CreatorProfileDeckCrawler"/>.
