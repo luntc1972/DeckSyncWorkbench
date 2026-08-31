@@ -248,11 +248,61 @@ public sealed class CreatorProfileDeckCrawlerTests
             ]
         };
         var importer = new CountingDeckImporter();
+        importer.Decks["cached-1"] = [MainboardEntry("Rhystic Study")];
         var sut = CreateCrawler(harness, ownerClient, importer, now);
 
-        await sut.CrawlAsync("snail", forceRefresh: true);
+        var samples = await sut.CrawlAsync("snail", forceRefresh: true);
 
         Assert.Equal(1, ownerClient.ListDeckSummariesCalls);
+        Assert.Equal(1, importer.ImportCalls);
+        Assert.Equal("rhystic study", samples.Single().Entries.Single().NormalizedName);
+    }
+
+    [Fact]
+    public async Task CrawlAsync_ForceRefreshWithUnchangedHash_ReusesCachedRowWithoutUpsert()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await CreateHarnessAsync();
+        await SeedSourceAsync(harness.ProfileStore, now);
+        var entries = new List<DeckEntry> { MainboardEntry("Mystic Remora") };
+        var ownerClient = new CountingOwnerClient
+        {
+            ResolvedUsername = "snail",
+            DeckSummaries = [new ArchidektDeckSummary { Id = "cached-1", Name = "Cached", Size = 100 }]
+        };
+        var importer = new CountingDeckImporter();
+        importer.Decks["cached-1"] = entries;
+
+        await CreateCrawler(harness, ownerClient, importer, now).CrawlAsync("snail", forceRefresh: true);
+        var firstCached = (await harness.CacheStore.GetByCreatorAsync("snail")).Single();
+        importer.Decks["cached-1"] = firstCached.Entries.ToList();
+        await CreateCrawler(harness, ownerClient, importer, now.AddHours(1)).CrawlAsync("snail", forceRefresh: true);
+
+        var cached = (await harness.CacheStore.GetByCreatorAsync("snail")).Single();
+        Assert.Equal(2, importer.ImportCalls);
+        Assert.Equal(now, cached.CachedUtc);
+    }
+
+    [Fact]
+    public async Task CrawlAsync_ListDeckSummariesFails_DoesNotRestampFreshness()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await CreateHarnessAsync();
+        await SeedSourceAsync(harness.ProfileStore, now);
+        var ownerClient = new CountingOwnerClient
+        {
+            ResolvedUsername = "snail",
+            DeckListResult = new ArchidektDeckListResult
+            {
+                Decks = Array.Empty<ArchidektDeckSummary>(),
+                HasUpstreamFailure = true
+            }
+        };
+
+        await CreateCrawler(harness, ownerClient, new CountingDeckImporter(), now).CrawlAsync("snail");
+
+        var source = await harness.ProfileStore.GetBySlugAsync("snail");
+        Assert.Null(source!.LastCrawledUtc);
     }
 
     [Fact]
@@ -363,6 +413,8 @@ public sealed class CreatorProfileDeckCrawlerTests
 
         public IReadOnlyList<ArchidektDeckSummary> DeckSummaries { get; init; } = Array.Empty<ArchidektDeckSummary>();
 
+        public ArchidektDeckListResult? DeckListResult { get; init; }
+
         public int ResolveUsernameCalls { get; private set; }
 
         public int ListDeckSummariesCalls { get; private set; }
@@ -375,11 +427,15 @@ public sealed class CreatorProfileDeckCrawlerTests
             return Task.FromResult(ResolvedUsername);
         }
 
-        public Task<IReadOnlyList<ArchidektDeckSummary>> ListDeckSummariesAsync(string ownerUsername, CancellationToken cancellationToken = default)
+        public Task<ArchidektDeckListResult> ListDeckSummariesAsync(string ownerUsername, CancellationToken cancellationToken = default)
         {
             ListDeckSummariesCalls++;
             LastListUsername = ownerUsername;
-            return Task.FromResult(DeckSummaries);
+            return Task.FromResult(DeckListResult ?? new ArchidektDeckListResult
+            {
+                Decks = DeckSummaries,
+                HasUpstreamFailure = false
+            });
         }
     }
 

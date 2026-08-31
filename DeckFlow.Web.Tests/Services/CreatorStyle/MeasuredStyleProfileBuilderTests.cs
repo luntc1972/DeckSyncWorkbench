@@ -397,10 +397,14 @@ public sealed class MeasuredStyleProfileBuilderTests
         public Task<string?> ResolveUsernameAsync(string usernameOrUrl, CancellationToken cancellationToken = default)
             => Task.FromResult<string?>(usernameOrUrl);
 
-        public Task<IReadOnlyList<ArchidektDeckSummary>> ListDeckSummariesAsync(string ownerUsername, CancellationToken cancellationToken = default)
-            => Task.FromResult(_summariesByUsername.TryGetValue(ownerUsername, out var summaries)
-                ? summaries
-                : Array.Empty<ArchidektDeckSummary>());
+        public Task<ArchidektDeckListResult> ListDeckSummariesAsync(string ownerUsername, CancellationToken cancellationToken = default)
+            => Task.FromResult(new ArchidektDeckListResult
+            {
+                Decks = _summariesByUsername.TryGetValue(ownerUsername, out var summaries)
+                    ? summaries
+                    : Array.Empty<ArchidektDeckSummary>(),
+                HasUpstreamFailure = false
+            });
     }
 
     private sealed class FakeDeckImporter : IArchidektDeckImporter

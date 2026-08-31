@@ -291,8 +291,8 @@ public sealed class CreatorStyleDiRegistrationTests
 
     private sealed class FakeArchidektOwnerClient : IArchidektOwnerClient
     {
-        public Task<IReadOnlyList<ArchidektDeckSummary>> ListDeckSummariesAsync(string ownerUsername, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<ArchidektDeckSummary>>([]);
+        public Task<ArchidektDeckListResult> ListDeckSummariesAsync(string ownerUsername, CancellationToken cancellationToken = default)
+            => Task.FromResult(new ArchidektDeckListResult { Decks = [], HasUpstreamFailure = false });
 
         public Task<string?> ResolveUsernameAsync(string usernameOrUrl, CancellationToken cancellationToken = default)
             => Task.FromResult<string?>(usernameOrUrl);

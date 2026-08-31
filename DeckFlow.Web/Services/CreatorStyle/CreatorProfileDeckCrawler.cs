@@ -85,31 +85,48 @@ public sealed class CreatorProfileDeckCrawler
             }
         }
 
-        var summaries = await _ownerClient.ListDeckSummariesAsync(resolvedUsername, cancellationToken).ConfigureAwait(false);
+        var listing = await _ownerClient.ListDeckSummariesAsync(resolvedUsername, cancellationToken).ConfigureAwait(false);
         var cacheEntries = await _deckCacheStore.GetByCreatorAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
+        if (listing.HasUpstreamFailure)
+        {
+            _logger.LogWarning("Archidekt enumeration failed for {CreatorSlug}; leaving freshness stamp untouched.", creatorSlug);
+            return RebuildSamplesFromCache(cacheEntries, source);
+        }
+
         var cacheByDeckId = cacheEntries.ToDictionary(entry => entry.DeckId, StringComparer.Ordinal);
         var samples = new List<CreatorDeckSample>();
 
-        foreach (var summary in summaries)
+        foreach (var summary in listing.Decks)
         {
             if (summary.Size > StapleStripper.MaxDeckSize)
             {
                 continue;
             }
 
-            if (cacheByDeckId.TryGetValue(summary.Id, out var cachedEntry)
-                && !string.IsNullOrWhiteSpace(cachedEntry.ContentHash))
+            CreatorDeckCacheEntry? cachedEntry = null;
+            var hasCachedEntry = cacheByDeckId.TryGetValue(summary.Id, out cachedEntry);
+            var canReuse = !forceRefresh
+                && hasCachedEntry
+                && !string.IsNullOrWhiteSpace(cachedEntry.ContentHash);
+            if (canReuse)
+            {
+                samples.Add(RebuildSampleFromCache(cachedEntry!, source));
+                continue;
+            }
+
+            var importedEntries = await _deckImporter.ImportAsync(summary.Id, cancellationToken).ConfigureAwait(false);
+            var contentHash = ComputeCanonicalHash(importedEntries);
+            if (cachedEntry is not null && string.Equals(cachedEntry.ContentHash, contentHash, StringComparison.Ordinal))
             {
                 samples.Add(RebuildSampleFromCache(cachedEntry, source));
                 continue;
             }
 
-            var importedEntries = await _deckImporter.ImportAsync(summary.Id, cancellationToken).ConfigureAwait(false);
             var cacheEntry = new CreatorDeckCacheEntry
             {
                 CreatorSlug = creatorSlug,
                 DeckId = summary.Id,
-                ContentHash = ComputeCanonicalHash(importedEntries),
+                ContentHash = contentHash,
                 FolderId = summary.ParentFolderId,
                 FolderName = summary.ParentFolderName,
                 Size = summary.Size,

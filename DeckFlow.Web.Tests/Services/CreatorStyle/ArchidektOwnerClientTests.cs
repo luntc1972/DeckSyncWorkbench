@@ -151,10 +151,11 @@ public sealed class ArchidektOwnerClientTests
 
         var decks = await sut.ListDeckSummariesAsync("snail");
 
-        Assert.Equal(500, decks.Count);
-        Assert.Equal("1", decks[0].Id);
-        Assert.Equal("500", decks[^1].Id);
-        Assert.Null(decks[0].ParentFolderName);
+        Assert.False(decks.HasUpstreamFailure);
+        Assert.Equal(500, decks.Decks.Count);
+        Assert.Equal("1", decks.Decks[0].Id);
+        Assert.Equal("500", decks.Decks[^1].Id);
+        Assert.Null(decks.Decks[0].ParentFolderName);
         Assert.Equal(10, stub.CallCount);
         Assert.All(stub.RecordedRequests, request => Assert.Equal("/api/decks/v3/", request.RequestUri?.AbsolutePath));
         Assert.Contains("ownerUsername=snail", stub.RecordedRequests[0].RequestUri?.Query);
@@ -173,7 +174,8 @@ public sealed class ArchidektOwnerClientTests
 
         var decks = await sut.ListDeckSummariesAsync("snail");
 
-        Assert.Empty(decks);
+        Assert.True(decks.HasUpstreamFailure);
+        Assert.Empty(decks.Decks);
     }
 
     [Fact]
@@ -186,7 +188,8 @@ public sealed class ArchidektOwnerClientTests
 
         var decks = await sut.ListDeckSummariesAsync("snail");
 
-        Assert.Empty(decks);
+        Assert.True(decks.HasUpstreamFailure);
+        Assert.Empty(decks.Decks);
     }
 
     private static ArchidektOwnerClient CreateClient(StubHttpMessageHandler stub)

@@ -10,6 +10,18 @@ using RestSharp;
 namespace DeckFlow.Web.Services.CreatorStyle;
 
 /// <summary>
+/// Deck summaries obtained from Archidekt, including upstream enumeration status.
+/// </summary>
+public sealed record ArchidektDeckListResult
+{
+    /// <summary>Discovered deck summaries, including any successfully collected before a failure.</summary>
+    public required IReadOnlyList<ArchidektDeckSummary> Decks { get; init; }
+
+    /// <summary>Whether an Archidekt response could not be enumerated completely.</summary>
+    public required bool HasUpstreamFailure { get; init; }
+}
+
+/// <summary>
 /// Resolves creator usernames and enumerates public Archidekt deck summaries.
 /// </summary>
 public interface IArchidektOwnerClient
@@ -28,7 +40,7 @@ public interface IArchidektOwnerClient
     /// <param name="ownerUsername">Owner username.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The discovered deck summaries.</returns>
-    Task<IReadOnlyList<ArchidektDeckSummary>> ListDeckSummariesAsync(string ownerUsername, CancellationToken cancellationToken = default);
+    Task<ArchidektDeckListResult> ListDeckSummariesAsync(string ownerUsername, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -131,7 +143,7 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ArchidektDeckSummary>> ListDeckSummariesAsync(string ownerUsername, CancellationToken cancellationToken = default)
+    public async Task<ArchidektDeckListResult> ListDeckSummariesAsync(string ownerUsername, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(ownerUsername);
 
@@ -158,12 +170,12 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
                     ownerUsername,
                     page,
                     (int)response.StatusCode);
-                return Array.Empty<ArchidektDeckSummary>();
+                return new ArchidektDeckListResult { Decks = decks, HasUpstreamFailure = true };
             }
 
             if (!TryGetResponseContent(response, "list", out var content))
             {
-                return Array.Empty<ArchidektDeckSummary>();
+                return new ArchidektDeckListResult { Decks = decks, HasUpstreamFailure = true };
             }
 
             try
@@ -204,13 +216,13 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
             catch (JsonException exception)
             {
                 _logger.LogWarning(exception, "Archidekt owner deck list returned malformed JSON for {Username} page {Page}.", ownerUsername, page);
-                return Array.Empty<ArchidektDeckSummary>();
+                return new ArchidektDeckListResult { Decks = decks, HasUpstreamFailure = true };
             }
 
             page += 1;
         }
 
-        return decks;
+        return new ArchidektDeckListResult { Decks = decks, HasUpstreamFailure = false };
     }
 
     private bool TryGetResponseContent(RestResponse response, string operation, out string content)
