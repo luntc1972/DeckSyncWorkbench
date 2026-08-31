@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
+import { resolveE2EPort } from './support/e2e-port';
 
 const oversizedPool = [
   'Commander',
@@ -51,7 +52,7 @@ test('individual card pills lock cards and Lock All stays readable in Commander 
     await page.context().addCookies([{
       name: 'deckflow-theme',
       value: 'site-commander-table.css',
-      url: baseURL ?? 'http://localhost:5173',
+      url: baseURL ?? `http://localhost:${resolveE2EPort()}`,
     }]);
     await page.goto('/cut-lab');
 

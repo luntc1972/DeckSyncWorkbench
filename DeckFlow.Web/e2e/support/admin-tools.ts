@@ -1,11 +1,12 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './admin-lock';
+import { resolveE2EPort } from './e2e-port';
 
 type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 
 const adminUser = process.env.FEEDBACK_ADMIN_USER ?? 'admin';
 const adminPassword = process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local';
-const adminToolsUrl = `http://${adminUser}:${adminPassword}@localhost:5173/Admin/Tools`;
+const adminToolsUrl = `http://${adminUser}:${adminPassword}@localhost:${resolveE2EPort()}/Admin/Tools`;
 
 export async function gotoAdminTools(page: Page): Promise<void> {
   const response = await page.goto(adminToolsUrl);

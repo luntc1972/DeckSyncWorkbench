@@ -2,7 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 
 // These guard the theme-aware custom checkbox/radio + textarea scrollbar fixes.
 
-const baseUrl = 'http://localhost:5173';
+import { resolveE2EPort } from './support/e2e-port';
+
+const baseUrl = `http://localhost:${resolveE2EPort()}`;
 const themeFiles = [
   'site.css',
   'site-azorius.css',

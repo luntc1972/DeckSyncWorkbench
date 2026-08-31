@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { resolveE2EPort } from './support/e2e-port';
 
 // Phase 86 (86-05): visual-regression + a11y coverage that the CURRENT e2e suite could not
 // provide — it asserts DOM/selectors exist, not visual STATE (which tab is filled, contrast)
@@ -25,7 +26,7 @@ const BLUE_LEAK_RE = /rgba?\(\s*43,\s*108,\s*176\b/;
 
 async function setTheme(page: Page, cookieFile: string, baseURL?: string): Promise<void> {
   await page.context().addCookies([
-    { name: 'deckflow-theme', value: cookieFile, url: baseURL ?? 'http://localhost:5173' },
+    { name: 'deckflow-theme', value: cookieFile, url: baseURL ?? `http://localhost:${resolveE2EPort()}` },
   ]);
 }
 

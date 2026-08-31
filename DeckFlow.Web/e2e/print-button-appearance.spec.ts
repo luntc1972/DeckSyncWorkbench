@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { resolveE2EPort } from './support/e2e-port';
 
 // Screen (not print) appearance of the "Print results" button: it must render as
 // a SECONDARY outline action beside the primary "Download session (.zip)" button,
@@ -44,7 +45,7 @@ for (const theme of themes) {
   test(`print button is secondary beside download (${theme.name})`, async ({ page, baseURL }, testInfo) => {
     if (theme.cookie) {
       await page.context().addCookies([
-        { name: 'deckflow-theme', value: theme.cookie, url: baseURL ?? 'http://localhost:5173' },
+        { name: 'deckflow-theme', value: theme.cookie, url: baseURL ?? `http://localhost:${resolveE2EPort()}` },
       ]);
     }
 

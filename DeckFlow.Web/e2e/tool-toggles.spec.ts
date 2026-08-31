@@ -2,7 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { gotoAdminTools, setToolEnabled } from './support/admin-tools';
 
-const baseUrl = 'http://localhost:5173';
+import { resolveE2EPort } from './support/e2e-port';
+
+const baseUrl = `http://localhost:${resolveE2EPort()}`;
 const adminUser = process.env.FEEDBACK_ADMIN_USER ?? 'admin';
 const adminPassword = process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local';
 const basicAuthHeader = `Basic ${Buffer.from(`${adminUser}:${adminPassword}`).toString('base64')}`;

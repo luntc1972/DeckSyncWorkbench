@@ -3,7 +3,9 @@ import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { clickManabasePillRadio } from './support/manabase-pill';
 
-const baseUrl = 'http://localhost:5173';
+import { resolveE2EPort } from './support/e2e-port';
+
+const baseUrl = `http://localhost:${resolveE2EPort()}`;
 const screenshotDir = resolve(__dirname, '../../.planning/ui-design/mbgap-09/screenshots');
 
 const themes = [

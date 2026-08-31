@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { resolveE2EPort } from './support/e2e-port';
 
 // Phase 86 (86-05): interaction-outcome coverage for Bug D — the layout picker
 // (Full/Compact/Advanced -> guided/focused/expert) was wired correctly but its CSS effect
@@ -19,7 +20,7 @@ const themes = [
 
 async function setTheme(page: Page, cookieFile: string, baseURL?: string): Promise<void> {
   await page.context().addCookies([
-    { name: 'deckflow-theme', value: cookieFile, url: baseURL ?? 'http://localhost:5173' },
+    { name: 'deckflow-theme', value: cookieFile, url: baseURL ?? `http://localhost:${resolveE2EPort()}` },
   ]);
 }
 

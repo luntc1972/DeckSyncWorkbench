@@ -4,7 +4,9 @@ import { setToolEnabled } from './support/admin-tools';
 import { expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 
-const baseUrl = 'http://localhost:5173';
+import { resolveE2EPort } from './support/e2e-port';
+
+const baseUrl = `http://localhost:${resolveE2EPort()}`;
 
 const oversizedPool = [
   'Commander',

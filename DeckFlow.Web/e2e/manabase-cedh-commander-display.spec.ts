@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { clickManabasePillRadio } from './support/manabase-pill';
+import { resolveE2EPort } from './support/e2e-port';
 
 // Live-only regression for the persistent commander header and cEDH baseline range copy.
 // Runs under both Playwright viewport projects (desktop + mobile) and across a small theme
@@ -18,7 +19,7 @@ const themes = [
 
 async function setTheme(page: Page, cookieFile: string, baseURL?: string): Promise<void> {
   await page.context().addCookies([
-    { name: 'deckflow-theme', value: cookieFile, url: baseURL ?? 'http://localhost:5173' },
+    { name: 'deckflow-theme', value: cookieFile, url: baseURL ?? `http://localhost:${resolveE2EPort()}` },
   ]);
 }
 

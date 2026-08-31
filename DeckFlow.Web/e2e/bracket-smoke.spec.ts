@@ -24,7 +24,9 @@ import { clickManabasePillRadio } from './support/manabase-pill';
 // Admin creds: read from FEEDBACK_ADMIN_USER / FEEDBACK_ADMIN_PASSWORD env vars.
 // A transient flag toggle is used for this run (reverted in afterEach). No prod flag seed change.
 
-const baseUrl = 'http://localhost:5173';
+import { resolveE2EPort } from './support/e2e-port';
+
+const baseUrl = `http://localhost:${resolveE2EPort()}`;
 
 // Why: __dirname is DeckFlow.Web/e2e → resolve up 2 levels for the repo root, then into
 // .planning/ui-design/cycle13/screenshots/ where Phase 75 screenshots already live.
