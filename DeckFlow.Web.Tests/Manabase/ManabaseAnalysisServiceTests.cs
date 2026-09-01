@@ -2511,7 +2511,7 @@ public sealed class ManabaseAnalysisServiceTests
             .Append(Land("Leaked", 1)).Append(Land("Missing", 1)).ToList();
         var resolver = new StubResolver([
             Response(HttpStatusCode.OK, [first]),
-            Response(statusCode, [leaked], [new ScryfallCollectionIdentifier("Missing")])]);
+            Response(statusCode, [leaked], [new ScryfallCollectionNameIdentifier("Missing")])]);
 
         var error = await Assert.ThrowsAsync<HttpRequestException>(() => new ManabaseAnalysisService(new FakeLoader(entries), resolver, collectionCardCache: cache).AnalyzeAsync("paste", "failure"));
 
@@ -2527,7 +2527,7 @@ public sealed class ManabaseAnalysisServiceTests
     public async Task AnalyzeAsync_NotFoundEcho_CachesOnlyTheEchoedNameMiss()
     {
         var cache = new ScryfallCollectionCardCache();
-        var resolver = new StubResolver([Response(HttpStatusCode.OK, [BasicLand("Found", "W")], [new ScryfallCollectionIdentifier("Missing")]), Response(HttpStatusCode.OK, [BasicLand("Found", "W")])]);
+        var resolver = new StubResolver([Response(HttpStatusCode.OK, [BasicLand("Found", "W")], [new ScryfallCollectionNameIdentifier("Missing")]), Response(HttpStatusCode.OK, [BasicLand("Found", "W")])]);
         await new ManabaseAnalysisService(new FakeLoader([Land("Found", 1), Land("Missing", 1)]), resolver, collectionCardCache: cache).AnalyzeAsync("paste", "one");
         await new ManabaseAnalysisService(new FakeLoader([Land("Found", 1), Land("Missing", 1)]), resolver, collectionCardCache: cache).AnalyzeAsync("paste", "two");
         Assert.Equal(1, resolver.CollectionCallCount);
@@ -2647,7 +2647,7 @@ public sealed class ManabaseAnalysisServiceTests
         SetCode: set, SetName: null, CollectorNumber: cn, CardFaces: null, Id: null,
         Layout: "normal", Cmc: cmc, ProducedMana: null, Rarity: "rare");
 
-    private static Func<RestRequest, Task<RestResponse<ScryfallCollectionResponse>>> Response(HttpStatusCode statusCode, List<ScryfallCard>? cards, List<ScryfallCollectionIdentifier>? notFound = null)
+    private static Func<RestRequest, Task<RestResponse<ScryfallCollectionResponse>>> Response(HttpStatusCode statusCode, List<ScryfallCard>? cards, List<ScryfallCollectionNameIdentifier>? notFound = null)
         => request => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
         {
             StatusCode = statusCode,

@@ -177,7 +177,7 @@ public sealed class ScryfallCardResolverTests
                 return new RestResponse<ScryfallCollectionResponse>(new RestRequest("cards/collection", Method.Post))
                 {
                     StatusCode = HttpStatusCode.OK,
-                    Data = new ScryfallCollectionResponse([Card("Unrelated")], [new ScryfallCollectionIdentifier("A")]),
+                    Data = new ScryfallCollectionResponse([Card("Unrelated")], [new ScryfallCollectionNameIdentifier("A")]),
                 };
             },
             search: _ =>
@@ -225,7 +225,7 @@ public sealed class ScryfallCardResolverTests
                 return new RestResponse<ScryfallCollectionResponse>(new RestRequest("cards/collection", Method.Post))
                 {
                     StatusCode = HttpStatusCode.OK,
-                    Data = new ScryfallCollectionResponse([], [new ScryfallCollectionIdentifier("A")]),
+                    Data = new ScryfallCollectionResponse([], [new ScryfallCollectionNameIdentifier("A")]),
                 };
             },
             search: _ =>
@@ -255,7 +255,7 @@ public sealed class ScryfallCardResolverTests
                 return new RestResponse<ScryfallCollectionResponse>(new RestRequest("cards/collection", Method.Post))
                 {
                     StatusCode = HttpStatusCode.OK,
-                    Data = new ScryfallCollectionResponse([], [new ScryfallCollectionIdentifier("A")]),
+                    Data = new ScryfallCollectionResponse([], [new ScryfallCollectionNameIdentifier("A")]),
                 };
             },
             search: _ =>

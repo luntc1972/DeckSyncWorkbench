@@ -154,8 +154,8 @@ internal static class ManabaseCommandRunner
     internal static ScryfallCollectionProtocolRequest CreateCollectionRequest(IReadOnlyList<DeckEntry> entries) =>
         new(entries
             .Select(entry => !string.IsNullOrWhiteSpace(entry.SetCode) && !string.IsNullOrWhiteSpace(entry.CollectorNumber)
-                ? ScryfallCollectionIdentifier.ForPrinting(entry.SetCode, entry.CollectorNumber)
-                : ScryfallCollectionIdentifier.ForName(CoreScryfallCollectionIdentifier.ToFaceIdentifier(entry.Name)))
+                ? ScryfallCollectionNameIdentifier.ForPrinting(entry.SetCode, entry.CollectorNumber)
+                : ScryfallCollectionNameIdentifier.ForName(CoreScryfallCollectionIdentifier.ToFaceIdentifier(entry.Name)))
             .Distinct()
             .ToArray());
 

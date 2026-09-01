@@ -24,7 +24,7 @@ public sealed class CardLookupServiceTests
                     new ScryfallCard("Sol Ring", "{T}", "Artifact", "Add {W}", "—", "—", null, null, null, null, null),
                     new ScryfallCard("Arcane Signet", "{1}", "Artifact", "Add {W} or {U}", "—", "—", null, null, null, null, null)
                 },
-                new[] { new ScryfallCollectionIdentifier("Made Up Card") },
+                new[] { new ScryfallCollectionNameIdentifier("Made Up Card") },
                 request)),
             executeSearchAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
             {
@@ -49,7 +49,7 @@ public sealed class CardLookupServiceTests
                 requestCount++;
                 return Task.FromResult(CreateCollectionResponse(
                     Array.Empty<ScryfallCard>(),
-                    Enumerable.Range(0, 75).Select(index => new ScryfallCollectionIdentifier($"Card {index + ((requestCount - 1) * 75)}")).ToArray(),
+                    Enumerable.Range(0, 75).Select(index => new ScryfallCollectionNameIdentifier($"Card {index + ((requestCount - 1) * 75)}")).ToArray(),
                     request));
             },
             executeSearchAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
@@ -73,7 +73,7 @@ public sealed class CardLookupServiceTests
                 {
                     new ScryfallCard("Sol Ring", "{T}", "Artifact", "Add {W}", "—", "—", null, null, null, null, null)
                 },
-                Array.Empty<ScryfallCollectionIdentifier>(),
+                Array.Empty<ScryfallCollectionNameIdentifier>(),
                 request)));
         var lines = string.Join('\n', Enumerable.Repeat("Sol Ring", 101));
 
@@ -105,7 +105,7 @@ public sealed class CardLookupServiceTests
         var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 Array.Empty<ScryfallCard>(),
-                [new ScryfallCollectionIdentifier("Fblthp, Lost on the Range")],
+                [new ScryfallCollectionNameIdentifier("Fblthp, Lost on the Range")],
                 request)),
             executeSearchAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
             {
@@ -142,7 +142,7 @@ public sealed class CardLookupServiceTests
                             "118",
                             Id: "swiftspear-1")
                 },
-                Array.Empty<ScryfallCollectionIdentifier>(),
+                Array.Empty<ScryfallCollectionNameIdentifier>(),
                 request)),
             executeRulingsAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallRulingsResponse>(request)
             {
@@ -164,7 +164,7 @@ public sealed class CardLookupServiceTests
         var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 Array.Empty<ScryfallCard>(),
-                [new ScryfallCollectionIdentifier("Pastor da Selva")],
+                [new ScryfallCollectionNameIdentifier("Pastor da Selva")],
                 request)),
             executeSearchAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
             {
@@ -192,7 +192,7 @@ public sealed class CardLookupServiceTests
         var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 Array.Empty<ScryfallCard>(),
-                [new ScryfallCollectionIdentifier("Pastor da Selva")],
+                [new ScryfallCollectionNameIdentifier("Pastor da Selva")],
                 request)),
             executeSearchAsync: (request, _) =>
             {
@@ -229,7 +229,7 @@ public sealed class CardLookupServiceTests
         var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) => Task.FromResult(CreateCollectionResponse(
                 Array.Empty<ScryfallCard>(),
-                [new ScryfallCollectionIdentifier("Pastor da Selva")],
+                [new ScryfallCollectionNameIdentifier("Pastor da Selva")],
                 request)),
             executeSearchAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
             {
@@ -258,7 +258,7 @@ public sealed class CardLookupServiceTests
                 {
                     new ScryfallCard("April O'Neil, Hacktivist", "{1}{U}{R}", "Legendary Creature — Human Journalist", "Whenever you cast your second spell each turn, draw a card.", "2", "3", null, null, "who", "Doctor Who", "119")
                 },
-                Array.Empty<ScryfallCollectionIdentifier>(),
+                Array.Empty<ScryfallCollectionNameIdentifier>(),
                 request)));
 
         var result = await service.LookupAsync("April O’Neil, Hacktivist");
@@ -270,7 +270,7 @@ public sealed class CardLookupServiceTests
 
     private static RestResponse<ScryfallCollectionResponse> CreateCollectionResponse(
         IReadOnlyList<ScryfallCard> cards,
-        IReadOnlyList<ScryfallCollectionIdentifier> notFound,
+        IReadOnlyList<ScryfallCollectionNameIdentifier> notFound,
         RestRequest request)
     {
         return new RestResponse<ScryfallCollectionResponse>(request)

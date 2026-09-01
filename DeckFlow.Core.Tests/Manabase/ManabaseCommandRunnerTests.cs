@@ -53,7 +53,7 @@ public sealed class ManabaseCommandRunnerTests
         var response = new ScryfallCollectionProtocolResponse(
             System.Net.HttpStatusCode.OK,
             [],
-            [ScryfallCollectionIdentifier.ForPrinting("ltr", "103")],
+            [ScryfallCollectionNameIdentifier.ForPrinting("ltr", "103")],
             HasPayload: true);
 
         IReadOnlyList<string> labels = ManabaseCommandRunner.GetNotFoundLabels(response);

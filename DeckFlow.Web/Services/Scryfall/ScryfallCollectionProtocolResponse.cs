@@ -8,5 +8,5 @@ namespace DeckFlow.Web.Services.Scryfall;
 public sealed record ScryfallCollectionProtocolResponse(
     HttpStatusCode StatusCode,
     IReadOnlyList<ScryfallCard> Cards,
-    IReadOnlyList<ScryfallCollectionIdentifier> NotFound,
+    IReadOnlyList<ScryfallCollectionNameIdentifier> NotFound,
     bool HasPayload);

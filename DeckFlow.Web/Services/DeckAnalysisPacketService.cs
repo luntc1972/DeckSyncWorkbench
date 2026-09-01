@@ -1801,7 +1801,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         }
 
         var response = await _collectionProtocol.ResolveAsync(
-            new ScryfallCollectionProtocolRequest([ScryfallCollectionIdentifier.ForName(CoreScryfallCollectionIdentifier.ToFaceIdentifier(commanderName.Trim()))]),
+            new ScryfallCollectionProtocolRequest([ScryfallCollectionNameIdentifier.ForName(CoreScryfallCollectionIdentifier.ToFaceIdentifier(commanderName.Trim()))]),
             cancellationToken).ConfigureAwait(false);
         var card = response.Cards.FirstOrDefault();
         if (card?.ColorIdentity is null)

@@ -31,7 +31,7 @@ public sealed record ScryfallSet(
 /// </summary>
 public sealed record ScryfallCollectionResponse(
     List<ScryfallCard> Data,
-    [property: JsonPropertyName("not_found")] List<ScryfallCollectionIdentifier>? NotFound);
+    [property: JsonPropertyName("not_found")] List<ScryfallCollectionNameIdentifier>? NotFound);
 
 /// <summary>
 /// Represents a Scryfall card payload.
@@ -95,7 +95,7 @@ public sealed record ScryfallCardFace(
 /// <summary>
 /// Represents an identifier Scryfall could not resolve from a collection request.
 /// </summary>
-public sealed record ScryfallCollectionIdentifier(
+public sealed record ScryfallCollectionNameIdentifier(
     [property: JsonPropertyName("name")][property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Name = null,
     [property: JsonPropertyName("set")][property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Set = null,
     [property: JsonPropertyName("collector_number")][property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? CollectorNumber = null)
@@ -103,12 +103,12 @@ public sealed record ScryfallCollectionIdentifier(
     /// <summary>
     /// Creates a name identifier.
     /// </summary>
-    public static ScryfallCollectionIdentifier ForName(string name) => new(Name: name);
+    public static ScryfallCollectionNameIdentifier ForName(string name) => new(Name: name);
 
     /// <summary>
     /// Creates a printing identifier.
     /// </summary>
-    public static ScryfallCollectionIdentifier ForPrinting(string set, string collectorNumber) =>
+    public static ScryfallCollectionNameIdentifier ForPrinting(string set, string collectorNumber) =>
         new(Set: set, CollectorNumber: collectorNumber);
 
     /// <summary>

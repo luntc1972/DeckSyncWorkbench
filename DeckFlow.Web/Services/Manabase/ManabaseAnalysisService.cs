@@ -1177,8 +1177,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         {
             var positionedReturnedCards = new Dictionary<int, int>();
             var request = new ScryfallCollectionProtocolRequest(batch.Select(identifier => identifier.Name is null
-                ? ScryfallCollectionIdentifier.ForPrinting(identifier.SetCode!, identifier.CollectorNumber!)
-                : ScryfallCollectionIdentifier.ForName(identifier.Name!)).ToArray());
+                ? ScryfallCollectionNameIdentifier.ForPrinting(identifier.SetCode!, identifier.CollectorNumber!)
+                : ScryfallCollectionNameIdentifier.ForName(identifier.Name!)).ToArray());
 
             ScryfallCollectionProtocolResponse response =
                 await _collectionProtocol.ResolveAsync(request, cancellationToken).ConfigureAwait(false);

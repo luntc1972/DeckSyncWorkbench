@@ -23,7 +23,7 @@ public sealed class ScryfallReferenceResolverTests
     public void ScryfallCollectionProtocolRequest_PrintingIdentifier_SerializesSetAndCollectorNumberOnly()
     {
         var request = new ScryfallCollectionProtocolRequest(
-            [ScryfallCollectionIdentifier.ForPrinting("mh3", "123")]);
+            [ScryfallCollectionNameIdentifier.ForPrinting("mh3", "123")]);
 
         string json = JsonSerializer.Serialize(request);
 
@@ -415,7 +415,7 @@ public sealed class ScryfallReferenceResolverTests
                 Assert.Equal(new[] { "Printed Name" }, ExtractNames(ExtractRequestBody(request)));
                 return Task.FromResult(CreateCollectionResponse(
                     new List<ScryfallCard>(),
-                    new List<ScryfallCollectionIdentifier> { new("Printed Name") }));
+                    new List<ScryfallCollectionNameIdentifier> { new("Printed Name") }));
             },
             collectionCardCache: cache);
 
@@ -638,7 +638,7 @@ public sealed class ScryfallReferenceResolverTests
                         CreateCard("Sol Ring"),
                         CreateCard("Smuggler's Copter"),
                     },
-                    new List<ScryfallCollectionIdentifier> { new("Missing Card") }));
+                    new List<ScryfallCollectionNameIdentifier> { new("Missing Card") }));
             },
             collectionCardCache: cache);
 
@@ -763,7 +763,7 @@ public sealed class ScryfallReferenceResolverTests
                         CreateCard("Sol Ring"),
                         CreateCard("Smuggler's Copter"),
                     },
-                    new List<ScryfallCollectionIdentifier> { new("Missing Card") }));
+                    new List<ScryfallCollectionNameIdentifier> { new("Missing Card") }));
             },
             collectionCardCache: cache);
 
@@ -1574,7 +1574,7 @@ public sealed class ScryfallReferenceResolverTests
 
     private static RestResponse<ScryfallCollectionResponse> CreateCollectionResponse(
         List<ScryfallCard> cards,
-        List<ScryfallCollectionIdentifier>? notFound = null)
+        List<ScryfallCollectionNameIdentifier>? notFound = null)
         => new(new RestRequest("cards/collection", Method.Post))
         {
             StatusCode = HttpStatusCode.OK,

@@ -1425,7 +1425,7 @@ Commander
             executeCollectionAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
             {
                 StatusCode = HttpStatusCode.OK,
-                Data = new ScryfallCollectionResponse([], [new ScryfallCollectionIdentifier("Ya viene el coco")])
+                Data = new ScryfallCollectionResponse([], [new ScryfallCollectionNameIdentifier("Ya viene el coco")])
             }),
             executeSearchAsync: (request, _) =>
             {
