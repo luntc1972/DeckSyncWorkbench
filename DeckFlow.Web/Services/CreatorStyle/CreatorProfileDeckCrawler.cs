@@ -103,22 +103,20 @@ public sealed class CreatorProfileDeckCrawler
                 continue;
             }
 
-            CreatorDeckCacheEntry? cachedEntry = null;
-            var hasCachedEntry = cacheByDeckId.TryGetValue(summary.Id, out cachedEntry);
-            var canReuse = !forceRefresh
-                && hasCachedEntry
-                && !string.IsNullOrWhiteSpace(cachedEntry.ContentHash);
-            if (canReuse)
+            if (!forceRefresh
+                && cacheByDeckId.TryGetValue(summary.Id, out var cachedEntry)
+                && !string.IsNullOrWhiteSpace(cachedEntry.ContentHash))
             {
-                samples.Add(RebuildSampleFromCache(cachedEntry!, source));
+                samples.Add(RebuildSampleFromCache(cachedEntry, source));
                 continue;
             }
 
             var importedEntries = await _deckImporter.ImportAsync(summary.Id, cancellationToken).ConfigureAwait(false);
             var contentHash = ComputeCanonicalHash(importedEntries);
-            if (cachedEntry is not null && string.Equals(cachedEntry.ContentHash, contentHash, StringComparison.Ordinal))
+            cacheByDeckId.TryGetValue(summary.Id, out var cachedEntryForHashCompare);
+            if (cachedEntryForHashCompare is not null && string.Equals(cachedEntryForHashCompare.ContentHash, contentHash, StringComparison.Ordinal))
             {
-                samples.Add(RebuildSampleFromCache(cachedEntry, source));
+                samples.Add(RebuildSampleFromCache(cachedEntryForHashCompare, source));
                 continue;
             }
 
