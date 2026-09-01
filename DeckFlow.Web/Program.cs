@@ -92,7 +92,23 @@ public partial class Program
             builder.Services.AddDeckFlowResiliencePipelines();
 
             builder.Services.AddDeckFlowScryfallServices();
-            builder.Services.AddDeckFlowCreatorStyle(builder.Environment);
+
+            // Why (WR-11, 112-REVIEW.md): the creator-style engine has no controller wired to it
+            // yet (zero HTTP exposure) and its production seeds (content-kb/seed/creator-*.json)
+            // are still literally "[]", so registering its full DI graph unconditionally pays a
+            // real cost - an HttpClient, five singletons (two of them opening SQLite files via
+            // DeckFlowDatabaseConnectionFactory), and five scoped services - for a subsystem that
+            // cannot do anything yet. Gate it behind an explicit opt-in env var, mirroring the
+            // DECKFLOW_GEMINI_ENABLED pattern above, distinct from the tool.creator-style.enabled
+            // IFeatureFlagCache runtime flag (DB-backed, default-on-if-missing, meant for gating
+            // per-request reachability once a controller exists - not for skipping startup DI,
+            // which must resolve before the flag store's async load completes). A future phase
+            // that wires a controller and populates the seeds flips this on without touching
+            // Program.cs again.
+            if (IsCreatorStyleEnabled())
+            {
+                builder.Services.AddDeckFlowCreatorStyle(builder.Environment);
+            }
 
             builder.Services.AddSingleton<IHelpContentService, HelpContentService>();
             builder.Services.AddSingleton<IGameChangerCatalogService, GameChangerCatalogService>();
@@ -436,6 +452,19 @@ public partial class Program
 
     private static bool IsApiPath(PathString path)
         => path.StartsWithSegments("/api") || path.StartsWithSegments("/Admin/api");
+
+    /// <summary>
+    /// Reads the DECKFLOW_CREATOR_STYLE_ENABLED opt-in switch that gates whether
+    /// <c>AddDeckFlowCreatorStyle</c> is registered at startup (WR-11, 112-REVIEW.md). Defaults to
+    /// disabled (missing or unparseable values are treated as off), matching the
+    /// DECKFLOW_GEMINI_ENABLED precedent above — the creator-style engine has no HTTP entry point
+    /// yet, so opting in without also wiring a controller has no observable effect.
+    /// </summary>
+    internal static bool IsCreatorStyleEnabled()
+    {
+        var raw = Environment.GetEnvironmentVariable("DECKFLOW_CREATOR_STYLE_ENABLED");
+        return bool.TryParse(raw, out var enabled) && enabled;
+    }
 
     internal static async Task AwaitStartupSeedTasksAsync(
         Task contentKbSeedTask,
