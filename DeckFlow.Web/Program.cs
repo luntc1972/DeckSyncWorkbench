@@ -323,7 +323,7 @@ public partial class Program
             app.Logger.LogInformation("Ensuring content site-index schema during startup.");
             await app.Services.GetRequiredService<DeckFlow.Core.Content.IContentSiteIndexStore>().EnsureSchemaAsync();
             Task contentKbSeedTask = app.Services.GetRequiredService<IContentKbSeedLoader>().LoadIfPresentAsync();
-            Task creatorStyleSeedTask = app.Services.GetRequiredService<ICreatorStyleSeedLoader>().LoadIfPresentAsync();
+            Task creatorStyleSeedTask = LoadCreatorStyleSeedIfEnabledAsync(app.Services);
             await AwaitStartupSeedTasksAsync(contentKbSeedTask, creatorStyleSeedTask, app.Services.GetRequiredService<ILogger<Program>>());
             app.Logger.LogInformation("Content site-index schema ensured and seed load completed during startup.");
 
@@ -464,6 +464,14 @@ public partial class Program
     {
         var raw = Environment.GetEnvironmentVariable("DECKFLOW_CREATOR_STYLE_ENABLED");
         return bool.TryParse(raw, out var enabled) && enabled;
+    }
+
+    internal static Task LoadCreatorStyleSeedIfEnabledAsync(IServiceProvider services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        return IsCreatorStyleEnabled()
+            ? services.GetRequiredService<ICreatorStyleSeedLoader>().LoadIfPresentAsync()
+            : Task.CompletedTask;
     }
 
     internal static async Task AwaitStartupSeedTasksAsync(

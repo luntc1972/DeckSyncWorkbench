@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -57,6 +58,24 @@ public sealed class ProgramStartupTests
         {
             Environment.SetEnvironmentVariable(variableName, rawValue);
             Assert.Equal(expected, Program.IsCreatorStyleEnabled());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variableName, originalValue);
+        }
+    }
+
+    [Fact]
+    public async Task LoadCreatorStyleSeedIfEnabledAsync_WhenDisabledAndLoaderIsNotRegistered_DoesNotThrow()
+    {
+        const string variableName = "DECKFLOW_CREATOR_STYLE_ENABLED";
+        var originalValue = Environment.GetEnvironmentVariable(variableName);
+        try
+        {
+            Environment.SetEnvironmentVariable(variableName, null);
+            using var services = new ServiceCollection().BuildServiceProvider();
+
+            await Program.LoadCreatorStyleSeedIfEnabledAsync(services);
         }
         finally
         {
