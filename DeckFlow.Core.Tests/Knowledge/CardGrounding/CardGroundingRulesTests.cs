@@ -198,8 +198,9 @@ public sealed class CardGroundingRulesTests
         yield return ["{1}{U}", new HashSet<char>(), false];
         yield return ["{W/U}{G}", new HashSet<char>(['W', 'U', 'G']), true];
         yield return ["{W/U}{G}", new HashSet<char>(['U', 'G']), true];
+        yield return ["{W/U}{G}", new HashSet<char>(['G']), false];
+        yield return ["{X}{2}{R}", new HashSet<char>(['R']), true];
         yield return ["{W/P}", new HashSet<char>(), true];
         yield return ["{2/W}", new HashSet<char>(), true];
-        yield return ["{X}{2}{R}", new HashSet<char>(['R']), true];
     }
 }

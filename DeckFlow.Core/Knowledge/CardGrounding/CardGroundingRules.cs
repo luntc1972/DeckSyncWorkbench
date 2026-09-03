@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using DeckFlow.Core.Normalization;
 
 namespace DeckFlow.Core.Knowledge.CardGrounding;
@@ -5,9 +6,12 @@ namespace DeckFlow.Core.Knowledge.CardGrounding;
 /// <summary>
 /// Pure decision rules for strict card grounding.
 /// </summary>
-public static class CardGroundingRules
+public static partial class CardGroundingRules
 {
     private const string ColoredManaPips = "WUBRG";
+
+    [GeneratedRegex(@"\{([^}]+)\}", RegexOptions.CultureInvariant)]
+    private static partial Regex ManaSymbolRegex();
 
     /// <summary>
     /// Determines whether a card is legal in Commander using Scryfall legality data.
@@ -75,11 +79,14 @@ public static class CardGroundingRules
     }
 
     /// <summary>
-    /// Determines whether the deck can currently produce every colored mana pip in the card's mana cost.
+    /// Determines whether the deck can currently produce every colored mana pip in the card's mana cost,
+    /// honoring Magic's payment alternatives: a hybrid symbol (<c>{W/U}</c>) requires only one of its
+    /// colors, and a Phyrexian (<c>{W/P}</c>) or twobrid (<c>{2/W}</c>) symbol is always payable via its
+    /// unconditional life/generic alternative regardless of produced colors.
     /// </summary>
     /// <param name="manaCost">Scryfall mana-cost string.</param>
     /// <param name="deckProducedColors">WUBRG colors the submitted deck can already produce.</param>
-    /// <returns><see langword="true"/> when every colored pip required by the cost is already producible.</returns>
+    /// <returns><see langword="true"/> when every colored-pip requirement in the cost is satisfiable.</returns>
     public static bool IsCastable(string? manaCost, IReadOnlySet<char> deckProducedColors)
     {
         ArgumentNullException.ThrowIfNull(deckProducedColors);
@@ -89,32 +96,38 @@ public static class CardGroundingRules
             return true;
         }
 
-        var symbols = manaCost.Split(['{', '}'], StringSplitOptions.RemoveEmptyEntries);
-        foreach (var symbol in symbols)
+        foreach (Match match in ManaSymbolRegex().Matches(manaCost))
         {
-            var parts = symbol.Split('/');
+            var parts = match.Groups[1].Value.Split('/');
             var coloredParts = parts.Where(part => part.Length == 1 && ColoredManaPips.Contains(part[0])).ToArray();
+
             if (coloredParts.Length == 0)
             {
+                // Not a colored-pip requirement: generic {3}, variable {X}, colorless {C}, snow {S}.
                 continue;
             }
 
-            if (parts.Length > 1 && parts.Any(part => !coloredParts.Contains(part, StringComparer.Ordinal)))
+            if (parts.Length == 1)
+            {
+                // Plain colored pip: the single color must be producible.
+                if (!deckProducedColors.Contains(coloredParts[0][0]))
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            // Why: any slash-separated alternative that is NOT a bare color letter is an
+            // unconditional payment (Phyrexian "{W/P}" pays 2 life, twobrid "{2/W}" pays 2
+            // generic), so the whole symbol is always payable regardless of produced colors.
+            if (coloredParts.Length != parts.Length)
             {
                 continue;
             }
 
-            if (parts.Length > 1 && coloredParts.Any(part => deckProducedColors.Contains(part[0])))
-            {
-                continue;
-            }
-
-            if (parts.Length == 1 && deckProducedColors.Contains(coloredParts[0][0]))
-            {
-                continue;
-            }
-
-            if (parts.Length > 1 || !deckProducedColors.Contains(coloredParts[0][0]))
+            // Pure color hybrid ("{W/U}"): satisfied when any alternative color is producible.
+            if (!coloredParts.Any(part => deckProducedColors.Contains(part[0])))
             {
                 return false;
             }

@@ -107,6 +107,9 @@ public static class StapleStripper
         ArgumentNullException.ThrowIfNull(samples);
         ArgumentNullException.ThrowIfNull(personalStaples);
 
+        // Why: production writers of NormalizedName run CardNormalizer.Normalize (which strips
+        // punctuation), so the curated/personal staple keys must be normalized the same way or a
+        // staple with punctuation (e.g. "Rogue's Passage") can never match and silently survives.
         var staples = new HashSet<string>(
             ContentTagVocabulary.Staples.Select(CardNormalizer.Normalize),
             StringComparer.OrdinalIgnoreCase);

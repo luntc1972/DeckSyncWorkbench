@@ -17,7 +17,27 @@ public sealed class StapleStripperTests
     {
         var samples = new[]
         {
-            Sample("deck-1", Entry("Sol Ring"), Entry("Rogue's Passage"), Entry("Rhystic Study")),
+            Sample("deck-1", Entry("Sol Ring"), Entry("Rhystic Study")),
+        };
+
+        var stripped = StapleStripper.StripStaples(samples, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+
+        Assert.Single(stripped);
+        Assert.Collection(
+            stripped[0].Entries,
+            entry => Assert.Equal("Rhystic Study", entry.Name));
+    }
+
+    /// <summary>
+    /// Verifies a punctuated curated staple is stripped after production-equivalent normalization
+    /// (CardNormalizer.Normalize strips the apostrophe, so the comparison must normalize both sides).
+    /// </summary>
+    [Fact]
+    public void StripStaples_RemovesPunctuatedCuratedStapleAfterProductionNormalization()
+    {
+        var samples = new[]
+        {
+            Sample("deck-1", Entry("Rogue's Passage"), Entry("Rhystic Study")),
         };
 
         var stripped = StapleStripper.StripStaples(samples, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
@@ -139,6 +159,9 @@ public sealed class StapleStripperTests
         return new DeckEntry
         {
             Name = name,
+            // Why: production writers of NormalizedName use CardNormalizer.Normalize
+            // (see ArchidektApiDeckImporter, MoxfieldApiDeckImporter, ArchidektParser,
+            // MoxfieldParser) — the fixture must match or staple stripping bugs go undetected.
             NormalizedName = CardNormalizer.Normalize(name),
             Quantity = quantity,
             Board = "mainboard",
