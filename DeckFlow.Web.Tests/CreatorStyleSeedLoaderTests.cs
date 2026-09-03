@@ -151,10 +151,69 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
         Assert.Empty(deckCacheStore.Upserts);
     }
 
+    [Fact]
+    public async Task LoadIfPresentAsync_ProfileSeedContainsBlankSlugRow_SkipsBadRowAndLoadsTheRest()
+    {
+        // Why (CR-05): WR-10 only guarded deserialization. A seed file that is VALID JSON but has
+        // one row that fails store-side validation (e.g. blank slug, mirroring
+        // CreatorStyleProfileStore.UpsertAsync's ArgumentException.ThrowIfNullOrWhiteSpace guard)
+        // must not crash startup — the bad row is skipped and the rest still load.
+        var baseDir = CreateContentKbBase();
+        WriteSeed(
+            baseDir,
+            ContentKbPaths.CreatorStyleProfileSeedRelativePath,
+            JsonSerializer.Serialize(new[]
+            {
+                CreateProfile("alpha"),
+                CreateProfile(string.Empty),
+                CreateProfile("beta")
+            }));
+        var profileStore = new ThrowingOnBlankSlugCreatorStyleProfileStore();
+        var deckCacheStore = new FakeCreatorDeckCacheStore();
+        var loader = BuildLoader(baseDir, profileStore, deckCacheStore);
+
+        var count = await loader.LoadIfPresentAsync();
+
+        Assert.Equal(2, count);
+        Assert.Collection(
+            profileStore.Upserts,
+            profile => Assert.Equal("alpha", profile.Slug),
+            profile => Assert.Equal("beta", profile.Slug));
+    }
+
+    [Fact]
+    public async Task LoadIfPresentAsync_DeckCacheSeedContainsBlankCreatorSlugRow_SkipsBadRowAndLoadsTheRest()
+    {
+        // Why (CR-05): same shape for the deck-cache loader — a row that fails store-side
+        // validation (blank CreatorSlug, mirroring CreatorDeckCacheStore.UpsertAsync's guard)
+        // must not abort the whole seed load.
+        var baseDir = CreateContentKbBase();
+        WriteSeed(
+            baseDir,
+            ContentKbPaths.CreatorDeckCacheSeedRelativePath,
+            JsonSerializer.Serialize(new[]
+            {
+                CreateDeckCacheEntry("alpha", "deck-a"),
+                CreateDeckCacheEntry(string.Empty, "deck-bad"),
+                CreateDeckCacheEntry("beta", "deck-c")
+            }));
+        var profileStore = new FakeCreatorStyleProfileStore();
+        var deckCacheStore = new ThrowingOnBlankCreatorSlugDeckCacheStore();
+        var loader = BuildLoader(baseDir, profileStore, deckCacheStore);
+
+        var count = await loader.LoadIfPresentAsync();
+
+        Assert.Equal(2, count);
+        Assert.Collection(
+            deckCacheStore.Upserts,
+            entry => Assert.Equal("deck-a", entry.DeckId),
+            entry => Assert.Equal("deck-c", entry.DeckId));
+    }
+
     private CreatorStyleSeedLoader BuildLoader(
         string baseDir,
-        FakeCreatorStyleProfileStore profileStore,
-        FakeCreatorDeckCacheStore deckCacheStore)
+        ICreatorStyleProfileStore profileStore,
+        ICreatorDeckCacheStore deckCacheStore)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["ContentKb:ContentBase"] = baseDir })
@@ -266,6 +325,45 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
 
         public Task UpsertAsync(CreatorDeckCacheEntry entry, CancellationToken cancellationToken = default)
         {
+            Upserts.Add(entry);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingOnBlankSlugCreatorStyleProfileStore : ICreatorStyleProfileStore
+    {
+        public List<CreatorStyleProfile> Upserts { get; } = new();
+
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<CreatorStyleProfile?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
+            => Task.FromResult<CreatorStyleProfile?>(null);
+
+        public Task UpsertAsync(CreatorStyleProfile profile, CancellationToken cancellationToken = default)
+        {
+            // Mirrors CreatorStyleProfileStore.UpsertAsync's real guard.
+            ArgumentException.ThrowIfNullOrWhiteSpace(profile.Slug);
+            Upserts.Add(profile);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingOnBlankCreatorSlugDeckCacheStore : ICreatorDeckCacheStore
+    {
+        public List<CreatorDeckCacheEntry> Upserts { get; } = new();
+
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<string?> GetContentHashAsync(string creatorSlug, string deckId, CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>(null);
+
+        public Task<IReadOnlyList<CreatorDeckCacheEntry>> GetByCreatorAsync(string creatorSlug, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>(Array.Empty<CreatorDeckCacheEntry>());
+
+        public Task UpsertAsync(CreatorDeckCacheEntry entry, CancellationToken cancellationToken = default)
+        {
+            // Mirrors CreatorDeckCacheStore.UpsertAsync's real guard.
+            ArgumentException.ThrowIfNullOrWhiteSpace(entry.CreatorSlug);
             Upserts.Add(entry);
             return Task.CompletedTask;
         }
