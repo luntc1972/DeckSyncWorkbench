@@ -261,8 +261,14 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
                 "submitted-deck manabase analysis.",
                 cancellationToken).ConfigureAwait(false);
         }
-        catch (HttpRequestException exception)
+        catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
         {
+            // Why (WR-08): the Scryfall path can surface TaskCanceledException (HttpClient/RestSharp
+            // timeout, or the Polly outer-timeout policy raising TimeoutRejectedException) and
+            // JsonException from a malformed body, not just HttpRequestException. This subsystem's
+            // whole design is "degrade to DeckResolutionDegraded = true and keep going", matching
+            // the sibling ResolveCombosAsync's broader filter — checking the caller's token (not
+            // the exception's type) distinguishes an upstream timeout from real caller cancellation.
             _logger.LogWarning(exception, "Submitted-deck Scryfall resolution failed; omitting deck-resolution metrics.");
             return EmptyResolution();
         }

@@ -232,6 +232,33 @@ public sealed class SubmittedDeckStatsBuilderTests
         Assert.True(result.DeckResolutionDegraded);
     }
 
+    [Fact]
+    public async Task BuildAsync_CollectionRequestTimesOut_OmitsKarstenMetricsAndMarksResolutionDegraded()
+    {
+        // Why (WR-08): AnalyzeSubmittedDeckAsync previously caught only HttpRequestException, so an
+        // upstream Scryfall timeout (TaskCanceledException from RestSharp/HttpClient, or a Polly
+        // TimeoutRejectedException) escaped and failed the whole packet instead of degrading, even
+        // though the caller passed no cancellation (CancellationToken.None here) — this is an
+        // upstream timeout, not caller cancellation, and must degrade like the sibling ResolveCombosAsync.
+        DeckEntry[] entries =
+        [
+            Entry("Mystery Commander", 1, "commander"),
+            Entry("Unknown Spell", 3, "mainboard"),
+        ];
+
+        var builder = new SubmittedDeckStatsBuilder(
+            loadDeckAsync: (_, _) => Task.FromResult(new DeckSourceLoadResult(entries.ToList(), null)),
+            getCategoriesAsync: (_, _) => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>()),
+            findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(null),
+            executeCollectionAsync: (_, _) => Task.FromException<RestResponse<ScryfallCollectionResponse>>(new TaskCanceledException("Scryfall request timed out.")),
+            searchFallbackCardAsync: (_, _) => Task.FromResult<ScryfallCard?>(null));
+
+        SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
+
+        Assert.DoesNotContain("karsten:target_lands", result.Stats.Metrics.Keys);
+        Assert.True(result.DeckResolutionDegraded);
+    }
+
     private static DeckEntry Entry(string name, int quantity, string board)
     {
         return new DeckEntry

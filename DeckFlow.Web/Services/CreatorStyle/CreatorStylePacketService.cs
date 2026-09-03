@@ -457,9 +457,12 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
                 continue;
             }
 
-            // Why: conditional targets are rendered (labeled) but intentionally excluded from scoring — the scorer cannot evaluate conditions.
+            // Why (WR-05): conditional targets are rendered (labeled) but intentionally excluded
+            // from scoring — the scorer cannot evaluate conditions. Metric/Condition originate
+            // from LLM decomposition of untrusted creator transcripts, so they route through the
+            // same SanitizeUserText contract as every other artifact site.
             sb.Append("- Metric: ");
-            sb.Append(target.Metric);
+            sb.Append(SanitizeUserText(target.Metric, fallback: "(unknown)"));
             sb.Append("; Value: ");
             sb.Append(FormatNumber(target.Value));
             sb.Append("; Weight: ");
@@ -480,7 +483,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
             if (!string.IsNullOrWhiteSpace(target.Condition))
             {
                 sb.Append("; Condition: ");
-                sb.Append(target.Condition);
+                sb.Append(SanitizeUserText(target.Condition, fallback: "(none)"));
             }
 
             sb.AppendLine();
