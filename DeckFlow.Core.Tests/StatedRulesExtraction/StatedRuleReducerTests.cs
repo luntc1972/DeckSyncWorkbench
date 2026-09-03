@@ -95,6 +95,58 @@ public sealed class StatedRuleReducerTests
         Assert.Same(second, reduced[1]);
     }
 
+    [Fact]
+    public void Reduce_WithChunkEvidence_RejectsHallucinatedRuleNotTraceableToChunkEvidence()
+    {
+        // Why (WR-17): the LLM reduce pass may only merge existing chunk rules; a rule with a
+        // vocabulary-valid metric/comparator but a (Metric, Condition, Comparator) triple that
+        // never appeared in the chunk evidence is a hallucination and must be dropped, not
+        // survive into CreatorStyleProfile.StatedRules with full provenance fields.
+        var evidenceRule = CreateCandidate(
+            metric: "land_count",
+            condition: "archetype:control",
+            comparator: "gte",
+            confidence: 0.70,
+            videoDateUtc: "2025-01-01T00:00:00Z");
+        var hallucinated = CreateCandidate(
+            metric: "interaction",
+            condition: "archetype:control",
+            comparator: "gte",
+            confidence: 0.95,
+            videoDateUtc: "2025-02-01T00:00:00Z");
+
+        IReadOnlyList<StatedRuleCandidate> reduced = StatedRuleReducer.Reduce(
+            candidates: [evidenceRule, hallucinated],
+            chunkEvidence: [evidenceRule]);
+
+        StatedRuleCandidate survivor = Assert.Single(reduced);
+        Assert.Same(evidenceRule, survivor);
+    }
+
+    [Fact]
+    public void Reduce_WithChunkEvidence_KeepsRuleTraceableToChunkEvidenceAndStillDedupes()
+    {
+        var chunkOriginal = CreateCandidate(
+            metric: "land_count",
+            condition: "archetype:control",
+            comparator: "gte",
+            confidence: 0.65,
+            videoDateUtc: "2026-01-01T00:00:00Z");
+        var reducedMerge = CreateCandidate(
+            metric: "land_count",
+            condition: "archetype:control",
+            comparator: "gte",
+            confidence: 0.90,
+            videoDateUtc: "2025-12-01T00:00:00Z");
+
+        IReadOnlyList<StatedRuleCandidate> reduced = StatedRuleReducer.Reduce(
+            candidates: [chunkOriginal, reducedMerge],
+            chunkEvidence: [chunkOriginal]);
+
+        StatedRuleCandidate survivor = Assert.Single(reduced);
+        Assert.Same(reducedMerge, survivor);
+    }
+
     private static StatedRuleCandidate CreateCandidate(
         string metric,
         string? condition,

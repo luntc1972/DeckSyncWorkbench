@@ -72,6 +72,50 @@ public sealed class MeasuredStyleProfileBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_ExistingStatedRules_PreservesRulesAndFusesThemWithMeasuredMetrics()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await TestHarness.CreateAsync(now);
+        await harness.SeedSourceAsync(
+            "builder-fused",
+            "builder-fused",
+            SnailSeedCorpusFixture.DeckSummaries,
+            SnailSeedCorpusFixture.Samples);
+        await harness.SeedCategoriesAsync();
+        await harness.SeedBaselineAsync();
+        var statedRule = new StatedRule
+        {
+            Category = "mana",
+            TargetMetric = "land_count",
+            TargetValue = 35,
+            Comparator = "gte",
+            SourceClip = "Play at least thirty-five lands.",
+            Confidence = 0.90
+        };
+        await harness.ProfileStore.UpsertAsync(new CreatorStyleProfile
+        {
+            Slug = "builder-fused",
+            Platform = SnailSeedCorpusFixture.Platform,
+            MinDecks = 0,
+            StatedRules = [statedRule],
+            MeasuredMetrics = Array.Empty<MeasuredMetric>(),
+            FusedTargets = Array.Empty<FusedTarget>(),
+            UpdatedUtc = now
+        });
+
+        CreatorStyleProfile profile = await harness.CreateBuilder(new FakeCommanderSpellbookService(
+            new Dictionary<string, CommanderSpellbookResult?>(StringComparer.Ordinal))).BuildAsync(
+            "builder-fused",
+            SnailSeedCorpusFixture.Platform);
+
+        Assert.Equal([statedRule], profile.StatedRules);
+        FusedTarget target = Assert.Single(profile.FusedTargets);
+        Assert.Equal("land_count", target.Metric);
+        Assert.Equal(35, target.StatedMin);
+        Assert.Null(target.StatedMax);
+    }
+
+    [Fact]
     public async Task BuildAsync_MultipleDecks_BoundsConcurrentComboLookups()
     {
         // Why (WR-09): BuildComboDensityMetricAsync used to Task.WhenAll every deck's combo lookup

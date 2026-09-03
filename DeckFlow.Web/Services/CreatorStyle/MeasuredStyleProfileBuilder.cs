@@ -2,6 +2,8 @@ using System.Net;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
+using DeckFlow.Core.Knowledge.ProfileFusion;
+using DeckFlow.Core.Knowledge.StatedRulesExtraction;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
@@ -140,6 +142,14 @@ public sealed class MeasuredStyleProfileBuilder
             .OrderBy(metric => metric.Metric, StringComparer.Ordinal)
             .ToList();
 
+        CreatorStyleProfile? existingProfile = await _profileStore
+            .GetBySlugAsync(creatorSlug, cancellationToken)
+            .ConfigureAwait(false);
+        IReadOnlyList<StatedRule> statedRules = existingProfile?.StatedRules ?? Array.Empty<StatedRule>();
+        IReadOnlyList<FusedTarget> fusedTargets = ProfileFusionEngine.Fuse(
+            metrics,
+            ToCandidates(statedRules, _nowUtc()));
+
         var profile = new CreatorStyleProfile
         {
             Slug = creatorSlug,
@@ -147,13 +157,31 @@ public sealed class MeasuredStyleProfileBuilder
             MinDecks = rawDeckCount,
             InsufficientSample = rawDeckCount < CreatorStyleProfile.MinDeckFloor,
             MeasuredMetrics = metrics,
-            StatedRules = Array.Empty<StatedRule>(),
-            FusedTargets = Array.Empty<FusedTarget>(),
+            StatedRules = statedRules,
+            FusedTargets = fusedTargets,
             UpdatedUtc = _nowUtc()
         };
 
         await _profileStore.UpsertAsync(profile, cancellationToken).ConfigureAwait(false);
         return profile;
+    }
+
+    private static IReadOnlyList<StatedRuleCandidate> ToCandidates(
+        IReadOnlyList<StatedRule> statedRules,
+        DateTimeOffset videoDateUtc)
+    {
+        return statedRules
+            .Select(rule => new StatedRuleCandidate
+            {
+                Category = rule.Category,
+                Metric = rule.TargetMetric,
+                Value = rule.TargetValue,
+                Comparator = rule.Comparator,
+                SourceClip = rule.SourceClip,
+                Confidence = rule.Confidence,
+                VideoDateUtc = videoDateUtc
+            })
+            .ToArray();
     }
 
     private static List<MeasuredMetric> BuildCategoryMetrics(

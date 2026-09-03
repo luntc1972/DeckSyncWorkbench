@@ -11,8 +11,20 @@ public static class StatedRuleReducer
     /// <param name="candidates">Candidates to reduce.</param>
     /// <returns>A new list containing one survivor per dedupe bucket.</returns>
     public static IReadOnlyList<StatedRuleCandidate> Reduce(IReadOnlyList<StatedRuleCandidate> candidates)
+        => Reduce(candidates, candidates);
+
+    /// <summary>
+    /// Collapses duplicate stated-rule candidates while retaining only rules supported by chunk evidence.
+    /// </summary>
+    /// <param name="candidates">Candidates emitted by the LLM reduce pass.</param>
+    /// <param name="chunkEvidence">Rules decomposed from individual transcript chunks.</param>
+    /// <returns>A new list containing supported survivors, one per dedupe bucket.</returns>
+    public static IReadOnlyList<StatedRuleCandidate> Reduce(
+        IReadOnlyList<StatedRuleCandidate> candidates,
+        IReadOnlyList<StatedRuleCandidate> chunkEvidence)
     {
         ArgumentNullException.ThrowIfNull(candidates);
+        ArgumentNullException.ThrowIfNull(chunkEvidence);
 
         if (candidates.Count == 0)
         {
@@ -36,7 +48,15 @@ public static class StatedRuleReducer
             }
         }
 
+        var evidenceKeys = chunkEvidence
+            .Select(static candidate => new StatedRuleReducerKey(
+                candidate.Metric,
+                candidate.Condition ?? string.Empty,
+                candidate.Comparator))
+            .ToHashSet();
+
         return buckets
+            .Where(pair => evidenceKeys.Contains(pair.Key))
             .OrderBy(pair => pair.Value.Index)
             .Select(pair => pair.Value.Candidate)
             .ToList();

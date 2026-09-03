@@ -62,7 +62,7 @@ public sealed class StatedRulesExtractor
 
         // Why: Claimify stops at per-claim decomposition; DeckFlow adds an LLM reduce pass plus
         // deterministic dedupe so cross-chunk repeats collapse without inventing new rules.
-        IReadOnlyList<StatedRuleCandidate> deduped = StatedRuleReducer.Reduce(reduced.Rules);
+        IReadOnlyList<StatedRuleCandidate> deduped = StatedRuleReducer.Reduce(reduced.Rules, allChunkRules);
         IReadOnlyList<StatedRuleCandidate> grounded = _cardGrounder is null
             ? deduped
             : await GroundCardReferencesAsync(deduped, ct).ConfigureAwait(false);
