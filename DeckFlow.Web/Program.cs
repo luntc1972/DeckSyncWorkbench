@@ -93,7 +93,7 @@ public partial class Program
 
             builder.Services.AddDeckFlowScryfallServices();
 
-            // Why (WR-11, 112-REVIEW.md): the creator-style engine has no controller wired to it
+            // Why (WR-11, 112-REVIEWS.md): the creator-style engine has no controller wired to it
             // yet (zero HTTP exposure) and its production seeds (content-kb/seed/creator-*.json)
             // are still literally "[]", so registering its full DI graph unconditionally pays a
             // real cost - an HttpClient, five singletons (two of them opening SQLite files via
@@ -455,7 +455,7 @@ public partial class Program
 
     /// <summary>
     /// Reads the DECKFLOW_CREATOR_STYLE_ENABLED opt-in switch that gates whether
-    /// <c>AddDeckFlowCreatorStyle</c> is registered at startup (WR-11, 112-REVIEW.md). Defaults to
+    /// <c>AddDeckFlowCreatorStyle</c> is registered at startup (WR-11, 112-REVIEWS.md). Defaults to
     /// disabled (missing or unparseable values are treated as off), matching the
     /// DECKFLOW_GEMINI_ENABLED precedent above — the creator-style engine has no HTTP entry point
     /// yet, so opting in without also wiring a controller has no observable effect.
@@ -466,12 +466,18 @@ public partial class Program
         return bool.TryParse(raw, out var enabled) && enabled;
     }
 
-    internal static Task LoadCreatorStyleSeedIfEnabledAsync(IServiceProvider services)
+    /// <summary>
+    /// Loads the creator-style seed when the engine's DI graph was registered this run
+    /// (see the <c>IsCreatorStyleEnabled</c> gate at the top of <see cref="Main"/>). Deliberately
+    /// uses <c>GetService</c>, not <c>GetRequiredService</c>: the registration gate is the single
+    /// source of truth, so this site must not re-read the env var and must not throw when the
+    /// engine is off (regression: exit-code-82 startup crash, 41cf7e31).
+    /// </summary>
+    internal static Task<int> LoadCreatorStyleSeedIfEnabledAsync(IServiceProvider services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        return IsCreatorStyleEnabled()
-            ? services.GetRequiredService<ICreatorStyleSeedLoader>().LoadIfPresentAsync()
-            : Task.CompletedTask;
+        var loader = services.GetService<ICreatorStyleSeedLoader>();
+        return loader is null ? Task.FromResult(0) : loader.LoadIfPresentAsync();
     }
 
     internal static async Task AwaitStartupSeedTasksAsync(

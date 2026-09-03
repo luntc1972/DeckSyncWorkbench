@@ -1,3 +1,5 @@
+using DeckFlow.Web.Services;
+using DeckFlow.Web.Tests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -7,6 +9,7 @@ namespace DeckFlow.Web.Tests;
 /// <summary>
 /// Startup-specific tests for the web composition root.
 /// </summary>
+[Collection("AdminEnvSerial")]
 public sealed class ProgramStartupTests
 {
     [Fact]
@@ -37,7 +40,7 @@ public sealed class ProgramStartupTests
             });
     }
 
-    // Why (WR-11, 112-REVIEW.md): IsCreatorStyleEnabled gates whether Program.Main registers
+    // Why (WR-11, 112-REVIEWS.md): IsCreatorStyleEnabled gates whether Program.Main registers
     // AddDeckFlowCreatorStyle at all. This targets the pure env-var-parsing helper directly
     // (same seam pattern as DeriveCloudflareClientIp/DeriveFeedbackPartitionKey below, covered by
     // ForwardedHeadersOptionsTests.cs) rather than booting the full app, since Program.Main's DI
@@ -52,34 +55,67 @@ public sealed class ProgramStartupTests
     [InlineData("True", true)]
     public void IsCreatorStyleEnabled_ParsesEnvironmentVariable(string? rawValue, bool expected)
     {
-        const string variableName = "DECKFLOW_CREATOR_STYLE_ENABLED";
-        var originalValue = Environment.GetEnvironmentVariable(variableName);
-        try
+        using var env = rawValue is null
+            ? EnvScope.Clear("DECKFLOW_CREATOR_STYLE_ENABLED")
+            : EnvScope.Set("DECKFLOW_CREATOR_STYLE_ENABLED", rawValue);
+        Assert.Equal(expected, Program.IsCreatorStyleEnabled());
+    }
+
+    [Fact]
+    public async Task LoadCreatorStyleSeedIfEnabledAsync_WhenLoaderIsNotRegistered_ReturnsZeroWithoutThrowing()
+    {
+        using var env = EnvScope.Clear("DECKFLOW_CREATOR_STYLE_ENABLED");
+        await using var services = new ServiceCollection().BuildServiceProvider();
+
+        Assert.Equal(0, await Program.LoadCreatorStyleSeedIfEnabledAsync(services));
+    }
+
+    [Fact]
+    public void CompositionRoot_WithCreatorStyleDisabled_DoesNotRegisterSeedLoader()
+    {
+        using var env = EnvScope.Clear("DECKFLOW_CREATOR_STYLE_ENABLED");
+        var services = new ServiceCollection();
+
+        // Mirrors Program.Main's registration gate at Program.cs:107 — do not call
+        // AddDeckFlowCreatorStyle unconditionally here; the whole point of this test is that the
+        // gate, not this test, decides whether the descriptor set is added.
+        if (Program.IsCreatorStyleEnabled())
         {
-            Environment.SetEnvironmentVariable(variableName, rawValue);
-            Assert.Equal(expected, Program.IsCreatorStyleEnabled());
+            services.AddSingleton<ICreatorStyleSeedLoader, ThrowingCreatorStyleSeedLoader>();
         }
-        finally
+
+        using var provider = services.BuildServiceProvider();
+        Assert.Null(provider.GetService<ICreatorStyleSeedLoader>());
+    }
+
+    private sealed class ThrowingCreatorStyleSeedLoader : ICreatorStyleSeedLoader
+    {
+        public Task<int> LoadIfPresentAsync(CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException();
+    }
+
+    private sealed class RecordingCreatorStyleSeedLoader : ICreatorStyleSeedLoader
+    {
+        public int CallCount { get; private set; }
+
+        public Task<int> LoadIfPresentAsync(CancellationToken cancellationToken = default)
         {
-            Environment.SetEnvironmentVariable(variableName, originalValue);
+            CallCount++;
+            return Task.FromResult(3);
         }
     }
 
     [Fact]
-    public async Task LoadCreatorStyleSeedIfEnabledAsync_WhenDisabledAndLoaderIsNotRegistered_DoesNotThrow()
+    public async Task LoadCreatorStyleSeedIfEnabledAsync_WhenLoaderIsRegistered_InvokesLoaderAndReturnsItsCount()
     {
-        const string variableName = "DECKFLOW_CREATOR_STYLE_ENABLED";
-        var originalValue = Environment.GetEnvironmentVariable(variableName);
-        try
-        {
-            Environment.SetEnvironmentVariable(variableName, null);
-            using var services = new ServiceCollection().BuildServiceProvider();
+        var loader = new RecordingCreatorStyleSeedLoader();
+        await using var services = new ServiceCollection()
+            .AddSingleton<ICreatorStyleSeedLoader>(loader)
+            .BuildServiceProvider();
 
-            await Program.LoadCreatorStyleSeedIfEnabledAsync(services);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(variableName, originalValue);
-        }
+        var result = await Program.LoadCreatorStyleSeedIfEnabledAsync(services);
+
+        Assert.Equal(1, loader.CallCount);
+        Assert.Equal(3, result);
     }
 }
