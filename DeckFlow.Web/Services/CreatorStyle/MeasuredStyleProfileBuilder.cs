@@ -40,6 +40,7 @@ public sealed class MeasuredStyleProfileBuilder
     private readonly ICommanderSpellbookService _commanderSpellbookService;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly ICreatorStyleProfileStore _profileStore;
+    private readonly ICreatorProfileSourceStore _profileSourceStore;
     private readonly ILogger<MeasuredStyleProfileBuilder> _logger;
     private readonly Func<DateTimeOffset> _nowUtc;
 
@@ -53,6 +54,7 @@ public sealed class MeasuredStyleProfileBuilder
         ICommanderSpellbookService commanderSpellbookService,
         IScryfallCardResolver scryfallCardResolver,
         ICreatorStyleProfileStore profileStore,
+        ICreatorProfileSourceStore profileSourceStore,
         ILogger<MeasuredStyleProfileBuilder>? logger = null)
         : this(
             deckCrawler,
@@ -61,6 +63,7 @@ public sealed class MeasuredStyleProfileBuilder
             commanderSpellbookService,
             scryfallCardResolver,
             profileStore,
+            profileSourceStore,
             logger,
             null)
     {
@@ -73,6 +76,7 @@ public sealed class MeasuredStyleProfileBuilder
         ICommanderSpellbookService commanderSpellbookService,
         IScryfallCardResolver scryfallCardResolver,
         ICreatorStyleProfileStore profileStore,
+        ICreatorProfileSourceStore profileSourceStore,
         ILogger<MeasuredStyleProfileBuilder>? logger,
         Func<DateTimeOffset>? nowUtc)
     {
@@ -82,12 +86,14 @@ public sealed class MeasuredStyleProfileBuilder
         ArgumentNullException.ThrowIfNull(commanderSpellbookService);
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
         ArgumentNullException.ThrowIfNull(profileStore);
+        ArgumentNullException.ThrowIfNull(profileSourceStore);
         _deckCrawler = deckCrawler;
         _categoryResolver = categoryResolver;
         _categoryKnowledgeRepository = categoryKnowledgeRepository;
         _commanderSpellbookService = commanderSpellbookService;
         _scryfallCardResolver = scryfallCardResolver;
         _profileStore = profileStore;
+        _profileSourceStore = profileSourceStore;
         _logger = logger ?? NullLogger<MeasuredStyleProfileBuilder>.Instance;
         _nowUtc = nowUtc ?? (() => DateTimeOffset.UtcNow);
     }
@@ -118,13 +124,17 @@ public sealed class MeasuredStyleProfileBuilder
             .ConfigureAwait(false);
         IReadOnlySet<string> personalStaples = StapleStripper.ComputePersonalStaples(flaggedSamples);
         IReadOnlyList<CreatorDeckSample> strippedSamples = StapleStripper.StripStaples(flaggedSamples, personalStaples);
+        CreatorProfileSource? profileSource = await _profileSourceStore.GetBySlugAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
+        // Why (CR-03): use the persisted flag, matching CreatorProfileDeckCrawler, rather than derive it from sample weights.
+        bool weightsUncurated = profileSource?.WeightsUncurated ?? true;
         IReadOnlyList<CreatorDeckSample> weightedSamples = FolderWeighting.ApplyWeights(
             strippedSamples,
             flaggedSamples
                 .Where(sample => sample.FolderId.HasValue)
                 .GroupBy(sample => sample.FolderId!.Value)
                 .ToDictionary(group => group.Key, group => group.First().FolderWeight),
-            weightsUncurated: flaggedSamples.All(sample => Math.Abs(sample.FolderWeight - 1.0) < 0.0001));
+            weightsUncurated: weightsUncurated);
+        IReadOnlyList<double> sampleWeights = weightedSamples.Select(sample => sample.FolderWeight).ToArray();
 
         int rawDeckCount = FolderWeighting.RawDeckCount(weightedSamples);
         double effectiveSampleSize = FolderWeighting.EffectiveSampleSize(weightedSamples);
@@ -132,13 +142,13 @@ public sealed class MeasuredStyleProfileBuilder
             .GetGlobalCategoryBaselineAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        List<MeasuredMetric> metrics = BuildCategoryMetrics(weightedSamples, cardCategories, rawDeckCount, effectiveSampleSize);
+        List<MeasuredMetric> metrics = BuildCategoryMetrics(weightedSamples, sampleWeights, cardCategories, rawDeckCount, effectiveSampleSize);
         metrics.AddRange(BuildLiftMetrics(weightedSamples, cardCategories, baseline, rawDeckCount, effectiveSampleSize));
         // Why (WR-03): each of these already fans out per-deck work at MaxConcurrentDeckAnalyses;
         // starting them concurrently doubles peak concurrency to 8 on the 512MB Render tier the
         // cap exists to protect, so they run sequentially instead.
-        MeasuredMetric comboDensity = await BuildComboDensityMetricAsync(weightedSamples, rawDeckCount, effectiveSampleSize, cancellationToken).ConfigureAwait(false);
-        IReadOnlyList<MeasuredMetric> karstenMetrics = await BuildKarstenMetricsAsync(weightedSamples, rawDeckCount, effectiveSampleSize, cancellationToken).ConfigureAwait(false);
+        MeasuredMetric comboDensity = await BuildComboDensityMetricAsync(weightedSamples, sampleWeights, rawDeckCount, effectiveSampleSize, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<MeasuredMetric> karstenMetrics = await BuildKarstenMetricsAsync(weightedSamples, sampleWeights, rawDeckCount, effectiveSampleSize, cancellationToken).ConfigureAwait(false);
         metrics.Add(comboDensity);
         metrics.AddRange(karstenMetrics);
         metrics = metrics
@@ -190,6 +200,7 @@ public sealed class MeasuredStyleProfileBuilder
 
     private static List<MeasuredMetric> BuildCategoryMetrics(
         IReadOnlyList<CreatorDeckSample> samples,
+        IReadOnlyList<double> weights,
         IReadOnlyDictionary<string, IReadOnlyList<string>> cardCategories,
         int rawDeckCount,
         double effectiveSampleSize)
@@ -212,9 +223,9 @@ public sealed class MeasuredStyleProfileBuilder
             metrics.Add(new MeasuredMetric
             {
                 Metric = $"category_ratio:{category}",
-                Value = perDeckValues.Count == 0 ? 0 : perDeckValues.Average(),
+                Value = perDeckValues.Count == 0 ? 0 : WeightedAverage(weights, perDeckValues),
                 NumDecks = rawDeckCount,
-                Distribution = BuildDistribution(perDeckValues, effectiveSampleSize)
+                Distribution = BuildDistribution(perDeckValues, weights, effectiveSampleSize)
             });
         }
 
@@ -235,13 +246,14 @@ public sealed class MeasuredStyleProfileBuilder
                 Metric = $"lift:{item.CategoryA}|{item.CategoryB}",
                 Value = item.Lift,
                 NumDecks = rawDeckCount,
-                Distribution = BuildDistribution([item.Lift], effectiveSampleSize)
+                Distribution = BuildDistribution([item.Lift], [1.0], effectiveSampleSize)
             })
             .ToList();
     }
 
     private async Task<MeasuredMetric> BuildComboDensityMetricAsync(
         IReadOnlyList<CreatorDeckSample> samples,
+        IReadOnlyList<double> weights,
         int rawDeckCount,
         double effectiveSampleSize,
         CancellationToken cancellationToken)
@@ -255,11 +267,12 @@ public sealed class MeasuredStyleProfileBuilder
                 comboCounts[index] = await ResolveComboCountAsync(samples[index].Entries, ct).ConfigureAwait(false);
             }).ConfigureAwait(false);
 
-        return AverageMetric("combo_density:included_per_deck", comboCounts, rawDeckCount, effectiveSampleSize);
+        return AverageMetric("combo_density:included_per_deck", weights, comboCounts, rawDeckCount, effectiveSampleSize);
     }
 
     private async Task<IReadOnlyList<MeasuredMetric>> BuildKarstenMetricsAsync(
         IReadOnlyList<CreatorDeckSample> samples,
+        IReadOnlyList<double> weights,
         int rawDeckCount,
         double effectiveSampleSize,
         CancellationToken cancellationToken)
@@ -279,14 +292,15 @@ public sealed class MeasuredStyleProfileBuilder
 
         return
         [
-            AverageMetric("karsten:land_delta", landDelta, rawDeckCount, effectiveSampleSize),
-            AverageMetric("karsten:target_lands", targetLands, rawDeckCount, effectiveSampleSize),
-            AverageMetric("karsten:health_score", healthScores, rawDeckCount, effectiveSampleSize)
+            AverageMetric("karsten:land_delta", weights, landDelta, rawDeckCount, effectiveSampleSize),
+            AverageMetric("karsten:target_lands", weights, targetLands, rawDeckCount, effectiveSampleSize),
+            AverageMetric("karsten:health_score", weights, healthScores, rawDeckCount, effectiveSampleSize)
         ];
     }
 
     private static MeasuredMetric AverageMetric(
         string metricName,
+        IReadOnlyList<double> weights,
         IReadOnlyList<double> values,
         int rawDeckCount,
         double effectiveSampleSize)
@@ -294,9 +308,9 @@ public sealed class MeasuredStyleProfileBuilder
         return new MeasuredMetric
         {
             Metric = metricName,
-            Value = values.Count == 0 ? 0 : values.Average(),
+            Value = values.Count == 0 ? 0 : WeightedAverage(weights, values),
             NumDecks = rawDeckCount,
-            Distribution = BuildDistribution(values, effectiveSampleSize)
+            Distribution = BuildDistribution(values, weights, effectiveSampleSize)
         };
     }
 
@@ -338,7 +352,23 @@ public sealed class MeasuredStyleProfileBuilder
             cancellationToken).ConfigureAwait(false);
     }
 
-    private static MetricDistribution BuildDistribution(IReadOnlyList<double> values, double effectiveSampleSize)
+    // Why (CR-03): per-deck folder weights must factor into every averaged metric, not just
+    // EffectiveSampleSize, or "measured-weighted" is a false label.
+    private static double WeightedAverage(IReadOnlyList<double> weights, IReadOnlyList<double> values)
+    {
+        double weightSum = weights.Sum();
+        if (weightSum <= 0)
+        {
+            return 0;
+        }
+
+        return values.Select((value, index) => value * weights[index]).Sum() / weightSum;
+    }
+
+    private static MetricDistribution BuildDistribution(
+        IReadOnlyList<double> values,
+        IReadOnlyList<double> weights,
+        double effectiveSampleSize)
     {
         if (values.Count == 0)
         {
@@ -352,8 +382,11 @@ public sealed class MeasuredStyleProfileBuilder
             };
         }
 
-        double mean = values.Average();
-        double variance = values.Sum(value => Math.Pow(value - mean, 2)) / values.Count;
+        double mean = WeightedAverage(weights, values);
+        double weightSum = weights.Sum();
+        double variance = weightSum <= 0
+            ? 0
+            : values.Select((value, index) => weights[index] * Math.Pow(value - mean, 2)).Sum() / weightSum;
 
         return new MetricDistribution
         {

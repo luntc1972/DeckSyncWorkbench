@@ -64,11 +64,35 @@ public sealed class MeasuredStyleProfileBuilderTests
         });
 
         var comboMetric = Assert.Single(stored.MeasuredMetrics, metric => metric.Metric == "combo_density:included_per_deck");
-        Assert.Equal(2d / SnailSeedCorpusFixture.Samples.Count, comboMetric.Value, 6);
+        // 0.4 is weighted by FolderWeight with a weight sum of 5.0, not 2 / 6.
+        Assert.Equal(0.4, comboMetric.Value, 6);
 
         var liftMetric = stored.MeasuredMetrics.FirstOrDefault(metric => metric.Metric.StartsWith("lift:", StringComparison.Ordinal));
         Assert.NotNull(liftMetric);
         Assert.Contains(stored.MeasuredMetrics, metric => metric.Metric == "category_ratio:ramp");
+    }
+
+    [Fact]
+    public async Task BuildAsync_WeightsUncuratedFlagIsTrue_ForcesAllSampleWeightsToOneRegardlessOfFolderWeights()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await TestHarness.CreateAsync(now);
+        await harness.SeedSourceAsync(
+            SnailSeedCorpusFixture.CreatorSlug,
+            SnailSeedCorpusFixture.CreatorSlug,
+            SnailSeedCorpusFixture.DeckSummaries,
+            SnailSeedCorpusFixture.Samples,
+            weightsUncurated: true);
+        await harness.SeedCategoriesAsync();
+        await harness.SeedBaselineAsync();
+
+        var builder = harness.CreateBuilder(new FakeCommanderSpellbookService(
+            new Dictionary<string, CommanderSpellbookResult?>(StringComparer.Ordinal)));
+
+        var profile = await builder.BuildAsync(SnailSeedCorpusFixture.CreatorSlug, SnailSeedCorpusFixture.Platform);
+
+        Assert.All(profile.MeasuredMetrics, metric =>
+            Assert.Equal((double)SnailSeedCorpusFixture.Samples.Count, metric.Distribution!.EffectiveSampleSize));
     }
 
     [Fact]
@@ -303,7 +327,8 @@ public sealed class MeasuredStyleProfileBuilderTests
             string slug,
             string username,
             IReadOnlyList<ArchidektDeckSummary> summaries,
-            IReadOnlyList<CreatorDeckSample> samples)
+            IReadOnlyList<CreatorDeckSample> samples,
+            bool weightsUncurated = false)
         {
             _deckSummariesByUsername[username] = summaries
                 .Select(summary => summary with { Id = summary.Id.Replace("snail", slug, StringComparison.Ordinal) })
@@ -321,6 +346,7 @@ public sealed class MeasuredStyleProfileBuilderTests
                 Platform = SnailSeedCorpusFixture.Platform,
                 ProfileUsername = username,
                 FolderWeights = SnailSeedCorpusFixture.FolderWeights,
+                WeightsUncurated = weightsUncurated,
                 UpdatedUtc = Now
             });
         }
@@ -374,6 +400,7 @@ public sealed class MeasuredStyleProfileBuilderTests
                 comboService,
                 scryfallResolver,
                 ProfileStore,
+                SourceStore,
                 nowUtc: () => Now,
                 logger: null);
         }
