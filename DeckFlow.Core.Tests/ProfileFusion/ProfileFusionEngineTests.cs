@@ -9,6 +9,23 @@ namespace DeckFlow.Core.Tests.ProfileFusion;
 public sealed class ProfileFusionEngineTests
 {
     [Fact]
+    public void Fuse_MeasuredMetricsWithoutStatedRules_ReturnsMeasuredOnlyTargetsInMetricOrder()
+    {
+        MeasuredMetric[] measuredMetrics =
+        [
+            CreateMeasuredMetric("zeta", 7.5, effectiveSampleSize: 8.5),
+            CreateMeasuredMetric("Alpha", 3.25, effectiveSampleSize: 9.5),
+        ];
+
+        IReadOnlyList<FusedTarget> result = ProfileFusionEngine.Fuse(measuredMetrics, []);
+
+        Assert.Collection(
+            result,
+            target => AssertMeasuredOnlyTarget(target, "Alpha", 3.25),
+            target => AssertMeasuredOnlyTarget(target, "zeta", 7.5));
+    }
+
+    [Fact]
     public void Fuse_ConditionScopedRuleWithoutMeasuredBreakdown_ReturnsInsufficientMeasuredWithoutConflict()
     {
         MeasuredMetric[] measured =
@@ -260,6 +277,15 @@ public sealed class ProfileFusionEngineTests
                 EffectiveSampleSize = effectiveSampleSize,
             }
         };
+    }
+
+    private static void AssertMeasuredOnlyTarget(FusedTarget target, string metric, double value)
+    {
+        Assert.Equal(metric, target.Metric);
+        Assert.Equal(value, target.Value);
+        Assert.Equal(value, target.MeasuredValue);
+        Assert.Equal("measured-weighted", target.Source);
+        Assert.Equal("measured-only", target.Verdict);
     }
 
     private static StatedRuleCandidate CreateRule(

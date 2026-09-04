@@ -26,7 +26,22 @@ public static class ProfileFusionEngine
 
         if (statedRules.Count == 0)
         {
-            return [];
+            // Why (CR-04): no production path currently populates StatedRules end-to-end, so this
+            // interim fallback emits measured targets until stated rules are actually populated.
+            return measured
+                .OrderBy(static metric => metric.Metric, StringComparer.OrdinalIgnoreCase)
+                .Select(static metric => new FusedTarget
+                {
+                    Metric = metric.Metric,
+                    Value = metric.Value,
+                    Weight = 1.0,
+                    Source = MeasuredSource,
+                    MeasuredValue = metric.Value,
+                    NumDecks = metric.NumDecks,
+                    EffectiveSampleSize = metric.Distribution?.EffectiveSampleSize,
+                    Verdict = "measured-only",
+                })
+                .ToList();
         }
 
         RecencyCollapseResult collapse = StatedRuleRecencyCollapser.Collapse(statedRules);
