@@ -11,6 +11,7 @@ public static class ConflictCalculator
     // Why: D-02's prototype goldens require draw at 11.1 vs 13-18 to conflict while keeping
     // the 10%-beyond-edge boundary itself as agree; 0.10 cleanly separates those cases.
     private const double ConflictThresholdPercent = 0.10;
+    private const double MinDenominator = 1e-9;
 
     /// <summary>
     /// Evaluates a single stated-rule/measured-value pair.
@@ -34,6 +35,11 @@ public static class ConflictCalculator
         }
 
         Band band = GetBand(rule);
+        if (band.Min is null && band.Max is null)
+        {
+            return new ConflictCalculationResult("insufficient-measured", "malformed-band", null, "measured");
+        }
+
         if (IsInsideBand(band, measuredValue))
         {
             return new ConflictCalculationResult("agree", null, null, "measured");
@@ -107,7 +113,7 @@ public static class ConflictCalculator
     private static double GetBandRelativePercent(double measuredValue, double violatedEdge)
     {
         double distance = Math.Abs(measuredValue - violatedEdge);
-        double denominator = Math.Abs(violatedEdge) < double.Epsilon ? 1.0 : Math.Abs(violatedEdge);
+        double denominator = Math.Abs(violatedEdge) < MinDenominator ? 1.0 : Math.Abs(violatedEdge);
         return distance / denominator;
     }
 

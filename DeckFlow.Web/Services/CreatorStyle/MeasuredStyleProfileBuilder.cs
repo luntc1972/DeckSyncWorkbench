@@ -151,7 +151,7 @@ public sealed class MeasuredStyleProfileBuilder
         IReadOnlyList<StatedRule> statedRules = existingProfile?.StatedRules ?? Array.Empty<StatedRule>();
         IReadOnlyList<FusedTarget> fusedTargets = ProfileFusionEngine.Fuse(
             metrics,
-            ToCandidates(statedRules, _nowUtc()));
+            ToCandidates(statedRules));
 
         var profile = new CreatorStyleProfile
         {
@@ -169,9 +169,7 @@ public sealed class MeasuredStyleProfileBuilder
         return profile;
     }
 
-    private static IReadOnlyList<StatedRuleCandidate> ToCandidates(
-        IReadOnlyList<StatedRule> statedRules,
-        DateTimeOffset videoDateUtc)
+    private static IReadOnlyList<StatedRuleCandidate> ToCandidates(IReadOnlyList<StatedRule> statedRules)
     {
         return statedRules
             .Select(rule => new StatedRuleCandidate
@@ -179,10 +177,13 @@ public sealed class MeasuredStyleProfileBuilder
                 Category = rule.Category,
                 Metric = rule.TargetMetric,
                 Value = rule.TargetValue,
+                ValueMin = rule.TargetValueMin,
+                ValueMax = rule.TargetValueMax,
                 Comparator = rule.Comparator,
+                Condition = rule.Condition,
                 SourceClip = rule.SourceClip,
                 Confidence = rule.Confidence,
-                VideoDateUtc = videoDateUtc
+                VideoDateUtc = rule.VideoDateUtc
             })
             .ToArray();
     }

@@ -23,7 +23,8 @@ internal static class CreatorStyleProfileTestData
                     TargetValue = 2.3,
                     Comparator = "<=",
                     SourceClip = "Keep the curve low.",
-                    Confidence = 0.87
+                    Confidence = 0.87,
+                    VideoDateUtc = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero)
                 }
             },
             MeasuredMetrics = new[]

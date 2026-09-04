@@ -45,16 +45,28 @@ public sealed record StatedRule
     public required string TargetMetric { get; init; }
 
     /// <summary>Target metric value expressed by the creator.</summary>
-    public required double TargetValue { get; init; }
+    public double? TargetValue { get; init; }
+
+    /// <summary>Inclusive lower bound for range rules.</summary>
+    public double? TargetValueMin { get; init; }
+
+    /// <summary>Inclusive upper bound for range rules.</summary>
+    public double? TargetValueMax { get; init; }
 
     /// <summary>Comparator describing how the target value should be interpreted.</summary>
     public required string Comparator { get; init; }
+
+    /// <summary>Optional conditional scope for the rule.</summary>
+    public string? Condition { get; init; }
 
     /// <summary>Source clip excerpt supporting the stated rule.</summary>
     public required string SourceClip { get; init; }
 
     /// <summary>Confidence assigned to the extracted rule.</summary>
     public required double Confidence { get; init; }
+
+    /// <summary>UTC publish date of the source video.</summary>
+    public required DateTimeOffset VideoDateUtc { get; init; }
 }
 
 /// <summary>

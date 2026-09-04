@@ -130,6 +130,37 @@ public sealed class ConflictCalculatorTests
         Assert.NotNull(justOutside.Conflict);
     }
 
+    [Fact]
+    public void Evaluate_NearZeroBandEdge_UsesFiniteReasonableRelativePercent()
+    {
+        StatedRuleCandidate rule = CreateRule(
+            metric: "near-zero",
+            comparator: "gte",
+            value: 1e-300);
+
+        ConflictCalculationResult result = ConflictCalculator.Evaluate(rule, measuredValue: -1, effectiveSampleSize: 39);
+
+        FusedConflict conflict = Assert.IsType<FusedConflict>(result.Conflict);
+        double bandRelativePercent = Assert.IsType<double>(conflict.BandRelativePercent);
+        Assert.True(double.IsFinite(bandRelativePercent));
+        Assert.InRange(bandRelativePercent, 0, 2);
+    }
+
+    [Fact]
+    public void Evaluate_MalformedRangeWithoutBounds_ReturnsInsufficientMeasured()
+    {
+        StatedRuleCandidate rule = CreateRule(
+            metric: "malformed-range",
+            comparator: "range");
+
+        ConflictCalculationResult result = ConflictCalculator.Evaluate(rule, measuredValue: 2, effectiveSampleSize: 39);
+
+        Assert.Equal("insufficient-measured", result.Verdict);
+        Assert.Equal("malformed-band", result.VerdictReason);
+        Assert.Null(result.Conflict);
+        Assert.Equal("measured", result.Winner);
+    }
+
     private static StatedRuleCandidate CreateRule(
         string metric,
         string comparator,

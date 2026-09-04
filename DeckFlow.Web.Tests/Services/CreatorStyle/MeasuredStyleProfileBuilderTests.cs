@@ -72,7 +72,7 @@ public sealed class MeasuredStyleProfileBuilderTests
     }
 
     [Fact]
-    public async Task BuildAsync_ExistingStatedRules_PreservesRulesAndFusesThemWithMeasuredMetrics()
+    public async Task BuildAsync_RangeStatedRule_PreservesBandBoundsInFusedTarget()
     {
         var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
         await using var harness = await TestHarness.CreateAsync(now);
@@ -87,10 +87,13 @@ public sealed class MeasuredStyleProfileBuilderTests
         {
             Category = "mana",
             TargetMetric = "land_count",
-            TargetValue = 35,
-            Comparator = "gte",
-            SourceClip = "Play at least thirty-five lands.",
-            Confidence = 0.90
+            TargetValue = null,
+            TargetValueMin = 13,
+            TargetValueMax = 18,
+            Comparator = "range",
+            SourceClip = "Play between thirteen and eighteen lands.",
+            Confidence = 0.90,
+            VideoDateUtc = now.AddDays(-1)
         };
         await harness.ProfileStore.UpsertAsync(new CreatorStyleProfile
         {
@@ -111,8 +114,61 @@ public sealed class MeasuredStyleProfileBuilderTests
         Assert.Equal([statedRule], profile.StatedRules);
         FusedTarget target = Assert.Single(profile.FusedTargets);
         Assert.Equal("land_count", target.Metric);
-        Assert.Equal(35, target.StatedMin);
-        Assert.Null(target.StatedMax);
+        Assert.Equal(13, target.StatedMin);
+        Assert.Equal(18, target.StatedMax);
+    }
+
+    [Fact]
+    public async Task BuildAsync_StatedRulesWithDifferentVideoDates_UsesNewestRuleAsActiveTarget()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await TestHarness.CreateAsync(now);
+        await harness.SeedSourceAsync(
+            "builder-recency",
+            "builder-recency",
+            SnailSeedCorpusFixture.DeckSummaries,
+            SnailSeedCorpusFixture.Samples);
+        await harness.SeedCategoriesAsync();
+        await harness.SeedBaselineAsync();
+        var older = new StatedRule
+        {
+            Category = "mana",
+            TargetMetric = "land_count",
+            TargetValue = 30,
+            Comparator = "gte",
+            SourceClip = "Older advice.",
+            Confidence = 0.90,
+            VideoDateUtc = now.AddDays(-2)
+        };
+        var newer = new StatedRule
+        {
+            Category = "mana",
+            TargetMetric = "land_count",
+            TargetValue = 35,
+            Comparator = "gte",
+            SourceClip = "Newer advice.",
+            Confidence = 0.90,
+            VideoDateUtc = now.AddDays(-1)
+        };
+        await harness.ProfileStore.UpsertAsync(new CreatorStyleProfile
+        {
+            Slug = "builder-recency",
+            Platform = SnailSeedCorpusFixture.Platform,
+            MinDecks = 0,
+            StatedRules = [older, newer],
+            MeasuredMetrics = Array.Empty<MeasuredMetric>(),
+            FusedTargets = Array.Empty<FusedTarget>(),
+            UpdatedUtc = now
+        });
+
+        CreatorStyleProfile profile = await harness.CreateBuilder(new FakeCommanderSpellbookService(
+            new Dictionary<string, CommanderSpellbookResult?>(StringComparer.Ordinal))).BuildAsync(
+            "builder-recency", SnailSeedCorpusFixture.Platform);
+
+        FusedTarget active = Assert.Single(profile.FusedTargets, target => target.Source != "stated-superseded");
+        Assert.Equal(35, active.StatedMin);
+        Assert.Equal(newer.VideoDateUtc, active.VideoDateUtc);
+        Assert.Contains(profile.FusedTargets, target => target.Source == "stated-superseded" && target.StatedMin == 30);
     }
 
     [Fact]
