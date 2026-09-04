@@ -70,6 +70,33 @@ public static class StatedMetricKeyMapper
         return false;
     }
 
+    /// <summary>
+    /// Attempts to calculate a derived stated metric from its measured inputs.
+    /// </summary>
+    /// <param name="statedMetric">The stated metric key to calculate.</param>
+    /// <param name="measuredMetrics">Measured metric values keyed by measured metric names.</param>
+    /// <param name="value">Receives the derived value when all required inputs are available.</param>
+    /// <returns><see langword="true"/> when the supplied metric is derivable from the measured inputs.</returns>
+    public static bool TryGetDerivedValue(
+        string statedMetric,
+        IReadOnlyDictionary<string, double> measuredMetrics,
+        out double value)
+    {
+        ArgumentNullException.ThrowIfNull(statedMetric);
+        ArgumentNullException.ThrowIfNull(measuredMetrics);
+
+        if (statedMetric.Equals("land_count", StringComparison.OrdinalIgnoreCase) &&
+            measuredMetrics.TryGetValue("karsten:target_lands", out double targetLands) &&
+            measuredMetrics.TryGetValue("karsten:land_delta", out double landDelta))
+        {
+            value = targetLands + landDelta;
+            return true;
+        }
+
+        value = default;
+        return false;
+    }
+
     private static IReadOnlyDictionary<string, string> BuildDirectMappings()
     {
         var mappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

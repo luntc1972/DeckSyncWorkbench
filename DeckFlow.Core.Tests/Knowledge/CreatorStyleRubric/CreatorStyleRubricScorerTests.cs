@@ -105,6 +105,51 @@ public sealed class CreatorStyleRubricScorerTests
     }
 
     [Fact]
+    public void Score_ConditionalTarget_EmitsConditionalUnscored()
+    {
+        FusedTarget[] creatorTargets =
+        [
+            CreateTarget("ramp", 12, condition: "when commander costs five or more"),
+        ];
+        SubmittedDeckStats submittedStats = CreateSubmittedDeckStats(
+            new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["category_ratio:ramp"] = 12,
+            });
+
+        RubricScoreResult result = CreatorStyleRubricScorer.Score("snail", creatorTargets, submittedStats);
+
+        RubricMetricScore score = Assert.Single(result.MetricScores);
+        Assert.Equal("category_ratio:ramp", score.Metric);
+        Assert.Null(score.SubmittedValue);
+        Assert.Null(score.Delta);
+        Assert.Equal("conditional-unscored", score.Verdict);
+    }
+
+    [Fact]
+    public void Score_LandCount_DerivesSubmittedValueFromKarstenMetrics()
+    {
+        FusedTarget[] creatorTargets =
+        [
+            CreateTarget("land_count", 38),
+        ];
+        SubmittedDeckStats submittedStats = CreateSubmittedDeckStats(
+            new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["karsten:target_lands"] = 37,
+                ["karsten:land_delta"] = 1,
+            });
+
+        RubricScoreResult result = CreatorStyleRubricScorer.Score("snail", creatorTargets, submittedStats);
+
+        RubricMetricScore score = Assert.Single(result.MetricScores);
+        Assert.Equal("land_count", score.Metric);
+        Assert.Equal(38, score.SubmittedValue);
+        Assert.Equal(0, score.Delta);
+        Assert.Equal("on-target", score.Verdict);
+    }
+
+    [Fact]
     public void Score_MissingSubmittedMetric_EmitsInsufficientMeasured()
     {
         FusedTarget[] creatorTargets =
@@ -115,7 +160,7 @@ public sealed class CreatorStyleRubricScorerTests
         RubricScoreResult result = CreatorStyleRubricScorer.Score("snail", creatorTargets, CreateSubmittedDeckStats(new Dictionary<string, double>()));
 
         RubricMetricScore score = Assert.Single(result.MetricScores);
-        Assert.Equal("draw", score.Metric);
+        Assert.Equal("category_ratio:draw", score.Metric);
         Assert.Null(score.SubmittedValue);
         Assert.Null(score.Delta);
         Assert.Equal("insufficient-measured", score.Verdict);
@@ -195,7 +240,12 @@ public sealed class CreatorStyleRubricScorerTests
         Assert.Throws<ArgumentException>(() => CreatorStyleRubricScorer.Score(" ", [CreateTarget("ramp", 10)], submittedStats));
     }
 
-    private static FusedTarget CreateTarget(string metric, double value, double weight = 1.0, string? confidence = null)
+    private static FusedTarget CreateTarget(
+        string metric,
+        double value,
+        double weight = 1.0,
+        string? confidence = null,
+        string? condition = null)
         => new()
         {
             Metric = metric,
@@ -203,6 +253,7 @@ public sealed class CreatorStyleRubricScorerTests
             Weight = weight,
             Source = "fixture",
             Confidence = confidence,
+            Condition = condition,
         };
 
     private static SubmittedDeckStats CreateSubmittedDeckStats(IReadOnlyDictionary<string, double> metrics)

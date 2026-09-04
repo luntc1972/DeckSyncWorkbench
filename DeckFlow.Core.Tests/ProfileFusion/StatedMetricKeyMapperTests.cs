@@ -72,6 +72,21 @@ public sealed class StatedMetricKeyMapperTests
         Assert.Equal(string.Empty, measuredKey);
     }
 
+    [Fact]
+    public void TryGetDerivedValue_LandCount_SumsTargetLandsAndLandDelta()
+    {
+        var metrics = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["karsten:target_lands"] = 37,
+            ["karsten:land_delta"] = 1,
+        };
+
+        var derived = StatedMetricKeyMapper.TryGetDerivedValue("land_count", metrics, out double value);
+
+        Assert.True(derived);
+        Assert.Equal(38, value);
+    }
+
     [Theory]
     [MemberData(nameof(StatedOnlyMappings))]
     public void TryMapToMeasuredKey_LeavesStatedOnlyMetricsUnmapped(string statedMetric)

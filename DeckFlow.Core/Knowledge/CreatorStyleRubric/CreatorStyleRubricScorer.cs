@@ -43,14 +43,22 @@ public static class CreatorStyleRubricScorer
         FusedTarget target,
         IReadOnlyDictionary<string, double> submittedMetrics)
     {
-        if (StatedMetricKeyMapper.TryMapToMeasuredKey(target.Metric, out string measuredKey) &&
-            submittedMetrics.TryGetValue(measuredKey, out double submittedValue))
+        bool hasMeasuredKey = StatedMetricKeyMapper.TryMapToMeasuredKey(target.Metric, out string measuredKey);
+        string scoreMetric = hasMeasuredKey ? measuredKey : target.Metric;
+
+        if (!string.IsNullOrWhiteSpace(target.Condition))
+        {
+            return CreateUnscoredScore(target, scoreMetric, "conditional-unscored");
+        }
+
+        if ((hasMeasuredKey && submittedMetrics.TryGetValue(measuredKey, out double submittedValue)) ||
+            StatedMetricKeyMapper.TryGetDerivedValue(target.Metric, submittedMetrics, out submittedValue))
         {
             double delta = submittedValue - target.Value;
 
             return new RubricMetricScore
             {
-                Metric = measuredKey,
+                Metric = scoreMetric,
                 TargetValue = target.Value,
                 SubmittedValue = submittedValue,
                 Delta = delta,
@@ -60,17 +68,20 @@ public static class CreatorStyleRubricScorer
             };
         }
 
-        return new RubricMetricScore
+        return CreateUnscoredScore(target, scoreMetric, "insufficient-measured");
+    }
+
+    private static RubricMetricScore CreateUnscoredScore(FusedTarget target, string metric, string verdict)
+        => new()
         {
-            Metric = target.Metric,
+            Metric = metric,
             TargetValue = target.Value,
             SubmittedValue = null,
             Delta = null,
             Weight = target.Weight,
-            Verdict = "insufficient-measured",
+            Verdict = verdict,
             Confidence = target.Confidence,
         };
-    }
 
     private static string GetVerdict(double delta)
     {
