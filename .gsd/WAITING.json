@@ -1,0 +1,12 @@
+{
+  "status": "waiting",
+  "type": "dependency",
+  "question": "Plan 112-07 Tasks 3-5 target Web-service files (CreatorStyleSeedLoader.cs, CreatorStylePacketService.cs, SubmittedDeckStatsBuilder.cs, MeasuredStyleProfileBuilder.cs) that don't exist on this branch — plan 112-06's Web-port deliverables (commits 91fcfe23 + 6a0e27b2) live on sibling branch gsd/cycle20-personal-tools, never merged here. Tasks 1-2 completed and committed (90ddddb4, efc756e7) on worktree branch worktree-agent-aefcb90b9fb18af9a, worktree preserved uncleaned at /mnt/c/users/chrislunt/source/personal/DeckFlow/.claude/worktrees/agent-aefcb90b9fb18af9a. How should Tasks 3-5 proceed?",
+  "options": [
+    "A: merge/cherry-pick 91fcfe23+6a0e27b2 from gsd/cycle20-personal-tools into this branch then re-run Tasks 3-5",
+    "B: defer Tasks 3-5 to a follow-up plan after that merge happens",
+    "C: re-implement Tasks 3-5 from scratch against the plan text alone"
+  ],
+  "since": "2026-09-04T00:40:20.572Z",
+  "phase": null
+}
