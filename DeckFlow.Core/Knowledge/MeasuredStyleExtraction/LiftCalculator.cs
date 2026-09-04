@@ -46,9 +46,18 @@ public static class LiftCalculator
 
         var lifts = new List<CategoryLift>(pairCounts.Count);
 
+        // Why (WR-11): pairCounts keys are built OrdinalIgnoreCase above, but baseline's
+        // dictionaries are typed as bare IReadOnlyDictionary<string, int> with no comparer
+        // contract; a case-sensitive baseline would silently drop every pair whose casing
+        // differs. Assert the comparer contract at this boundary instead of trusting baseline's.
+        var baselinePairs = new HashSet<string>(baseline.DecksWithCategoryPair.Keys, StringComparer.OrdinalIgnoreCase);
+        var baselineMarginals = new Dictionary<string, int>(baseline.DecksWithCategory, StringComparer.OrdinalIgnoreCase);
+
         foreach (var pairCount in pairCounts)
         {
-            if (!baseline.DecksWithCategoryPair.TryGetValue(pairCount.Key, out _))
+            // Why (D-07): the pair baseline gates which pairs are comparable; the lift ratio
+            // itself uses only the marginals below.
+            if (!baselinePairs.Contains(pairCount.Key))
             {
                 continue;
             }
@@ -57,8 +66,8 @@ public static class LiftCalculator
             var categoryA = split[0];
             var categoryB = split[1];
 
-            if (!TryGetGlobalProbability(categoryA, baseline, out var globalProbabilityA) ||
-                !TryGetGlobalProbability(categoryB, baseline, out var globalProbabilityB))
+            if (!TryGetGlobalProbability(categoryA, baseline, baselineMarginals, out var globalProbabilityA) ||
+                !TryGetGlobalProbability(categoryB, baseline, baselineMarginals, out var globalProbabilityB))
             {
                 // Why: omitting pairs with missing baseline marginals keeps downstream consumers free of NaN/Infinity while still signaling that the shared corpus has no usable denominator for this pair.
                 continue;
@@ -98,9 +107,10 @@ public static class LiftCalculator
     private static bool TryGetGlobalProbability(
         string category,
         GlobalCategoryBaseline baseline,
+        IReadOnlyDictionary<string, int> baselineMarginals,
         out double probability)
     {
-        if (!baseline.DecksWithCategory.TryGetValue(category, out var deckCount) || deckCount <= 0)
+        if (!baselineMarginals.TryGetValue(category, out var deckCount) || deckCount <= 0)
         {
             probability = 0;
             return false;

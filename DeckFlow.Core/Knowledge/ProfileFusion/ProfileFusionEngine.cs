@@ -30,7 +30,12 @@ public static class ProfileFusionEngine
         }
 
         RecencyCollapseResult collapse = StatedRuleRecencyCollapser.Collapse(statedRules);
-        var measuredByMetric = measured.ToDictionary(static item => item.Metric, StringComparer.OrdinalIgnoreCase);
+        // Why (WR-02): measured metrics are read back from persisted JSON (and, for lift metrics,
+        // built from a category-pair string) with no uniqueness enforced at the storage boundary,
+        // so a case-duplicate key must be deduplicated deterministically here rather than throwing.
+        var measuredByMetric = measured
+            .GroupBy(static item => item.Metric, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.OrdinalIgnoreCase);
         var fused = new List<FusedTarget>(collapse.Active.Count + collapse.Superseded.Count);
 
         foreach (StatedRuleCandidate rule in collapse.Active.OrderBy(static rule => rule.Metric, StringComparer.OrdinalIgnoreCase)
@@ -64,10 +69,13 @@ public static class ProfileFusionEngine
 
         if (!string.IsNullOrWhiteSpace(rule.Condition))
         {
+            // Why (WR-01): source must reflect what the value actually came from — a stated
+            // fallback is not "measured-weighted" just because a measured counterpart exists for
+            // the metric in general; the discriminator is whether THIS value came from `measured`.
             return CreateFusedTarget(
                 rule,
                 value: measured?.Value ?? statedValue,
-                source: MeasuredSource,
+                source: measured is null ? StatedSource : MeasuredSource,
                 statedMin: statedMin,
                 statedMax: statedMax,
                 measuredValue: measured?.Value,
@@ -83,7 +91,7 @@ public static class ProfileFusionEngine
             return CreateFusedTarget(
                 rule,
                 value: statedValue,
-                source: MeasuredSource,
+                source: StatedSource,
                 statedMin: statedMin,
                 statedMax: statedMax,
                 measuredValue: null,

@@ -36,10 +36,7 @@ public static class StatedRuleReducer
         for (int index = 0; index < candidates.Count; index++)
         {
             StatedRuleCandidate candidate = candidates[index];
-            var key = new StatedRuleReducerKey(
-                candidate.Metric,
-                candidate.Condition ?? string.Empty,
-                candidate.Comparator);
+            var key = StatedRuleReducerKey.From(candidate);
 
             if (!buckets.TryGetValue(key, out var current) || ShouldReplace(current.Candidate, candidate))
             {
@@ -49,10 +46,7 @@ public static class StatedRuleReducer
         }
 
         var evidenceKeys = chunkEvidence
-            .Select(static candidate => new StatedRuleReducerKey(
-                candidate.Metric,
-                candidate.Condition ?? string.Empty,
-                candidate.Comparator))
+            .Select(StatedRuleReducerKey.From)
             .ToHashSet();
 
         return buckets
@@ -81,4 +75,13 @@ public static class StatedRuleReducer
 internal sealed record StatedRuleReducerKey(
     string Metric,
     string Condition,
-    string Comparator);
+    string Comparator)
+{
+    // Why (WR-10): Metric/Comparator are only ever validated case-insensitively (the vocabulary
+    // sets are StringComparer.OrdinalIgnoreCase) and never canonicalized, so this dedupe key must
+    // fold case too or two spellings of the same rule survive as distinct buckets.
+    public static StatedRuleReducerKey From(StatedRuleCandidate candidate) => new(
+        candidate.Metric.ToLowerInvariant(),
+        (candidate.Condition ?? string.Empty).ToLowerInvariant(),
+        candidate.Comparator.ToLowerInvariant());
+}

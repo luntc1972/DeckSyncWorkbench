@@ -236,7 +236,19 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         }
 
         Task<IReadOnlyList<CreatorDeckCacheEntry>> creatorDecksTask = _getCreatorDecksAsync(request.CreatorSlug, cancellationToken);
-        SubmittedDeckAnalysis analysis = await _buildSubmittedDeckAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
+        SubmittedDeckAnalysis analysis;
+        try
+        {
+            analysis = await _buildSubmittedDeckAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Why (WR-04): the creator-deck fetch was already in flight when the submitted-deck
+            // build threw; observe it here so its failure (and the DbConnection it opened) is not
+            // left as an unobserved TaskException.
+            _ = creatorDecksTask.ContinueWith(static t => _ = t.Exception, TaskScheduler.Default);
+            throw;
+        }
         IReadOnlyList<FusedTarget> scoreableTargets = profile.FusedTargets
             .Where(static target => !IsSuperseded(target))
             .Where(static target => string.IsNullOrWhiteSpace(target.Condition))

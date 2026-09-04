@@ -70,29 +70,13 @@ public sealed class ProgramStartupTests
         Assert.Equal(0, await Program.LoadCreatorStyleSeedIfEnabledAsync(services));
     }
 
-    [Fact]
-    public void CompositionRoot_WithCreatorStyleDisabled_DoesNotRegisterSeedLoader()
-    {
-        using var env = EnvScope.Clear("DECKFLOW_CREATOR_STYLE_ENABLED");
-        var services = new ServiceCollection();
-
-        // Mirrors Program.Main's registration gate at Program.cs:107 — do not call
-        // AddDeckFlowCreatorStyle unconditionally here; the whole point of this test is that the
-        // gate, not this test, decides whether the descriptor set is added.
-        if (Program.IsCreatorStyleEnabled())
-        {
-            services.AddSingleton<ICreatorStyleSeedLoader, ThrowingCreatorStyleSeedLoader>();
-        }
-
-        using var provider = services.BuildServiceProvider();
-        Assert.Null(provider.GetService<ICreatorStyleSeedLoader>());
-    }
-
-    private sealed class ThrowingCreatorStyleSeedLoader : ICreatorStyleSeedLoader
-    {
-        public Task<int> LoadIfPresentAsync(CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException();
-    }
+    // Why (IN-01): CompositionRoot_WithCreatorStyleDisabled_DoesNotRegisterSeedLoader was deleted.
+    // It re-implemented the gate inside its own body (`if (Program.IsCreatorStyleEnabled()) ...`),
+    // so with EnvScope.Clear guaranteeing the gate false, the `if` never ran and Assert.Null was
+    // trivially true — deleting the real gate from Program.cs would not fail it. It exercised the
+    // test's own copy of the logic, not Program.Main's real registration. The only real behavior
+    // (the env-var parse) is already covered by IsCreatorStyleEnabled_ParsesEnvironmentVariable
+    // above.
 
     private sealed class RecordingCreatorStyleSeedLoader : ICreatorStyleSeedLoader
     {

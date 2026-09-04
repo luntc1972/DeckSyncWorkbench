@@ -134,10 +134,13 @@ public sealed class MeasuredStyleProfileBuilder
 
         List<MeasuredMetric> metrics = BuildCategoryMetrics(weightedSamples, cardCategories, rawDeckCount, effectiveSampleSize);
         metrics.AddRange(BuildLiftMetrics(weightedSamples, cardCategories, baseline, rawDeckCount, effectiveSampleSize));
-        Task<MeasuredMetric> comboDensityTask = BuildComboDensityMetricAsync(weightedSamples, rawDeckCount, effectiveSampleSize, cancellationToken);
-        Task<IReadOnlyList<MeasuredMetric>> karstenMetricsTask = BuildKarstenMetricsAsync(weightedSamples, rawDeckCount, effectiveSampleSize, cancellationToken);
-        metrics.Add(await comboDensityTask.ConfigureAwait(false));
-        metrics.AddRange(await karstenMetricsTask.ConfigureAwait(false));
+        // Why (WR-03): each of these already fans out per-deck work at MaxConcurrentDeckAnalyses;
+        // starting them concurrently doubles peak concurrency to 8 on the 512MB Render tier the
+        // cap exists to protect, so they run sequentially instead.
+        MeasuredMetric comboDensity = await BuildComboDensityMetricAsync(weightedSamples, rawDeckCount, effectiveSampleSize, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<MeasuredMetric> karstenMetrics = await BuildKarstenMetricsAsync(weightedSamples, rawDeckCount, effectiveSampleSize, cancellationToken).ConfigureAwait(false);
+        metrics.Add(comboDensity);
+        metrics.AddRange(karstenMetrics);
         metrics = metrics
             .OrderBy(metric => metric.Metric, StringComparer.Ordinal)
             .ToList();
@@ -311,7 +314,10 @@ public sealed class MeasuredStyleProfileBuilder
         IReadOnlyList<DeckEntry> entries,
         CancellationToken cancellationToken)
     {
-        List<DeckEntry> deckCards = ReflagInferredCommanders(entries.ToList())
+        // Why (WR-12): delegate to the shared Core helper instead of a private copy so this
+        // commander-inference rule cannot drift from SubmittedDeckStatsBuilder's, since the two
+        // sides' karsten:*/category_ratio:* metrics are compared head-to-head by the rubric scorer.
+        List<DeckEntry> deckCards = CommanderInference.ReflagInferredCommanders(entries.ToList())
             .Where(entry => AnalyzedBoards.Contains(entry.Board ?? string.Empty))
             .ToList();
 
@@ -329,24 +335,6 @@ public sealed class MeasuredStyleProfileBuilder
             cardName => _logger.LogDebug("Skipping unresolved creator-style manabase card {CardName}.", cardName),
             "creator-style manabase analysis.",
             cancellationToken).ConfigureAwait(false);
-    }
-
-    private static List<DeckEntry> ReflagInferredCommanders(List<DeckEntry> entries)
-    {
-        IReadOnlyList<string> commanderNames = CommanderInference.InferLeadingCommanderNames(entries);
-        if (commanderNames.Count == 0)
-        {
-            return entries;
-        }
-
-        var commanderNameSet = commanderNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return entries
-            .Select(entry => commanderNameSet.Contains(entry.Name)
-                && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
-                ? entry with { Board = "commander" }
-                : entry)
-            .ToList();
     }
 
     private static MetricDistribution BuildDistribution(IReadOnlyList<double> values, double effectiveSampleSize)

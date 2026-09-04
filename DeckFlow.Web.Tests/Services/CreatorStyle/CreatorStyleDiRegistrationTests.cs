@@ -13,6 +13,7 @@ using DeckFlow.Web.Services.CreatorStyle;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Http;
 using DeckFlow.Web.Services.Scryfall;
+using DeckFlow.Web.Tests.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
@@ -27,6 +28,12 @@ namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 /// <summary>
 /// Guards the creator-style DI graph required by Development ValidateOnBuild.
 /// </summary>
+// Why (WR-18): CreatorFlowDatabaseConnectionFactory reads three process-wide env vars
+// (DECKFLOW_DATABASE_PROVIDER, DECKFLOW_DATABASE_CONNECTION_STRING, MTG_DATA_DIR) when resolving
+// the stores below; this class was not previously in the serial collection, so xUnit could run it
+// in parallel with a test that sets those variables (e.g. ProgramStartupTests) and either target
+// Postgres unexpectedly or leak SQLite files outside its own temp CreatorStyleTestRoot.
+[Collection("AdminEnvSerial")]
 public sealed class CreatorStyleDiRegistrationTests
 {
     private static readonly Type[] CreatorStyleRegistrationFloor =
@@ -41,7 +48,6 @@ public sealed class CreatorStyleDiRegistrationTests
         typeof(ICreatorStyleSeedLoader),
         typeof(IArchidektOwnerClient),
         typeof(CreatorProfileDeckCrawler),
-        typeof(IArchidektOwnerClient),
         typeof(CreatorDeckCategoryResolver),
         typeof(MeasuredStyleProfileBuilder),
         typeof(ISubmittedDeckStatsBuilder),
@@ -72,6 +78,8 @@ public sealed class CreatorStyleDiRegistrationTests
     public void Resolve_RealArchidektOwnerClient_DoesNotThrow_WhenArchidektPipelineRegistered()
     {
         using var testRoot = CreatorStyleTestRoot.Create();
+        using var providerScope = EnvScope.Clear("DECKFLOW_DATABASE_PROVIDER", "DECKFLOW_DATABASE_CONNECTION_STRING");
+        using var dataDirScope = EnvScope.Set("MTG_DATA_DIR", Path.Combine(testRoot.Environment.ContentRootPath, "..", "artifacts"));
         var services = CreateCreatorStyleServiceCollection(testRoot.Environment);
         services.AddDeckFlowResiliencePipelines();
         services.AddDeckFlowCreatorStyle(testRoot.Environment);
@@ -93,6 +101,8 @@ public sealed class CreatorStyleDiRegistrationTests
     public void AddDeckFlowCreatorStyle_DescriptorDelta_ResolvesEveryCreatorStyleRegistration()
     {
         using var testRoot = CreatorStyleTestRoot.Create();
+        using var providerScope = EnvScope.Clear("DECKFLOW_DATABASE_PROVIDER", "DECKFLOW_DATABASE_CONNECTION_STRING");
+        using var dataDirScope = EnvScope.Set("MTG_DATA_DIR", Path.Combine(testRoot.Environment.ContentRootPath, "..", "artifacts"));
         var services = CreateCreatorStyleServiceCollection(testRoot.Environment);
         services.AddDeckFlowResiliencePipelines();
 

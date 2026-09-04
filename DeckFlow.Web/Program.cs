@@ -322,9 +322,14 @@ public partial class Program
             await ValidateDatabaseConnectionsAsync(app.Services, app.Environment, app.Logger);
             app.Logger.LogInformation("Ensuring content site-index schema during startup.");
             await app.Services.GetRequiredService<DeckFlow.Core.Content.IContentSiteIndexStore>().EnsureSchemaAsync();
-            Task contentKbSeedTask = app.Services.GetRequiredService<IContentKbSeedLoader>().LoadIfPresentAsync();
-            Task creatorStyleSeedTask = LoadCreatorStyleSeedIfEnabledAsync(app.Services);
-            await AwaitStartupSeedTasksAsync(contentKbSeedTask, creatorStyleSeedTask, app.Services.GetRequiredService<ILogger<Program>>());
+            // Why (WR-09): both branches' EnsureSchemaAsync issue CREATE TABLE IF NOT EXISTS;
+            // under DECKFLOW_DATABASE_PROVIDER=Postgres these land on the same logical database,
+            // and running them concurrently is a known race (duplicate key value violates unique
+            // constraint "pg_type_typname_nsp_index") that would abort startup per CR-05. There is
+            // no benefit to running them concurrently — creator-style is a no-op when its feature
+            // flag is off (the default) — so the loads are sequenced instead.
+            await app.Services.GetRequiredService<IContentKbSeedLoader>().LoadIfPresentAsync();
+            await LoadCreatorStyleSeedIfEnabledAsync(app.Services);
             app.Logger.LogInformation("Content site-index schema ensured and seed load completed during startup.");
 
             // D-08: one-time deterministic body_sha256 backfill, third step after schema-ensure

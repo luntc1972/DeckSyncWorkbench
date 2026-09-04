@@ -4,6 +4,8 @@ using DeckFlow.Core.Knowledge.CardGrounding;
 using DeckFlow.Core.Normalization;
 using DeckFlow.Web.Services;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using RestSharp;
 
 namespace DeckFlow.Web.Services.Scryfall;
@@ -11,9 +13,13 @@ namespace DeckFlow.Web.Services.Scryfall;
 /// <summary>
 /// Strict Scryfall-backed guard that validates candidate cards against deck-context safety rules.
 /// </summary>
-public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCache cache) : ICardGroundingGuard
+public sealed class CardGroundingGuard(
+    IScryfallCardResolver resolver,
+    IMemoryCache cache,
+    ILogger<CardGroundingGuard>? logger = null) : ICardGroundingGuard
 {
     private const string CacheKeyPrefix = "card-grounding-guard:";
+    private readonly ILogger<CardGroundingGuard> _logger = logger ?? NullLogger<CardGroundingGuard>.Instance;
 
     /// <inheritdoc />
     public async Task<CardGroundingVerdict> TryValidateAsync(
@@ -195,6 +201,14 @@ public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCa
         {
             foreach (var candidateName in candidateNames)
             {
+                // Why (WR-07): only fill in candidates that have no resolution yet — a throw
+                // partway through the per-candidate fuzzy fallback must not clobber candidates
+                // this chunk already resolved successfully above.
+                if (resolutions.ContainsKey(candidateName))
+                {
+                    continue;
+                }
+
                 resolutions[candidateName] = CreateUnresolvedCard(candidateName, CardGroundingRejectReason.UpstreamUnavailable);
             }
         }
@@ -280,6 +294,12 @@ public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCa
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            // Why (WR-06): IScryfallCardResolver.ExecuteNamedFuzzyAsync has a default interface
+            // member that throws NotSupportedException for any non-concrete implementer; without
+            // this log line that swallowed exception is indistinguishable from a genuine Scryfall
+            // outage, so a contract break (test double, future decorator) silently reports as
+            // "upstream unavailable" for every card in the batch.
+            _logger.LogWarning(exception, "Fuzzy grounding lookup failed for {CandidateName}; treating as upstream-unavailable.", candidateName);
             return CreateUnresolvedCard(candidateName, CardGroundingRejectReason.UpstreamUnavailable);
         }
     }

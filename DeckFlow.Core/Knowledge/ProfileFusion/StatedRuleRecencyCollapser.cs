@@ -27,7 +27,7 @@ public static class StatedRuleRecencyCollapser
         for (int index = 0; index < rules.Count; index++)
         {
             StatedRuleCandidate candidate = rules[index];
-            var key = new CollapseKey(candidate.Metric, candidate.Condition ?? string.Empty);
+            var key = CollapseKey.From(candidate);
 
             if (!buckets.TryGetValue(key, out var current))
             {
@@ -73,4 +73,14 @@ public sealed record RecencyCollapseResult(
 
 internal sealed record CollapseKey(
     string Metric,
-    string Condition);
+    string Condition)
+{
+    // Why (WR-10): every neighbouring comparison in this call chain (the vocabulary sets, the
+    // fusion lookup dictionary, the sort keys) is StringComparer.OrdinalIgnoreCase; Metric and
+    // Condition are only ever validated case-insensitively, never canonicalized, so this key must
+    // fold case too or an LLM emitting "Land_Count" in one chunk and "land_count" in another would
+    // survive collapse as two distinct buckets.
+    public static CollapseKey From(StatedRuleCandidate candidate) => new(
+        candidate.Metric.ToLowerInvariant(),
+        (candidate.Condition ?? string.Empty).ToLowerInvariant());
+}
