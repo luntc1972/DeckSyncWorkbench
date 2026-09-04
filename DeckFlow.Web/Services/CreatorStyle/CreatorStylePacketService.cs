@@ -542,7 +542,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
             foreach (RubricMetricScore metricScore in rubricScores.MetricScores)
             {
                 sb.Append("- Metric: ");
-                sb.Append(metricScore.Metric);
+                sb.Append(SanitizeUserText(metricScore.Metric, fallback: "(unknown)"));
                 sb.Append("; Target: ");
                 sb.Append(FormatNumber(metricScore.TargetValue));
                 sb.Append("; Submitted: ");
@@ -552,7 +552,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
                 sb.Append("; Weight: ");
                 sb.Append(FormatNumber(metricScore.Weight));
                 sb.Append("; Verdict: ");
-                sb.Append(metricScore.Verdict);
+                sb.Append(SanitizeUserText(metricScore.Verdict, fallback: "(unknown)"));
                 sb.Append("; Confidence: ");
                 sb.AppendLine(string.IsNullOrWhiteSpace(metricScore.Confidence) ? "n/a" : metricScore.Confidence);
             }
