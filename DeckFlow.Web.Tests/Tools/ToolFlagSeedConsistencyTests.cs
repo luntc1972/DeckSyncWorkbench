@@ -14,13 +14,15 @@ public sealed class ToolFlagSeedConsistencyTests : IDisposable
 {
     // Why: some tool flags are intentionally dark-launched (seeded present but disabled
     // so the UI stays byte-identical before the operator flips them on):
-    // tool.primer.stale-flag (PRIMER-01, phase 78) and tool.cut-lab.enabled (phase 101).
+    // tool.primer.stale-flag (PRIMER-01, phase 78), tool.cut-lab.enabled (phase 101), and
+    // tool.deck-modules.enabled (Modular Deck Compiler Phase 2, seeded OFF by plan requirement).
     // Bracket Check (BRACKET-05) and Deck History left dark launch and now seed ON.
     // All other tool flags default to enabled.
     private static readonly HashSet<string> DarkLaunchedFlags =
     [
         "tool.primer.stale-flag",
         "tool.cut-lab.enabled",
+        "tool.deck-modules.enabled",
     ];
 
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"tool-flags-{Guid.NewGuid():N}.db");
@@ -46,7 +48,7 @@ public sealed class ToolFlagSeedConsistencyTests : IDisposable
 
         var seeded = await store.GetAllAsync();
 
-        Assert.Equal(18, expectedKeys.Count);
+        Assert.Equal(19, expectedKeys.Count);
         Assert.All(expectedKeys, key =>
         {
             Assert.True(seeded.TryGetValue(key, out var enabled), $"Missing seeded key '{key}'.");

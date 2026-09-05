@@ -23,6 +23,7 @@ public sealed class ToolRegistryTests
             tool => AssertTool(tool, "deck-comparison", "Deck Comparison", "/deck-comparison", ToolNavSection.Analyze, "tool.deck-comparison.enabled", true, "Deck Comparison", "Side-by-side comparison of two decks with an AI-authored breakdown of strengths, weaknesses, and trade-offs.", "deck-comparison", DeckPageTab.DeckComparison, false),
             tool => AssertTool(tool, "cedh-meta-gap", "cEDH Meta Gap", "/cedh-meta-gap", ToolNavSection.Analyze, "tool.cedh-meta-gap.enabled", true, "cEDH Meta Gap", "Measure your cEDH deck against top meta decks and surface the cards, lines, and roles you're missing.", "cedh-meta-gap", DeckPageTab.CedhMetaGap, false),
             tool => AssertTool(tool, "bracket", "Bracket Check", "/bracket", ToolNavSection.Analyze, "tool.bracket.enabled", false, "Commander Bracket Checker", "Classify a Commander deck into its official 1–5 bracket using Game Changers, two-card combos, and mass land denial — computed locally, no AI needed.", "bracket", DeckPageTab.Bracket, false),
+            tool => AssertTool(tool, "deck-modules", "Deck Modules", "/deck-modules", ToolNavSection.Analyze, "tool.deck-modules.enabled", false, "Deck Modules", "Import one baseline deck, manually assign 2-4 named strategy alternatives with linked mana support, and compile a complete 100-card configuration with an exact swap and reset checklist — no saved projects.", null, DeckPageTab.DeckModules, false, "/deck-modules/import", "/deck-modules/compile", "/deck-modules/export"),
             tool => AssertTool(tool, "deck-history", "Deck History", "/deck-history", ToolNavSection.Build, "tool.deck-history.enabled", false, "Deck Version Tracker", "Track your deck's evolution in a file you own — snapshot each change with a note, diff any two versions, and generate an AI prompt about how the deck has grown.", "deck-history", DeckPageTab.DeckHistory, true, "/deck-history/download"),
             tool => AssertTool(tool, "cut-lab", "Cut Lab", "/cut-lab", ToolNavSection.Build, "tool.cut-lab.enabled", false, "Cut Lab", "Bring an oversized 101–150 card Commander pool into a workspace, declare your build intent, and lock the cards, packages, and roles that must never be cut — before any trimming begins.", "cut-lab", DeckPageTab.CutLab, false),
             tool => AssertTool(tool, "deck-primer", "Deck Primer", "/deck-primer", ToolNavSection.Build, "tool.deck-primer.enabled", false, "Deck Primer", "Build a staged primer for your deck's plan, lines, and key interactions — one-paste AI prompt.", "deck-primer", DeckPageTab.DeckPrimer, false),
@@ -41,11 +42,11 @@ public sealed class ToolRegistryTests
     {
         var registry = new ToolRegistry();
 
-        Assert.Equal(16, registry.All.Count);
-        Assert.Equal(16, registry.All.Select(tool => tool.Key).Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(16, registry.All.Select(tool => tool.Route).Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(16, registry.All.Select(tool => tool.Tab).Distinct().Count());
-        Assert.Equal(23, registry.All.SelectMany(tool => tool.AdditionalRoutes.Prepend(tool.Route)).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(17, registry.All.Count);
+        Assert.Equal(17, registry.All.Select(tool => tool.Key).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(17, registry.All.Select(tool => tool.Route).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(17, registry.All.Select(tool => tool.Tab).Distinct().Count());
+        Assert.Equal(27, registry.All.SelectMany(tool => tool.AdditionalRoutes.Prepend(tool.Route)).Distinct(StringComparer.Ordinal).Count());
 
         var coreKeys = registry.All
             .Where(tool => tool.Core)

@@ -35,7 +35,7 @@ public sealed class AdminToolsControllerTests
         Assert.Equal(4, sections.Count);
         Assert.Equal(new[] { ToolNavSection.Analyze, ToolNavSection.Build, ToolNavSection.Reference, ToolNavSection.Categories },
             sections.Select(section => ReadProperty<ToolNavSection>(section, "Section")).ToArray());
-        Assert.Equal(16, sections.Sum(section => ReadSequence(section, "Tools").Count));
+        Assert.Equal(17, sections.Sum(section => ReadSequence(section, "Tools").Count));
 
         var disabledCore = ReadStringSequence(view.Model, "DisabledCoreToolLabels");
         Assert.Equal(new[] { "Deck Analysis" }, disabledCore);

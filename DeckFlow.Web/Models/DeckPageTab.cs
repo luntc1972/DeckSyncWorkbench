@@ -55,4 +55,7 @@ public enum DeckPageTab
 
     /// <summary>Cut Lab intake, protection, and cut-recommendation page.</summary>
     CutLab = 17,
+
+    /// <summary>Deck Modules standalone import/compile/export page.</summary>
+    DeckModules = 18,
 }

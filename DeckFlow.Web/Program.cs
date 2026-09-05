@@ -25,6 +25,7 @@ using DeckFlow.Web.Services.Harvest;
 using DeckFlow.Web.Services.PromptBuilders.Bracket;
 using DeckFlow.Web.Services.Http;
 using DeckFlow.Web.Services.Manabase;
+using DeckFlow.Web.Services.Modular;
 using Microsoft.Extensions.Options;
 
 namespace DeckFlow.Web;
@@ -189,6 +190,7 @@ public partial class Program
             builder.Services.AddDeckFlowCutLabServices();
             builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabWhatifService, DeckFlow.Web.Services.CutLab.CutLabWhatifService>();
             builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabExportService, DeckFlow.Web.Services.CutLab.CutLabExportService>();
+            builder.Services.AddScoped<IDeckModulesPageService, DeckModulesPageService>();
             builder.Services.AddScoped<IDeckConvertService>(sp =>
                 new DeckConvertService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
