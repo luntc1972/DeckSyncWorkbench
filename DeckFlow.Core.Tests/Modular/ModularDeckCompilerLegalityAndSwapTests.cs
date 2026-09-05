@@ -14,10 +14,10 @@ public sealed class ModularDeckCompilerLegalityAndSwapTests
             ["off identity"] = Facts("U"),
             ["banned card"] = Facts(banned: true),
             ["duplicate card"] = Facts(),
-            ["strategy alpha"] = Facts(),
-            ["strategy beta"] = Facts(),
-            ["alpha land"] = Facts(),
-            ["beta land"] = Facts(),
+            ["strategy alpha"] = Facts(singletonExempt: true),
+            ["strategy beta"] = Facts(singletonExempt: true),
+            ["alpha land"] = Facts(singletonExempt: true),
+            ["beta land"] = Facts(singletonExempt: true),
         })).Compile(CreateProject(new[] { Entry("Off Identity", 1), Entry("Banned Card", 1), Entry("Duplicate Card", 2), Entry("Core", 90) }), Selection("alpha"));
 
         Assert.False(compilation.IsVerifiedLegal);
@@ -33,11 +33,11 @@ public sealed class ModularDeckCompilerLegalityAndSwapTests
         {
             ["commander"] = Facts("W"),
             ["basic plains"] = Facts(singletonExempt: true),
-            ["strategy alpha"] = Facts(),
-            ["strategy beta"] = Facts(),
-            ["alpha land"] = Facts(),
-            ["beta land"] = Facts(),
-        })).Compile(CreateProject(new[] { Entry("Basic Plains", 91), Entry("Unknown Card", 1) }), Selection("alpha"));
+            ["strategy alpha"] = Facts(singletonExempt: true),
+            ["strategy beta"] = Facts(singletonExempt: true),
+            ["alpha land"] = Facts(singletonExempt: true),
+            ["beta land"] = Facts(singletonExempt: true),
+        })).Compile(CreateProject(new[] { Entry("Basic Plains", 93), Entry("Unknown Card", 1) }), Selection("alpha"));
 
         Assert.False(compilation.IsVerifiedLegal);
         AssertDiagnostic(compilation, ModularDeckDiagnosticRule.UnverifiableCardFacts, "Unknown Card");
@@ -54,7 +54,7 @@ public sealed class ModularDeckCompilerLegalityAndSwapTests
 
         Assert.Equal(new[] { ("Alpha Land", 2), ("Strategy Alpha", 3) }, compilation.SwapPlan.ToAdd.Select(entry => (entry.Name, entry.Quantity)));
         Assert.Equal(new[] { ("Beta Land", 2), ("Strategy Beta", 3) }, compilation.SwapPlan.ToRemove.Select(entry => (entry.Name, entry.Quantity)));
-        Assert.Equal(new[] { ("Alpha Land", 2), ("Strategy Alpha", 3), ("Beta Land", 2), ("Strategy Beta", 3) }, compilation.SwapPlan.ToReset.Select(entry => (entry.Name, entry.Quantity)));
+        Assert.Equal(new[] { ("Alpha Land", 2), ("Beta Land", 2), ("Strategy Alpha", 3), ("Strategy Beta", 3) }, compilation.SwapPlan.ToReset.Select(entry => (entry.Name, entry.Quantity)));
     }
 
     private static void AssertDiagnostic(ModularDeckCompilation compilation, ModularDeckDiagnosticRule rule, string identifier) =>
@@ -66,8 +66,8 @@ public sealed class ModularDeckCompilerLegalityAndSwapTests
         ["core"] = Facts(),
         ["strategy alpha"] = Facts(),
         ["strategy beta"] = Facts(),
-        ["alpha land"] = Facts(),
-        ["beta land"] = Facts(),
+        ["alpha land"] = Facts(singletonExempt: true),
+        ["beta land"] = Facts(singletonExempt: true),
     };
 
     private static ModularCardLegalityFacts Facts(string? color = null, bool banned = false, bool singletonExempt = false) => new()

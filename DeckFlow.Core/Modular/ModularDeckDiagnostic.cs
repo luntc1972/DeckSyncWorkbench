@@ -28,6 +28,18 @@ public enum ModularDeckDiagnosticRule
 
     /// <summary>The assembled deck does not contain exactly one hundred cards.</summary>
     TotalCardCount,
+
+    /// <summary>A compiled card is banned in Commander.</summary>
+    BannedCard,
+
+    /// <summary>A non-exempt compiled card has multiple copies.</summary>
+    Singleton,
+
+    /// <summary>A compiled card falls outside the command-zone color identity.</summary>
+    ColorIdentity,
+
+    /// <summary>Injected legality facts are unavailable for a compiled card.</summary>
+    UnverifiableCardFacts,
 }
 
 /// <summary>

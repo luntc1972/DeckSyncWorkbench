@@ -103,7 +103,8 @@ public sealed class ModularDeckCompilerValidationTests
         var compilation = new ModularDeckCompiler().Compile(CreateValidProject(), Selection("alpha"));
 
         Assert.True(compilation.IsStructurallyValid);
-        Assert.Empty(compilation.Diagnostics);
+        Assert.False(compilation.IsVerifiedLegal);
+        Assert.Contains(compilation.Diagnostics, diagnostic => diagnostic.Rule == ModularDeckDiagnosticRule.UnverifiableCardFacts);
     }
 
     private static void AssertDiagnostic(

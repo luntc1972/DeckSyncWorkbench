@@ -1,3 +1,4 @@
+using DeckFlow.Core.Exporting;
 using DeckFlow.Core.Models;
 
 namespace DeckFlow.Core.Modular;
@@ -7,6 +8,17 @@ namespace DeckFlow.Core.Modular;
 /// </summary>
 public sealed class ModularDeckCompiler
 {
+    private readonly IModularCardLegalityCatalog? _legalityCatalog;
+
+    /// <summary>
+    /// Initializes a compiler with optional caller-injected card legality facts.
+    /// </summary>
+    /// <param name="legalityCatalog">The local catalog supplying card facts.</param>
+    public ModularDeckCompiler(IModularCardLegalityCatalog? legalityCatalog = null)
+    {
+        _legalityCatalog = legalityCatalog;
+    }
+
     /// <summary>
     /// Compiles the selected strategy and its linked mana support in deterministic source-list order.
     /// </summary>
@@ -61,13 +73,18 @@ public sealed class ModularDeckCompiler
                 totalCardCount.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
 
+        AddLegalityDiagnostics(entries, project.CommandZone, diagnostics);
+        var orderedDiagnostics = diagnostics
+            .OrderBy(diagnostic => diagnostic.Rule)
+            .ToArray()
+            .AsReadOnly();
+
         return new ModularDeckCompilation
         {
-            IsStructurallyValid = diagnostics.Count == 0,
-            Diagnostics = diagnostics
-                .OrderBy(diagnostic => diagnostic.Rule)
-                .ToArray()
-                .AsReadOnly(),
+            IsStructurallyValid = !orderedDiagnostics.Any(diagnostic => IsStructuralRule(diagnostic.Rule)),
+            IsVerifiedLegal = orderedDiagnostics.Count == 0,
+            Diagnostics = orderedDiagnostics,
+            SwapPlan = CreateSwapPlan(project.BaselineMainboardEntries, mainboardEntries),
             SelectedStrategyId = strategy?.Id ?? selection?.StrategyId ?? string.Empty,
             SelectedStrategyName = strategy?.DisplayName ?? string.Empty,
             SelectedManaSupportModuleId = manaSupport?.Id ?? strategy?.ManaSupportModuleId ?? string.Empty,
@@ -78,6 +95,112 @@ public sealed class ModularDeckCompiler
             TotalCardCount = totalCardCount,
         };
     }
+
+    private void AddLegalityDiagnostics(
+        IReadOnlyList<DeckEntry> entries,
+        IReadOnlyList<DeckEntry> commandZone,
+        List<ModularDeckDiagnostic> diagnostics)
+    {
+        var factsByName = entries
+            .GroupBy(entry => entry.NormalizedName, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => _legalityCatalog?.GetFacts(group.Key), StringComparer.Ordinal);
+        AddDiagnostic(
+            diagnostics,
+            ModularDeckDiagnosticRule.UnverifiableCardFacts,
+            entries.Where(entry => factsByName[entry.NormalizedName] is null).Select(entry => entry.Name));
+
+        AddDiagnostic(
+            diagnostics,
+            ModularDeckDiagnosticRule.BannedCard,
+            entries.Where(entry => factsByName[entry.NormalizedName]?.IsBanned == true).Select(entry => entry.Name));
+
+        AddDiagnostic(
+            diagnostics,
+            ModularDeckDiagnosticRule.Singleton,
+            entries
+                .Where(entry => !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
+                .GroupBy(entry => entry.NormalizedName, StringComparer.Ordinal)
+                .Where(group => group.Sum(entry => entry.Quantity) > 1 && factsByName[group.Key]?.IsSingletonExempt == false)
+                .Select(group => group.First().Name));
+
+        if (commandZone.Any(entry => factsByName[entry.NormalizedName] is null))
+        {
+            return;
+        }
+
+        var commanderIdentity = commandZone
+            .SelectMany(entry => factsByName[entry.NormalizedName]!.ColorIdentity)
+            .ToHashSet(StringComparer.Ordinal);
+        AddDiagnostic(
+            diagnostics,
+            ModularDeckDiagnosticRule.ColorIdentity,
+            entries
+                .Where(entry => factsByName[entry.NormalizedName] is not null)
+                .Where(entry => CommanderIdentityCheck.IsWithinCommanderIdentity(factsByName[entry.NormalizedName]!.ColorIdentity, commanderIdentity) == CommanderIdentityCheckResult.Illegal)
+                .Select(entry => entry.Name));
+    }
+
+    private static ModularDeckSwapPlan CreateSwapPlan(IReadOnlyList<DeckEntry> baseline, IReadOnlyList<DeckEntry> compiled)
+    {
+        var baselineByName = AggregateEntries(baseline);
+        var compiledByName = AggregateEntries(compiled);
+        var add = new List<ModularDeckSwapEntry>();
+        var remove = new List<ModularDeckSwapEntry>();
+        foreach (var key in baselineByName.Keys.Concat(compiledByName.Keys).Distinct(StringComparer.Ordinal))
+        {
+            baselineByName.TryGetValue(key, out var baselineEntry);
+            compiledByName.TryGetValue(key, out var compiledEntry);
+            var delta = (compiledEntry?.Quantity ?? 0) - (baselineEntry?.Quantity ?? 0);
+            if (delta > 0)
+            {
+                add.Add(CreateSwapEntry(compiledEntry!, delta, ModularDeckSwapAction.Add));
+            }
+            else if (delta < 0)
+            {
+                remove.Add(CreateSwapEntry(baselineEntry!, -delta, ModularDeckSwapAction.Remove));
+            }
+        }
+
+        var orderedAdd = OrderSwapEntries(add);
+        var orderedRemove = OrderSwapEntries(remove);
+        return new ModularDeckSwapPlan
+        {
+            ToAdd = orderedAdd,
+            ToRemove = orderedRemove,
+            ToReset = OrderSwapEntries(orderedAdd.Select(entry => entry with { Action = ModularDeckSwapAction.Remove }).Concat(orderedRemove.Select(entry => entry with { Action = ModularDeckSwapAction.Add }))),
+        };
+    }
+
+    private static Dictionary<string, DeckEntry> AggregateEntries(IReadOnlyList<DeckEntry> entries) => entries
+        .GroupBy(entry => entry.NormalizedName, StringComparer.Ordinal)
+        .ToDictionary(
+            group => group.Key,
+            group => group.First() with { Quantity = group.Sum(entry => entry.Quantity) },
+            StringComparer.Ordinal);
+
+    private static ModularDeckSwapEntry CreateSwapEntry(DeckEntry entry, int quantity, ModularDeckSwapAction action) => new()
+    {
+        Action = action,
+        Name = entry.Name,
+        NormalizedName = entry.NormalizedName,
+        Quantity = quantity,
+    };
+
+    private static bool IsStructuralRule(ModularDeckDiagnosticRule rule) => rule is
+        ModularDeckDiagnosticRule.MissingSelection or
+        ModularDeckDiagnosticRule.UnknownStrategy or
+        ModularDeckDiagnosticRule.MissingLinkedManaSupport or
+        ModularDeckDiagnosticRule.StrategyCount or
+        ModularDeckDiagnosticRule.UnequalStrategySize or
+        ModularDeckDiagnosticRule.Overlap or
+        ModularDeckDiagnosticRule.CommandZoneMutation or
+        ModularDeckDiagnosticRule.TotalCardCount;
+
+    private static IReadOnlyList<ModularDeckSwapEntry> OrderSwapEntries(IEnumerable<ModularDeckSwapEntry> entries) => entries
+        .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+        .ThenBy(entry => entry.Name, StringComparer.Ordinal)
+        .ToArray()
+        .AsReadOnly();
 
     private static void AddProjectDiagnostics(ModularDeckProject project, List<ModularDeckDiagnostic> diagnostics)
     {
