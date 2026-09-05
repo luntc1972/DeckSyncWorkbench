@@ -9,7 +9,9 @@ namespace DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
 public static class StapleStripper
 {
     internal const int MaxDeckSize = 105;
-    private const double NearPreconJaccardThreshold = 0.70; // Why: CONTEXT D-03 / RESEARCH Pitfall 5 left the near-precon cut to Claude's discretion, so this plan documents a conservative >0.70 overlap rule instead of pretending the number was locked.
+    // Why: 0.70 Jaccard is a conservative cut for near-precon detection - high enough that two
+    // genuinely distinct decks in the same archetype are not merged, low enough to catch reprints.
+    private const double NearPreconJaccardThreshold = 0.70;
 
     /// <summary>
     /// Drops samples whose declared card count exceeds the contamination guardrail.
@@ -21,7 +23,7 @@ public static class StapleStripper
         ArgumentNullException.ThrowIfNull(samples);
 
         return samples
-            .Where(sample => sample.CardCount <= MaxDeckSize)
+            .Where(sample => Math.Max(sample.CardCount, sample.Entries.Sum(entry => entry.Quantity)) <= MaxDeckSize)
             .ToList();
     }
 
@@ -69,6 +71,8 @@ public static class StapleStripper
         double frequencyThreshold = 0.60)
     {
         ArgumentNullException.ThrowIfNull(samples);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(frequencyThreshold);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(frequencyThreshold, 1.0);
 
         if (samples.Count == 0)
         {
@@ -85,7 +89,7 @@ public static class StapleStripper
             }
         }
 
-        var minimumCount = samples.Count * frequencyThreshold;
+        var minimumCount = (int)Math.Floor(samples.Count * frequencyThreshold);
 
         return new HashSet<string>(
             appearances
@@ -116,11 +120,12 @@ public static class StapleStripper
         staples.UnionWith(personalStaples.Select(CardNormalizer.Normalize));
 
         return samples
-            .Select(sample => sample with
+            .Select(sample =>
             {
-                Entries = sample.Entries
-                    .Where(entry => !staples.Contains(CardNormalizer.Normalize(GetComparableName(entry))))
-                    .ToList()
+                var kept = sample.Entries
+                    .Where(entry => !staples.Contains(GetComparableName(entry)))
+                    .ToList();
+                return sample with { Entries = kept, CardCount = kept.Sum(entry => entry.Quantity) };
             })
             .ToList();
     }
@@ -136,6 +141,12 @@ public static class StapleStripper
 
     private static double ComputeJaccard(IReadOnlySet<string> left, IReadOnlySet<string> right)
     {
+        // Why: tiny resolved card sets usually indicate a load failure, not a deck duplicate.
+        if (Math.Min(left.Count, right.Count) < 20)
+        {
+            return 0;
+        }
+
         if (left.Count == 0 && right.Count == 0)
         {
             return 0;
@@ -149,8 +160,7 @@ public static class StapleStripper
 
     private static string GetComparableName(DeckEntry entry)
     {
-        return string.IsNullOrWhiteSpace(entry.NormalizedName)
-            ? entry.Name.Trim()
-            : entry.NormalizedName.Trim();
+        var raw = string.IsNullOrWhiteSpace(entry.NormalizedName) ? entry.Name : entry.NormalizedName;
+        return CardNormalizer.Normalize(raw ?? string.Empty);
     }
 }
