@@ -9,6 +9,9 @@ namespace DeckFlow.Web.Models.DeckModules;
 /// </summary>
 public sealed record DeckModulesViewModel
 {
+    /// <summary>Gets the server-issued, time-limited baseline token required for compilation.</summary>
+    public required string BaselineToken { get; init; }
+
     /// <summary>Gets the complete, fixed imported command zone. Displayable but never editable.</summary>
     public required IReadOnlyList<DeckEntry> CommandZone { get; init; }
 

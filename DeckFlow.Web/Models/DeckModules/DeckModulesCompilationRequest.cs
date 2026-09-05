@@ -67,17 +67,13 @@ public sealed record DeckModulesCompilationRequest
     /// <summary>Gets the maximum accepted number of <see cref="Alternatives"/>.</summary>
     public const int MaxAlternativeCount = 4;
 
-    /// <summary>Gets the maximum accepted entries in <see cref="CommandZone"/>, <see cref="OriginalCommandZone"/>, <see cref="BaselineMainboardEntries"/>, or <see cref="CoreEntries"/>.</summary>
+    /// <summary>Gets the maximum accepted entries in <see cref="CommandZone"/>, <see cref="BaselineMainboardEntries"/>, or <see cref="CoreEntries"/>.</summary>
     public const int MaxEntriesPerList = 200;
 
-    /// <summary>
-    /// Gets the command zone exactly as returned by import, unmodified. Compared against
-    /// <see cref="CommandZone"/> before compilation; a mismatch is rejected as tampering with the
-    /// immutable imported command zone rather than passed to the compiler.
-    /// </summary>
-    public required IReadOnlyList<DeckEntry> OriginalCommandZone { get; init; }
+    /// <summary>Gets the server-issued baseline token echoed unmodified from import.</summary>
+    public required string BaselineToken { get; init; }
 
-    /// <summary>Gets the command zone submitted for this compilation. Must match <see cref="OriginalCommandZone"/> exactly.</summary>
+    /// <summary>Gets the command zone submitted for this compilation. Must match the protected import baseline exactly.</summary>
     public required IReadOnlyList<DeckEntry> CommandZone { get; init; }
 
     /// <summary>Gets the imported baseline mainboard entries used for swap-plan comparison.</summary>

@@ -13,6 +13,8 @@ using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.DeckModules;
 using DeckFlow.Web.Services.Modular;
+using Microsoft.AspNetCore.DataProtection;
+using System.Text.Json;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -23,13 +25,14 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class DeckModulesPageServiceTests
 {
+    private static readonly IDataProtectionProvider DataProtectionProvider = Microsoft.AspNetCore.DataProtection.DataProtectionProvider.Create("DeckModulesPageServiceTests");
     private const string CommanderModxfieldText =
         "Commander\n1 Command Card\n\nDeck\n1 Sol Ring\n2 Forest\n\nMaybeboard\n1 Extra Card\n";
 
     [Fact]
     public async Task ImportAsync_RejectsEmptyPublicUrl()
     {
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
 
         var result = await service.ImportAsync(new DeckModulesImportRequest
         {
@@ -44,7 +47,7 @@ public sealed class DeckModulesPageServiceTests
     [Fact]
     public async Task ImportAsync_RejectsEmptyPasteText()
     {
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
 
         var result = await service.ImportAsync(new DeckModulesImportRequest
         {
@@ -59,7 +62,7 @@ public sealed class DeckModulesPageServiceTests
     [Fact]
     public async Task ImportAsync_RejectsOversizedPasteText()
     {
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
         var oversizedText = new string('a', DeckModulesImportRequest.MaxPasteTextLength + 1);
 
         var result = await service.ImportAsync(new DeckModulesImportRequest
@@ -75,7 +78,7 @@ public sealed class DeckModulesPageServiceTests
     [Fact]
     public async Task ImportAsync_RejectsOversizedUrl()
     {
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
         var oversizedUrl = "https://moxfield.com/decks/" + new string('a', DeckModulesImportRequest.MaxUrlLength);
 
         var result = await service.ImportAsync(new DeckModulesImportRequest
@@ -91,7 +94,7 @@ public sealed class DeckModulesPageServiceTests
     [Fact]
     public async Task ImportAsync_PreservesCommandZoneVerbatimAndExcludesMaybeboardFromBaseline()
     {
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
 
         var result = await service.ImportAsync(new DeckModulesImportRequest
         {
@@ -110,7 +113,60 @@ public sealed class DeckModulesPageServiceTests
         Assert.Contains(viewModel.BaselineMainboardEntries, entry => entry.Name == "Sol Ring" && entry.Quantity == 1);
         Assert.Contains(viewModel.BaselineMainboardEntries, entry => entry.Name == "Forest" && entry.Quantity == 2);
         Assert.DoesNotContain(viewModel.BaselineMainboardEntries, entry => entry.Name == "Extra Card");
+        Assert.False(string.IsNullOrWhiteSpace(viewModel.BaselineToken));
         Assert.Null(viewModel.ImportNotice);
+    }
+
+    [Fact]
+    public async Task ImportAsync_BaselineTokenRoundTripsThroughCompile()
+    {
+        var service = CreateService(CreateLoader());
+        var import = await service.ImportAsync(new DeckModulesImportRequest
+        {
+            ActiveSource = DeckInputSource.PasteText,
+            PasteText = CommanderModxfieldText,
+        });
+        var request = BuildMinimalTwoAlternativeRequest() with
+        {
+            BaselineToken = import.Value!.BaselineToken,
+            CommandZone = import.Value.CommandZone,
+            BaselineMainboardEntries = import.Value.BaselineMainboardEntries,
+        };
+
+        var result = service.Compile(request);
+
+        Assert.True(import.Succeeded);
+        Assert.True(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task ImportAsync_BaselineTokenRoundTripPreservesDisplayNames()
+    {
+        var service = CreateService(CreateLoader());
+        var import = await service.ImportAsync(new DeckModulesImportRequest
+        {
+            ActiveSource = DeckInputSource.PasteText,
+            PasteText = "Commander\n1 Krenko's Command\n\nDeck\n1 Mystic Remora\n",
+        });
+        var request = BuildMinimalTwoAlternativeRequest() with
+        {
+            BaselineToken = import.Value!.BaselineToken,
+            CommandZone = import.Value.CommandZone,
+            BaselineMainboardEntries = import.Value.BaselineMainboardEntries,
+            Alternatives = BuildMinimalTwoAlternativeRequest().Alternatives
+                .Select(alternative => alternative with
+                {
+                    MainboardEntries = new[] { Entry("Mystic Remora", 1) },
+                }).ToArray(),
+        };
+
+        var result = service.Compile(request);
+
+        Assert.True(import.Succeeded);
+        Assert.True(result.Succeeded);
+        Assert.Equal("Krenko's Command", Assert.Single(result.Value!.CommandZoneEntries).Name);
+        Assert.Contains(result.Value.MainboardEntries, entry => entry.Name == "Mystic Remora");
+        Assert.Contains(result.Value.Entries, entry => entry.Name == "Mystic Remora");
     }
 
     [Fact]
@@ -126,7 +182,7 @@ public sealed class DeckModulesPageServiceTests
             new FakeArchidektDeckImporter(new List<DeckEntry>()),
             new MoxfieldParser(),
             new ArchidektParser());
-        var service = new DeckModulesPageService(loader);
+        var service = CreateService(loader);
 
         var result = await service.ImportAsync(new DeckModulesImportRequest
         {
@@ -142,7 +198,7 @@ public sealed class DeckModulesPageServiceTests
     [Fact]
     public async Task ImportAsync_DoesNotRetainStateBetweenCalls()
     {
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
 
         var first = await service.ImportAsync(new DeckModulesImportRequest
         {
@@ -166,7 +222,7 @@ public sealed class DeckModulesPageServiceTests
             "Moxfield API deck test returned 500 Internal Server Error: boom",
             null,
             HttpStatusCode.InternalServerError));
-        var service = new DeckModulesPageService(loader);
+        var service = CreateService(loader);
 
         var result = await service.ImportAsync(new DeckModulesImportRequest
         {
@@ -183,7 +239,7 @@ public sealed class DeckModulesPageServiceTests
     {
         var loader = new FakeDeckEntryLoader(_ => throw new InvalidOperationException(
             "The submitted deck was not recognized as a Moxfield URL, Archidekt URL, or a Moxfield, Archidekt, or MTG Arena deck export."));
-        var service = new DeckModulesPageService(loader);
+        var service = CreateService(loader);
 
         var result = await service.ImportAsync(new DeckModulesImportRequest
         {
@@ -224,11 +280,11 @@ public sealed class DeckModulesPageServiceTests
             [CardNormalizer.Normalize("Basic Land")] = ColorlessFacts(isSingletonExempt: true),
             [CardNormalizer.Normalize("Alt A Card")] = ColorlessFacts(),
         });
-        var service = new DeckModulesPageService(CreateLoader(), catalog);
+        var service = CreateService(CreateLoader(), catalog);
 
         var request = new DeckModulesCompilationRequest
         {
-            OriginalCommandZone = commandZone,
+            BaselineToken = CreateBaselineToken(commandZone, coreEntries),
             CommandZone = commandZone,
             BaselineMainboardEntries = coreEntries,
             CoreEntries = coreEntries,
@@ -253,7 +309,7 @@ public sealed class DeckModulesPageServiceTests
     public void Compile_ReportsUnverifiableFactsWhenNoLegalityCatalogIsInjected()
     {
         var request = BuildMinimalTwoAlternativeRequest();
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
 
         var result = service.Compile(request);
 
@@ -263,17 +319,85 @@ public sealed class DeckModulesPageServiceTests
     }
 
     [Fact]
-    public void Compile_RejectsWhenCommandZoneDivergesFromOriginalImport()
+    public void Compile_RejectsWhenCommandZoneDivergesFromProtectedBaseline()
     {
         var request = BuildMinimalTwoAlternativeRequest();
         var tamperedCommandZone = new[] { Entry("Command Card", 2, "commander") };
         var tamperedRequest = request with { CommandZone = tamperedCommandZone };
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
 
         var result = service.Compile(tamperedRequest);
 
         Assert.False(result.Succeeded);
-        Assert.Contains("cannot be changed", result.ErrorMessage);
+        Assert.Contains("baseline no longer matches", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void Compile_RejectsTamperedTokenSignature()
+    {
+        var request = BuildMinimalTwoAlternativeRequest();
+        var token = request.BaselineToken;
+        var tamperedToken = token[..^1] + (token[^1] == 'A' ? "B" : "A");
+        var service = CreateService(CreateLoader());
+
+        var result = service.Compile(request with { BaselineToken = tamperedToken });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Your Deck Modules session has expired or is invalid. Re-import the deck to continue.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void Compile_RejectsTamperedTokenPayload()
+    {
+        var request = BuildMinimalTwoAlternativeRequest();
+        var token = DataProtectionProvider.CreateProtector("DeckFlow.DeckModules.Baseline.v1")
+            .ToTimeLimitedDataProtector()
+            .Protect("{}", TimeProvider.System.GetUtcNow().AddMinutes(30));
+        var service = CreateService(CreateLoader());
+
+        var result = service.Compile(request with { BaselineToken = token });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Your Deck Modules session has expired or is invalid. Re-import the deck to continue.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Compile_RejectsExpiredToken()
+    {
+        var service = CreateService(
+            CreateLoader(),
+            timeProvider: new FixedTimeProvider(TimeProvider.System.GetUtcNow().AddHours(-1)));
+        var import = await service.ImportAsync(new DeckModulesImportRequest
+        {
+            ActiveSource = DeckInputSource.PasteText,
+            PasteText = CommanderModxfieldText,
+        });
+        var request = BuildMinimalTwoAlternativeRequest() with
+        {
+            BaselineToken = import.Value!.BaselineToken,
+            CommandZone = import.Value.CommandZone,
+            BaselineMainboardEntries = import.Value.BaselineMainboardEntries,
+        };
+
+        var result = service.Compile(request);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Your Deck Modules session has expired or is invalid. Re-import the deck to continue.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void Compile_RejectsMismatchedProtectedBaselineMainboard()
+    {
+        var request = BuildMinimalTwoAlternativeRequest() with
+        {
+            BaselineMainboardEntries = new[] { Entry("Sol Ring", 1) },
+        };
+        var service = CreateService(CreateLoader());
+
+        var result = service.Compile(request);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("baseline no longer matches", result.ErrorMessage);
     }
 
     [Theory]
@@ -285,7 +409,7 @@ public sealed class DeckModulesPageServiceTests
             .Select(index => MinimalAlternative($"alt-{index}", $"Alt {index}"))
             .ToArray();
         var request = BuildMinimalTwoAlternativeRequest() with { Alternatives = alternatives, SelectedAlternativeId = alternatives[0].Id };
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
 
         var result = service.Compile(request);
 
@@ -301,7 +425,7 @@ public sealed class DeckModulesPageServiceTests
             .Select((alternative, index) => index == 0 ? alternative with { Name = "  " } : alternative)
             .ToArray();
         var tamperedRequest = request with { Alternatives = blankNamedAlternatives };
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
 
         var result = service.Compile(tamperedRequest);
 
@@ -317,7 +441,7 @@ public sealed class DeckModulesPageServiceTests
             .Select((alternative, index) => index == 0 ? alternative with { PlayPlan = string.Empty } : alternative)
             .ToArray();
         var tamperedRequest = request with { Alternatives = blankPlayPlanAlternatives };
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
 
         var result = service.Compile(tamperedRequest);
 
@@ -333,7 +457,7 @@ public sealed class DeckModulesPageServiceTests
             .Select((alternative, index) => index == 0 ? alternative with { Profile = (DeckModulesProfile)99 } : alternative)
             .ToArray();
         var tamperedRequest = request with { Alternatives = invalidProfileAlternatives };
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
 
         var result = service.Compile(tamperedRequest);
 
@@ -349,7 +473,7 @@ public sealed class DeckModulesPageServiceTests
             .Select(alternative => alternative with { Id = "duplicate-id" })
             .ToArray();
         var tamperedRequest = request with { Alternatives = duplicateIdAlternatives };
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
 
         var result = service.Compile(tamperedRequest);
 
@@ -368,7 +492,7 @@ public sealed class DeckModulesPageServiceTests
             .Select((alternative, index) => index == 0 ? alternative with { MainboardEntries = oversizedEntries } : alternative)
             .ToArray();
         var tamperedRequest = request with { Alternatives = oversizedAlternatives };
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
 
         var result = service.Compile(tamperedRequest);
 
@@ -401,14 +525,14 @@ public sealed class DeckModulesPageServiceTests
         };
         var request = new DeckModulesCompilationRequest
         {
-            OriginalCommandZone = commandZone,
+            BaselineToken = CreateBaselineToken(commandZone, coreEntries),
             CommandZone = commandZone,
             BaselineMainboardEntries = coreEntries,
             CoreEntries = coreEntries,
             Alternatives = new[] { alternativeWithManaSupport, alternativeWithoutManaSupport },
             SelectedAlternativeId = "alt-a",
         };
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
 
         var result = service.Compile(request);
 
@@ -421,7 +545,7 @@ public sealed class DeckModulesPageServiceTests
     public void Compile_PreservesEntryQuantitiesAndBoardsExactly()
     {
         var request = BuildMinimalTwoAlternativeRequest();
-        var service = new DeckModulesPageService(CreateLoader());
+        var service = CreateService(CreateLoader());
 
         var result = service.Compile(request);
 
@@ -441,7 +565,7 @@ public sealed class DeckModulesPageServiceTests
 
         return new DeckModulesCompilationRequest
         {
-            OriginalCommandZone = commandZone,
+            BaselineToken = CreateBaselineToken(commandZone, coreEntries),
             CommandZone = commandZone,
             BaselineMainboardEntries = coreEntries,
             CoreEntries = coreEntries,
@@ -480,6 +604,23 @@ public sealed class DeckModulesPageServiceTests
         new MoxfieldParser(),
         new ArchidektParser());
 
+    private static DeckModulesPageService CreateService(
+        IDeckEntryLoader loader,
+        IModularCardLegalityCatalog? catalog = null,
+        TimeProvider? timeProvider = null)
+        => new(loader, DataProtectionProvider, catalog, timeProvider);
+
+    private static string CreateBaselineToken(
+        IReadOnlyList<DeckEntry> commandZone,
+        IReadOnlyList<DeckEntry> baselineMainboard,
+        DateTimeOffset? expiresAt = null)
+    {
+        var payload = JsonSerializer.Serialize(new { CommandZone = commandZone, BaselineMainboardEntries = baselineMainboard });
+        return DataProtectionProvider.CreateProtector("DeckFlow.DeckModules.Baseline.v1")
+            .ToTimeLimitedDataProtector()
+            .Protect(payload, expiresAt ?? TimeProvider.System.GetUtcNow().AddMinutes(30));
+    }
+
     private sealed class FakeLegalityCatalog : IModularCardLegalityCatalog
     {
         private readonly Dictionary<string, ModularCardLegalityFacts> _facts;
@@ -488,6 +629,11 @@ public sealed class DeckModulesPageServiceTests
 
         public ModularCardLegalityFacts? GetFacts(string normalizedCardName)
             => _facts.TryGetValue(normalizedCardName, out var facts) ? facts : null;
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 
     private sealed class FakeDeckEntryLoader : IDeckEntryLoader

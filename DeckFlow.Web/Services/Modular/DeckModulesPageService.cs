@@ -6,6 +6,9 @@ using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.DeckModules;
 using DeckFlow.Web.Services;
+using Microsoft.AspNetCore.DataProtection;
+using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace DeckFlow.Web.Services.Modular;
 
@@ -20,9 +23,13 @@ public sealed class DeckModulesPageService : IDeckModulesPageService
     private const int MaxCardNameLength = 200;
     private const int MinEntryQuantity = 1;
     private const int MaxEntryQuantity = 999;
+    private const string BaselineProtectionPurpose = "DeckFlow.DeckModules.Baseline.v1";
+    private const string InvalidBaselineMessage = "Your Deck Modules session has expired or is invalid. Re-import the deck to continue.";
 
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IModularCardLegalityCatalog? _legalityCatalog;
+    private readonly ITimeLimitedDataProtector _baselineProtector;
+    private readonly TimeProvider _timeProvider;
 
     /// <summary>
     /// Creates a new service backed by the shared deck loader and an optional injected
@@ -30,12 +37,21 @@ public sealed class DeckModulesPageService : IDeckModulesPageService
     /// reported as unverifiable rather than assumed legal.
     /// </summary>
     /// <param name="deckEntryLoader">Shared loader used to import the baseline deck.</param>
+    /// <param name="dataProtectionProvider">Protects the imported baseline returned to the browser.</param>
     /// <param name="legalityCatalog">Optional already-resolved card-legality facts.</param>
-    public DeckModulesPageService(IDeckEntryLoader deckEntryLoader, IModularCardLegalityCatalog? legalityCatalog = null)
+    /// <param name="timeProvider">Clock used to issue time-limited baseline tokens.</param>
+    public DeckModulesPageService(
+        IDeckEntryLoader deckEntryLoader,
+        IDataProtectionProvider dataProtectionProvider,
+        IModularCardLegalityCatalog? legalityCatalog = null,
+        TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
+        ArgumentNullException.ThrowIfNull(dataProtectionProvider);
         _deckEntryLoader = deckEntryLoader;
         _legalityCatalog = legalityCatalog;
+        _baselineProtector = dataProtectionProvider.CreateProtector(BaselineProtectionPurpose).ToTimeLimitedDataProtector();
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -78,6 +94,7 @@ public sealed class DeckModulesPageService : IDeckModulesPageService
 
         var viewModel = new DeckModulesViewModel
         {
+            BaselineToken = CreateBaselineToken(commandZone, baselineMainboard),
             CommandZone = Array.AsReadOnly(commandZone),
             BaselineMainboardEntries = Array.AsReadOnly(baselineMainboard),
             ImportNotice = loadResult.FallbackNotice,
@@ -91,13 +108,25 @@ public sealed class DeckModulesPageService : IDeckModulesPageService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        if (!TryReadBaseline(request.BaselineToken, out var baseline))
+        {
+            return DeckModulesServiceResult<DeckModulesCompilationViewModel>.Failure(InvalidBaselineMessage);
+        }
+
         var validationError = ValidateCompilationRequest(request);
         if (validationError is not null)
         {
             return DeckModulesServiceResult<DeckModulesCompilationViewModel>.Failure(validationError);
         }
 
-        var project = BuildProject(request);
+        var protectedCommandZone = ToDeckEntries(baseline.CommandZone);
+        var protectedBaselineMainboard = ToDeckEntries(baseline.BaselineMainboardEntries);
+        if (!EntriesMatch(protectedCommandZone, request.CommandZone) || !EntriesMatch(protectedBaselineMainboard, request.BaselineMainboardEntries))
+        {
+            return DeckModulesServiceResult<DeckModulesCompilationViewModel>.Failure("The imported baseline no longer matches the submitted deck.");
+        }
+
+        var project = BuildProject(request, protectedCommandZone, protectedBaselineMainboard);
         var selection = new ModularDeckSelection { StrategyId = request.SelectedAlternativeId };
         var compiler = new ModularDeckCompiler(_legalityCatalog);
         var compilation = compiler.Compile(project, selection);
@@ -163,18 +192,12 @@ public sealed class DeckModulesPageService : IDeckModulesPageService
         }
 
         var entryListError =
-            ValidateEntryList(request.OriginalCommandZone, "imported command zone") ??
             ValidateEntryList(request.CommandZone, "command zone") ??
             ValidateEntryList(request.BaselineMainboardEntries, "baseline mainboard entries") ??
             ValidateEntryList(request.CoreEntries, "core entries");
         if (entryListError is not null)
         {
             return entryListError;
-        }
-
-        if (!CommandZonesMatch(request.OriginalCommandZone, request.CommandZone))
-        {
-            return "The imported command zone cannot be changed and no longer matches the original import.";
         }
 
         var seenAlternativeIds = new HashSet<string>(StringComparer.Ordinal);
@@ -264,7 +287,7 @@ public sealed class DeckModulesPageService : IDeckModulesPageService
         return null;
     }
 
-    private static bool CommandZonesMatch(IReadOnlyList<DeckEntry> original, IReadOnlyList<DeckEntry> current)
+    private static bool EntriesMatch(IReadOnlyList<DeckEntry> original, IReadOnlyList<DeckEntry> current)
     {
         var originalCounts = AggregateByNameAndBoard(original);
         var currentCounts = AggregateByNameAndBoard(current);
@@ -296,7 +319,10 @@ public sealed class DeckModulesPageService : IDeckModulesPageService
         return result;
     }
 
-    private static ModularDeckProject BuildProject(DeckModulesCompilationRequest request)
+    private static ModularDeckProject BuildProject(
+        DeckModulesCompilationRequest request,
+        IReadOnlyList<DeckEntry> commandZone,
+        IReadOnlyList<DeckEntry> baselineMainboard)
     {
         var strategyModules = new List<ModularStrategyModule>(request.Alternatives.Count);
         var manaSupportModules = new List<ModularManaSupportModule>(request.Alternatives.Count);
@@ -320,8 +346,8 @@ public sealed class DeckModulesPageService : IDeckModulesPageService
 
         return new ModularDeckProject
         {
-            CommandZone = WithRecomputedNormalizedNames(request.CommandZone),
-            BaselineMainboardEntries = WithRecomputedNormalizedNames(request.BaselineMainboardEntries),
+            CommandZone = commandZone,
+            BaselineMainboardEntries = baselineMainboard,
             CoreEntries = WithRecomputedNormalizedNames(request.CoreEntries),
             StrategyModules = strategyModules,
             ManaSupportModules = manaSupportModules,
@@ -338,4 +364,54 @@ public sealed class DeckModulesPageService : IDeckModulesPageService
 
     private static bool IsBoard(DeckEntry entry, string board)
         => string.Equals(entry.Board, board, StringComparison.OrdinalIgnoreCase);
+
+    private string CreateBaselineToken(IReadOnlyList<DeckEntry> commandZone, IReadOnlyList<DeckEntry> baselineMainboard)
+    {
+        var baseline = new DeckModulesBaseline(ToBaselineEntries(commandZone), ToBaselineEntries(baselineMainboard));
+        return _baselineProtector.Protect(JsonSerializer.Serialize(baseline), _timeProvider.GetUtcNow().AddMinutes(30));
+    }
+
+    private bool TryReadBaseline(string token, out DeckModulesBaseline baseline)
+    {
+        baseline = default!;
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return false;
+        }
+
+        try
+        {
+            baseline = JsonSerializer.Deserialize<DeckModulesBaseline>(_baselineProtector.Unprotect(token, out _))!;
+            return baseline?.CommandZone is not null && baseline.BaselineMainboardEntries is not null;
+        }
+        catch (CryptographicException)
+        {
+            return false;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static IReadOnlyList<DeckModulesBaselineEntry> ToBaselineEntries(IReadOnlyList<DeckEntry> entries)
+        => Array.AsReadOnly(entries.Select(entry => new DeckModulesBaselineEntry(
+            entry.Name,
+            entry.Board,
+            entry.Quantity)).ToArray());
+
+    private static IReadOnlyList<DeckEntry> ToDeckEntries(IReadOnlyList<DeckModulesBaselineEntry> entries)
+        => Array.AsReadOnly(entries.Select(entry => new DeckEntry
+        {
+            Name = entry.Name,
+            NormalizedName = CardNormalizer.Normalize(entry.Name),
+            Board = entry.Board,
+            Quantity = entry.Quantity,
+        }).ToArray());
+
+    private sealed record DeckModulesBaseline(
+        IReadOnlyList<DeckModulesBaselineEntry> CommandZone,
+        IReadOnlyList<DeckModulesBaselineEntry> BaselineMainboardEntries);
+
+    private sealed record DeckModulesBaselineEntry(string Name, string Board, int Quantity);
 }
