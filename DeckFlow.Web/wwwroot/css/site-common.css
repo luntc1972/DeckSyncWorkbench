@@ -5819,3 +5819,157 @@ pre {
 .cache-pill__reset:focus-visible {
   color: var(--ink);
 }
+
+/* Deck Modules: shared responsive layout for all guild themes. */
+.deck-modules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.deck-modules > h1,
+.deck-modules > p,
+.deck-modules > form,
+.deck-modules > [data-deck-modules-live],
+.deck-modules > [data-deck-modules-error],
+.deck-modules > [data-deck-modules-notice],
+.deck-modules > [data-deck-modules-reconciliation],
+.deck-modules > [data-deck-modules-balance],
+.deck-modules__configuration,
+.deck-modules__command-zone,
+.deck-modules__report {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+}
+
+.deck-modules__panel,
+.deck-modules > form {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft-bg, var(--panel));
+}
+
+.deck-modules > form,
+.deck-modules__configuration {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.35fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem 0.85rem;
+}
+
+.deck-modules > form > label,
+.deck-modules > form > textarea,
+.deck-modules > form > button,
+.deck-modules__configuration > button,
+.deck-modules__configuration > p,
+.deck-modules__configuration > [data-deck-modules-alternatives] {
+  grid-column: 1 / -1;
+}
+
+.deck-modules textarea,
+.deck-modules input:not([type="checkbox"]),
+.deck-modules select {
+  inline-size: 100%;
+  box-sizing: border-box;
+}
+
+.deck-modules > form textarea {
+  min-block-size: 7rem;
+}
+
+.deck-modules__assignment {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.deck-modules__assignment h2,
+.deck-modules__report h2 {
+  margin-top: 0;
+}
+
+.deck-modules__entries {
+  display: block;
+  max-inline-size: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.deck-modules__entries th,
+.deck-modules__entries td {
+  white-space: nowrap;
+}
+
+.deck-modules [data-deck-modules-error]:not(:empty),
+.deck-modules [data-deck-modules-balance]:not(:empty),
+.deck-modules [data-deck-modules-reconciliation]:not(:empty) {
+  padding: 0.65rem 0.8rem;
+  border-inline-start: 4px solid var(--ink);
+  background: var(--panel-soft-bg, var(--panel));
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.deck-modules__report [data-deck-modules-compiled],
+.deck-modules__report [data-deck-modules-swap] {
+  max-block-size: 16rem;
+  overflow: auto;
+  padding-inline-start: 1.25rem;
+}
+
+.deck-modules [data-deck-modules-alternatives] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.deck-modules > button {
+  min-inline-size: 0;
+}
+
+@media (max-width: 760px) {
+  .deck-modules {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.8rem;
+  }
+
+  .deck-modules > *,
+  .deck-modules__configuration,
+  .deck-modules__command-zone,
+  .deck-modules__report {
+    grid-column: 1;
+  }
+
+  .deck-modules > form,
+  .deck-modules__configuration {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .deck-modules__assignment {
+    counter-increment: deck-modules-step;
+    scroll-margin-top: 1rem;
+  }
+
+  .deck-modules__assignment::before {
+    content: "Assignment step " counter(deck-modules-step) " of 4";
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .deck-modules {
+    counter-reset: deck-modules-step;
+  }
+
+  .deck-modules button,
+  .deck-modules input:not([type="checkbox"]),
+  .deck-modules select {
+    min-block-size: 44px;
+  }
+}

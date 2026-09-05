@@ -1,0 +1,127 @@
+@using DeckFlow.Web.Models
+@model DeckModulesIndexViewModel
+@{
+    ViewData["Title"] = "Deck Modules";
+    ViewData["Description"] = "Assign an imported Commander deck to modular strategy alternatives in this browser tab.";
+}
+
+@await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
+
+<section class="result-panel deck-modules" data-deck-modules>
+    <h1>Deck Modules</h1>
+    <p>Import a baseline, then assign every mainboard card to Core, an active Strategy, or its linked Mana Support.</p>
+    <p data-deck-modules-live aria-live="polite" role="status"></p>
+    <p data-deck-modules-error role="alert"></p>
+
+    <form data-deck-modules-import-form>
+        <label for="deck-modules-source">Public deck URL or pasted decklist</label>
+        <textarea id="deck-modules-source" data-deck-modules-source required></textarea>
+        <button type="submit">Import deck</button>
+    </form>
+    <p data-deck-modules-notice role="status"></p>
+
+    <section class="deck-modules__panel deck-modules__configuration" aria-labelledby="deck-modules-configuration-heading">
+        <h2 id="deck-modules-configuration-heading">Baseline strategy configuration</h2>
+        <label for="deck-modules-name">Strategy name</label>
+        <input id="deck-modules-name" data-deck-modules-name required />
+        <label for="deck-modules-profile">Declared profile</label>
+        <select id="deck-modules-profile" data-deck-modules-profile required>
+            <option value="">Choose a profile</option>
+            <option value="Casual">Casual</option>
+            <option value="Bracket4HighPower">Bracket 4 High Power</option>
+            <option value="Cedh">cEDH</option>
+        </select>
+        <label for="deck-modules-plan">One-sentence play plan</label>
+        <textarea id="deck-modules-plan" data-deck-modules-plan required></textarea>
+        <button type="button" data-deck-modules-add-alternative>Add strategy alternative</button>
+        <p>Profile: <span data-deck-modules-summary-profile>Not selected</span></p>
+        <p>Play plan: <span data-deck-modules-summary-plan>Not entered</span></p>
+        <div data-deck-modules-alternatives aria-label="Strategy alternatives"></div>
+    </section>
+
+    <section class="deck-modules__panel deck-modules__command-zone" aria-labelledby="deck-modules-command-zone-heading">
+        <h2 id="deck-modules-command-zone-heading">Command zone</h2>
+        <p>Imported baseline only; command zone cannot be edited here.</p>
+        <div data-deck-modules-command-zone></div>
+    </section>
+
+    <p data-deck-modules-reconciliation></p>
+
+    <section class="deck-modules__panel deck-modules__assignment" aria-labelledby="deck-modules-unassigned-heading">
+        <h2 id="deck-modules-unassigned-heading">Unassigned <span data-deck-modules-count="unassigned">0</span></h2>
+        <label for="deck-modules-unassigned-filter">Filter Unassigned cards</label>
+        <input id="deck-modules-unassigned-filter" type="search" data-deck-modules-filter="unassigned" />
+        <table class="deck-modules__entries">
+            <caption>Imported baseline cards awaiting assignment</caption>
+            <thead><tr><th scope="col">Select</th><th scope="col">Quantity</th><th scope="col">Card</th></tr></thead>
+            <tbody data-deck-modules-entries="unassigned"></tbody>
+        </table>
+        <button type="button" data-deck-modules-move="unassigned:core">Move selected to Core</button>
+        <button type="button" data-deck-modules-move="unassigned:strategy">Move selected to Strategy</button>
+        <button type="button" data-deck-modules-move="unassigned:mana">Move selected to Mana Support</button>
+    </section>
+
+    <section class="deck-modules__panel deck-modules__assignment" aria-labelledby="deck-modules-core-heading">
+        <h2 id="deck-modules-core-heading">Core <span data-deck-modules-count="core">0</span></h2>
+        <label for="deck-modules-core-filter">Filter Core cards</label>
+        <input id="deck-modules-core-filter" type="search" data-deck-modules-filter="core" />
+        <table class="deck-modules__entries">
+            <caption>Core card assignments</caption>
+            <thead><tr><th scope="col">Select</th><th scope="col">Quantity</th><th scope="col">Card</th></tr></thead>
+            <tbody data-deck-modules-entries="core"></tbody>
+        </table>
+        <button type="button" data-deck-modules-move="core:unassigned">Return selected to Unassigned</button>
+        <button type="button" data-deck-modules-move="core:strategy">Move selected to Strategy</button>
+        <button type="button" data-deck-modules-move="core:mana">Move selected to Mana Support</button>
+    </section>
+
+    <section class="deck-modules__panel deck-modules__assignment" aria-labelledby="deck-modules-strategy-heading">
+        <h2 id="deck-modules-strategy-heading">Strategy: <span data-deck-modules-active-name>Choose an alternative</span> <span data-deck-modules-count="strategy">0</span></h2>
+        <label for="deck-modules-strategy-filter">Filter Strategy cards</label>
+        <input id="deck-modules-strategy-filter" type="search" data-deck-modules-filter="strategy" />
+        <table class="deck-modules__entries">
+            <caption>Active strategy card assignments</caption>
+            <thead><tr><th scope="col">Select</th><th scope="col">Quantity</th><th scope="col">Card</th></tr></thead>
+            <tbody data-deck-modules-entries="strategy"></tbody>
+        </table>
+        <button type="button" data-deck-modules-move="strategy:unassigned">Return selected to Unassigned</button>
+        <button type="button" data-deck-modules-move="strategy:core">Move selected to Core</button>
+        <button type="button" data-deck-modules-move="strategy:mana">Move selected to Mana Support</button>
+    </section>
+
+    <section class="deck-modules__panel deck-modules__assignment" aria-labelledby="deck-modules-mana-heading">
+        <h2 id="deck-modules-mana-heading">Mana Support <span data-deck-modules-count="mana">0</span></h2>
+        <label for="deck-modules-mana-filter">Filter Mana Support cards</label>
+        <input id="deck-modules-mana-filter" type="search" data-deck-modules-filter="mana" />
+        <table class="deck-modules__entries">
+            <caption>Active strategy Mana Support assignments</caption>
+            <thead><tr><th scope="col">Select</th><th scope="col">Quantity</th><th scope="col">Card</th></tr></thead>
+            <tbody data-deck-modules-entries="mana"></tbody>
+        </table>
+        <button type="button" data-deck-modules-move="mana:unassigned">Return selected to Unassigned</button>
+        <button type="button" data-deck-modules-move="mana:core">Move selected to Core</button>
+        <button type="button" data-deck-modules-move="mana:strategy">Move selected to Strategy</button>
+    </section>
+
+    <p id="deck-modules-balance" data-deck-modules-balance></p>
+    <button type="button" data-deck-modules-compile disabled>Compile modules</button>
+    <button type="button" data-deck-modules-export disabled>Download compiled text</button>
+    <button type="button" data-deck-modules-copy disabled>Copy compiled text</button>
+    <button type="button" data-deck-modules-restart>Restart draft</button>
+
+    <section class="deck-modules__panel deck-modules__report" aria-labelledby="deck-modules-report-heading" hidden>
+        <h2 id="deck-modules-report-heading">Compilation report</h2>
+        <p>Total cards: <span data-deck-modules-report-total></span></p>
+        <p>Selected strategy: <span data-deck-modules-report-strategy></span></p>
+        <p>Mana Support: <span data-deck-modules-report-mana></span></p>
+        <h3>Diagnostics</h3><ul data-deck-modules-diagnostics></ul>
+        <h3>Compiled deck</h3><ul data-deck-modules-compiled></ul>
+        <h3>IN</h3><ul data-deck-modules-swap="add"></ul>
+        <h3>OUT</h3><ul data-deck-modules-swap="remove"></ul>
+        <h3>RESET</h3><ul data-deck-modules-swap="reset"></ul>
+    </section>
+</section>
+
+@section Scripts {
+    <script src="~/js/deck-modules.js" asp-append-version="true"></script>
+}
