@@ -147,11 +147,6 @@ public static class StapleStripper
             return 0;
         }
 
-        if (left.Count == 0 && right.Count == 0)
-        {
-            return 0;
-        }
-
         var intersectionCount = left.Count(card => right.Contains(card));
         var unionCount = left.Count + right.Count - intersectionCount;
 

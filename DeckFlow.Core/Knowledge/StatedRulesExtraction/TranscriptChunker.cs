@@ -8,6 +8,8 @@ namespace DeckFlow.Core.Knowledge.StatedRulesExtraction;
 public static partial class TranscriptChunker
 {
     // Why: sentence overlap preserves complete nearby statements without cutting a sentence by character count.
+    // Why: chunk sizing is a reasoned starting point from research guidance rather than measured
+    // production telemetry, and timestamp-aligned splits keep chunk boundaries on natural speech.
     internal const int TargetWordsPerChunk = 3000;
     internal const int MaxCharsPerChunk = TargetWordsPerChunk * 4;
     internal const int OverlapSentences = 2;
@@ -153,8 +155,6 @@ public static partial class TranscriptChunker
         return projected;
     }
 
-    // Why: chunk sizing is a reasoned starting point from research guidance rather than measured
-    // production telemetry, and timestamp-aligned splits keep chunk boundaries on natural speech.
     private static string GetTrailingSentences(string text, int sentenceCount)
     {
         if (sentenceCount <= 0 || string.IsNullOrWhiteSpace(text))
