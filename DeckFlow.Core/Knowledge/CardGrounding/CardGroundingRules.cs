@@ -89,14 +89,32 @@ public static class CardGroundingRules
             return true;
         }
 
-        foreach (var symbol in manaCost)
+        var symbols = manaCost.Split(['{', '}'], StringSplitOptions.RemoveEmptyEntries);
+        foreach (var symbol in symbols)
         {
-            if (!ColoredManaPips.Contains(symbol))
+            var parts = symbol.Split('/');
+            var coloredParts = parts.Where(part => part.Length == 1 && ColoredManaPips.Contains(part[0])).ToArray();
+            if (coloredParts.Length == 0)
             {
                 continue;
             }
 
-            if (!deckProducedColors.Contains(symbol))
+            if (parts.Length > 1 && parts.Any(part => !coloredParts.Contains(part, StringComparer.Ordinal)))
+            {
+                continue;
+            }
+
+            if (parts.Length > 1 && coloredParts.Any(part => deckProducedColors.Contains(part[0])))
+            {
+                continue;
+            }
+
+            if (parts.Length == 1 && deckProducedColors.Contains(coloredParts[0][0]))
+            {
+                continue;
+            }
+
+            if (parts.Length > 1 || !deckProducedColors.Contains(coloredParts[0][0]))
             {
                 return false;
             }

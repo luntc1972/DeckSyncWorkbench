@@ -1,12 +1,18 @@
 {
   "status": "waiting",
-  "type": "dependency",
-  "question": "Plan 112-07 Tasks 3-5 target Web-service files (CreatorStyleSeedLoader.cs, CreatorStylePacketService.cs, SubmittedDeckStatsBuilder.cs, MeasuredStyleProfileBuilder.cs) that don't exist on this branch — plan 112-06's Web-port deliverables (commits 91fcfe23 + 6a0e27b2) live on sibling branch gsd/cycle20-personal-tools, never merged here. Tasks 1-2 completed and committed (90ddddb4, efc756e7) on worktree branch worktree-agent-aefcb90b9fb18af9a, worktree preserved uncleaned at /mnt/c/users/chrislunt/source/personal/DeckFlow/.claude/worktrees/agent-aefcb90b9fb18af9a. How should Tasks 3-5 proceed?",
+  "type": "decision_point",
+  "question": "Phase 112 review (112-REVIEW.md) has 4 findings that are product/architecture calls, not mechanical fixes: WR-09 (Program.cs runs 2 seed loaders concurrently against shared DB state at startup - may be intentional), WR-13 (6 public types/members - ProfileFusionEngine, ContentTypeHeuristic, StatedRulesExtractor, MeasuredStyleInputs, StatedMetricKeyMapper.PrefixMappedCategories, CreatorStyleProfileSummary/GetAllAsync - have zero production callers), WR-14 (MeasuredStyleProfileBuilder hardcodes FusedTargets=empty and never calls ProfileFusionEngine.Fuse, so the rubric can never score end-to-end), WR-18 (CreatorStyleDiRegistrationTests builds real SQLite while reading unguarded process-wide env vars - may need a broader test-infra decision beyond a local patch). How should each be resolved?",
   "options": [
-    "A: merge/cherry-pick 91fcfe23+6a0e27b2 from gsd/cycle20-personal-tools into this branch then re-run Tasks 3-5",
-    "B: defer Tasks 3-5 to a follow-up plan after that merge happens",
-    "C: re-implement Tasks 3-5 from scratch against the plan text alone"
+    "WR-09: sequence the 2 loaders (mechanical, safe default)",
+    "WR-09: leave concurrent (document why it's safe)",
+    "WR-13: delete the 6 dead types now",
+    "WR-13: keep and add tracked-issue Why: comments deferring them",
+    "WR-14: wire MeasuredStyleProfileBuilder to call ProfileFusionEngine.Fuse now (closes the end-to-end gap)",
+    "WR-14: leave hardcoded-empty and document as an intentional phase-112 scope boundary",
+    "WR-18: add to the existing AdminEnvSerial collection + pin env vars (mechanical, matches ProgramStartupTests precedent)",
+    "WR-18: defer pending a broader test-infra rework",
+    "Fix all 4 the low-risk/mechanical way now and revisit later if wrong"
   ],
-  "since": "2026-09-04T00:40:20.572Z",
-  "phase": null
+  "since": "2026-09-04T01:20:00.893Z",
+  "phase": "112-cycle-17-code-port"
 }

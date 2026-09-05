@@ -1,4 +1,5 @@
 using DeckFlow.Core.Models;
+using DeckFlow.Core.Normalization;
 
 namespace DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
 
@@ -106,14 +107,16 @@ public static class StapleStripper
         ArgumentNullException.ThrowIfNull(samples);
         ArgumentNullException.ThrowIfNull(personalStaples);
 
-        var staples = new HashSet<string>(ContentTagVocabulary.Staples, StringComparer.OrdinalIgnoreCase);
-        staples.UnionWith(personalStaples);
+        var staples = new HashSet<string>(
+            ContentTagVocabulary.Staples.Select(CardNormalizer.Normalize),
+            StringComparer.OrdinalIgnoreCase);
+        staples.UnionWith(personalStaples.Select(CardNormalizer.Normalize));
 
         return samples
             .Select(sample => sample with
             {
                 Entries = sample.Entries
-                    .Where(entry => !staples.Contains(GetComparableName(entry)))
+                    .Where(entry => !staples.Contains(CardNormalizer.Normalize(GetComparableName(entry))))
                     .ToList()
             })
             .ToList();

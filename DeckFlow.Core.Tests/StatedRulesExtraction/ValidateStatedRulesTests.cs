@@ -170,6 +170,24 @@ public sealed class ValidateStatedRulesTests
         Assert.DoesNotContain(sanitized, rule => string.Equals(rule.Metric, "not-a-metric", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void SanitizeStatedRules_DropsNullMetric()
+    {
+        var payload = new RulesPayload([new StatedRulePayload("mana", null!, 10, null, null, "gte", null, 42, "Ramp.", 0.8)]);
+
+        var sanitized = DistillationValidation.SanitizeStatedRules(payload, DateTimeOffset.UtcNow);
+
+        Assert.Empty(sanitized);
+    }
+
+    [Fact]
+    public void ValidateStatedRules_RejectsNullMetric()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(() => DistillationValidation.ValidateStatedRules([CreateValidRule(metric: null!)]));
+
+        Assert.Contains("not in the stated rule vocabulary", exception.Message, StringComparison.Ordinal);
+    }
+
     private static StatedRuleCandidate CreateValidRule(
         string category = "mana",
         string metric = "ramp",

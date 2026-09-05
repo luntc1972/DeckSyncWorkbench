@@ -43,7 +43,7 @@ public sealed class TranscriptChunkerTests
         for (int index = 1; index < chunks.Count; index++)
         {
             string overlap = TranscriptChunker.GetTrailingSentencesForTests(chunks[index - 1], TranscriptChunker.OverlapSentences);
-            Assert.Contains(overlap, chunks[index], StringComparison.Ordinal);
+            Assert.StartsWith(overlap, chunks[index], StringComparison.Ordinal);
         }
     }
 

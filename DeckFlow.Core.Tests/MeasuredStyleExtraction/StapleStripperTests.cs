@@ -1,5 +1,6 @@
 using DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
 using DeckFlow.Core.Models;
+using DeckFlow.Core.Normalization;
 
 namespace DeckFlow.Core.Tests;
 
@@ -16,7 +17,7 @@ public sealed class StapleStripperTests
     {
         var samples = new[]
         {
-            Sample("deck-1", Entry("Sol Ring"), Entry("Rhystic Study")),
+            Sample("deck-1", Entry("Sol Ring"), Entry("Rogue's Passage"), Entry("Rhystic Study")),
         };
 
         var stripped = StapleStripper.StripStaples(samples, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
@@ -138,7 +139,7 @@ public sealed class StapleStripperTests
         return new DeckEntry
         {
             Name = name,
-            NormalizedName = name.ToLowerInvariant(),
+            NormalizedName = CardNormalizer.Normalize(name),
             Quantity = quantity,
             Board = "mainboard",
         };

@@ -115,19 +115,17 @@ public static partial class TranscriptChunker
         ref int currentWords,
         ref string? pendingOverlap)
     {
+        if (!string.IsNullOrWhiteSpace(pendingOverlap))
+        {
+            currentSegments.Add(pendingOverlap);
+            currentLength += pendingOverlap.Length + (currentSegments.Count == 1 ? 0 : 1);
+            currentWords += CountWords(pendingOverlap);
+            pendingOverlap = null;
+        }
+
         currentSegments.Add(segment);
         currentLength += segment.Length + (currentSegments.Count == 1 ? 0 : 1);
         currentWords += CountWords(segment);
-
-        if (string.IsNullOrWhiteSpace(pendingOverlap))
-        {
-            return;
-        }
-
-        currentSegments.Add(pendingOverlap);
-        currentLength += pendingOverlap.Length + 1;
-        currentWords += CountWords(pendingOverlap);
-        pendingOverlap = null;
     }
 
     private static int GetProjectedSegmentLength(int currentSegmentCount, string segment, string? pendingOverlap)
