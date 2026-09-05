@@ -1,12 +1,12 @@
 {
   "status": "waiting",
-  "type": "authorization",
-  "question": "phase-112-full-code-review debug session: this worktree (feat/continue-cycle-20-personal-tools-after-phase-112, HEAD 39559c62) branched from a point (f85a6ff5) that predates ALL phase-112 review-fix commits. The debug file's DONE batches (batch1a=09670ab2, batch1b=33c892f1, batch1c=ca21d0dd) plus further unrecorded progress (956ac943, 4ca37c00, and uncommitted WR-15/WR-17 work) live only on a sibling worktree (.dev-agent-worktrees/deckflow-cycle20-personal-tools/2026-08-30-c766d500, branch feat/continue-cycle-20-personal-tools-resume-phase-11) that shares this session's .planning symlink but has fully diverged git history. This worktree's source still has CR-01..CR-05/all 18 WR/5 IN findings open byte-for-byte. Continuing batch1d here would fork/duplicate ~30 commits of already-completed work. How should this be reconciled before any further fix dispatch?",
+  "type": "layout",
+  "question": "Phase 112 code_review gate blocked: this worktree (feat/continue-cycle-20-personal-tools-after-phase-112, HEAD 2dc5f9a4) forked before the phase-112 fix commits (09670ab2/33c892f1/ca21d0dd/956ac943/4ca37c00 + uncommitted WR-15/WR-17), which live only on feat/continue-cycle-20-personal-tools-resume-phase-11 in sibling worktree ../2026-08-30-c766d500. All 28 findings still open here; StatedRule still has only TargetValue. Pick a path forward.",
   "options": [
-    "Continue the debug/fix session directly in the sibling worktree (2026-08-30-c766d500) where all progress already lives — inspect and complete its uncommitted WR-15/WR-17 changes, verify, commit, then resume batch2+",
-    "Merge or rebase this worktree's branch onto the tip of feat/continue-cycle-20-personal-tools-resume-phase-11 (bringing in all ~30 fix commits) so this worktree has the completed work, then continue batch1d+ here",
-    "Treat this worktree's branch as canonical and discard/abandon the sibling branch's fix work, redoing all 28 findings from scratch here (all confirmed still open in this worktree's source)"
+    "Switch to sibling worktree 2026-08-30-c766d500, finish WR-15/WR-17, verify, commit, continue batch1d+ there (nothing lost/redone)",
+    "Merge/rebase this branch onto tip of feat/continue-cycle-20-personal-tools-resume-phase-11, pulling all ~30 fix commits in here, continue batch1d+ in this worktree",
+    "Treat this worktree as canonical and discard the sibling's fix commits, redoing the 25 findings fresh here"
   ],
-  "since": "2026-09-05T00:57:57.915Z",
+  "since": "2026-09-05T01:22:05.994Z",
   "phase": null
 }
