@@ -96,6 +96,22 @@ public sealed class ModularDeckCompilerLegalityAndSwapTests
     }
 
     [Fact]
+    public void Compile_CompleteFactsForValidProject_ReportsVerifiedLegal()
+    {
+        var facts = AllFacts();
+        facts["core"] = Facts(singletonExempt: true);
+        facts["strategy alpha"] = Facts(singletonExempt: true);
+
+        var compilation = new ModularDeckCompiler(new TestCatalog(facts)).Compile(
+            CreateProject(new[] { Entry("Core", 94) }),
+            Selection("alpha"));
+
+        Assert.True(compilation.IsStructurallyValid);
+        Assert.True(compilation.IsVerifiedLegal);
+        Assert.Empty(compilation.Diagnostics);
+    }
+
+    [Fact]
     public void Compile_BaselineDifferences_ProducesOrderedAddRemoveAndReverseResetQuantities()
     {
         var compilation = new ModularDeckCompiler(new TestCatalog(AllFacts())).Compile(CreateProject(
