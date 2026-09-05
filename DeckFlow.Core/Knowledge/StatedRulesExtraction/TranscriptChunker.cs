@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using DeckFlow.Core.Knowledge;
 
 namespace DeckFlow.Core.Knowledge.StatedRulesExtraction;
 
@@ -8,6 +7,7 @@ namespace DeckFlow.Core.Knowledge.StatedRulesExtraction;
 /// </summary>
 public static partial class TranscriptChunker
 {
+    // Why: sentence overlap preserves complete nearby statements without cutting a sentence by character count.
     internal const int TargetWordsPerChunk = 3000;
     internal const int MaxCharsPerChunk = TargetWordsPerChunk * 4;
     internal const int OverlapSentences = 2;
@@ -19,8 +19,9 @@ public static partial class TranscriptChunker
     public static IReadOnlyList<string> Chunk(string transcript)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(transcript);
+        DistillationValidation.ValidateTranscriptLength(transcript);
 
-        if (CountWords(transcript) <= TargetWordsPerChunk)
+        if (CountWords(transcript) <= TargetWordsPerChunk && transcript.Length <= MaxCharsPerChunk)
         {
             return [transcript];
         }
@@ -28,8 +29,10 @@ public static partial class TranscriptChunker
         IReadOnlyList<string> segments = SplitIntoTimestampSegments(transcript);
         if (segments.Count <= 1)
         {
-            return [transcript];
+            return SplitIntoSentenceSegments(transcript);
         }
+
+        segments = segments.SelectMany(SplitOversizedSegment).ToArray();
 
         var chunks = new List<string>(Math.Min(segments.Count, MaxChunks));
         var currentSegments = new List<string>();
@@ -39,20 +42,22 @@ public static partial class TranscriptChunker
 
         foreach (string segment in segments)
         {
-            if (chunks.Count == MaxChunks - 1)
-            {
-                AddSegment(currentSegments, segment, ref currentLength, ref currentWords, ref pendingOverlap);
-                continue;
-            }
-
             var segmentWords = CountWords(segment);
-            var projectedWords = currentWords + segmentWords;
+            var overlapWords = string.IsNullOrWhiteSpace(pendingOverlap) || currentSegments.Count > 0
+                ? 0
+                : CountWords(pendingOverlap);
+            var projectedWords = currentWords + segmentWords + overlapWords;
             var projectedLength = currentLength + GetProjectedSegmentLength(currentSegments.Count, segment, pendingOverlap);
             var wouldExceedWords = projectedWords > TargetWordsPerChunk;
             var wouldExceedChars = projectedLength > MaxCharsPerChunk;
 
             if (currentSegments.Count > 0 && (wouldExceedWords || wouldExceedChars))
             {
+                if (chunks.Count == MaxChunks - 1)
+                {
+                    throw new InvalidOperationException($"Transcript exceeds the {MaxChunks}-chunk distillation budget.");
+                }
+
                 string finalized = JoinSegments(currentSegments);
                 chunks.Add(finalized);
 
@@ -60,6 +65,13 @@ public static partial class TranscriptChunker
                 currentSegments.Clear();
                 currentLength = 0;
                 currentWords = 0;
+            }
+
+            if (!string.IsNullOrWhiteSpace(pendingOverlap) && currentSegments.Count == 0 &&
+                (CountWords(pendingOverlap) + segmentWords > TargetWordsPerChunk ||
+                 pendingOverlap.Length + segment.Length + 1 > MaxCharsPerChunk))
+            {
+                pendingOverlap = null;
             }
 
             AddSegment(currentSegments, segment, ref currentLength, ref currentWords, ref pendingOverlap);
@@ -151,11 +163,6 @@ public static partial class TranscriptChunker
         }
 
         MatchCollection matches = SentenceRegex().Matches(text);
-        if (matches.Count == 0)
-        {
-            return text.Trim();
-        }
-
         var take = Math.Min(sentenceCount, matches.Count);
         var start = matches[matches.Count - take].Index;
         return text[start..].Trim();
@@ -166,6 +173,37 @@ public static partial class TranscriptChunker
 
     private static string JoinSegments(IReadOnlyList<string> segments)
         => string.Join(" ", segments.Where(segment => !string.IsNullOrWhiteSpace(segment)));
+
+    private static IReadOnlyList<string> SplitOversizedSegment(string segment)
+        => segment.Length <= MaxCharsPerChunk ? [segment] : SplitIntoSentenceSegments(segment);
+
+    private static IReadOnlyList<string> SplitIntoSentenceSegments(string transcript)
+    {
+        var chunks = new List<string>();
+        var current = new List<string>();
+        var currentLength = 0;
+
+        foreach (Match match in SentenceRegex().Matches(transcript))
+        {
+            string sentence = match.Value.Trim();
+            if (current.Count > 0 && currentLength + sentence.Length + 1 > MaxCharsPerChunk)
+            {
+                chunks.Add(JoinSegments(current));
+                current.Clear();
+                currentLength = 0;
+            }
+
+            current.Add(sentence);
+            currentLength += sentence.Length + (current.Count == 1 ? 0 : 1);
+        }
+
+        if (current.Count > 0)
+        {
+            chunks.Add(JoinSegments(current));
+        }
+
+        return chunks;
+    }
 
     [GeneratedRegex(@"\[\d{2}:\d{2}\]", RegexOptions.CultureInvariant)]
     private static partial Regex TimestampMarkerRegex();

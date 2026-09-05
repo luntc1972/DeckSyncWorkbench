@@ -1,5 +1,4 @@
 using DeckFlow.Core.Integration;
-using DeckFlow.Core.Knowledge;
 
 namespace DeckFlow.Core.Knowledge.StatedRulesExtraction;
 
