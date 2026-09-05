@@ -5,6 +5,57 @@ namespace DeckFlow.Core.Tests.Modular;
 
 public sealed class ModularDeckCompilerLegalityAndSwapTests
 {
+    [Theory]
+    [InlineData(true, 0)]
+    [InlineData(true, -1)]
+    [InlineData(false, 0)]
+    [InlineData(false, -1)]
+    public void Compile_NonPositiveQuantity_ReportsInvalidQuantityWithoutCrashing(bool baseline, int quantity)
+    {
+        var entry = Entry("Bad Quantity", quantity);
+        var project = baseline
+            ? CreateProject(new[] { Entry("Core", 94) }, new[] { entry })
+            : CreateProject(new[] { entry, Entry("Core", 94) });
+
+        var compilation = new ModularDeckCompiler(new TestCatalog(AllFacts())).Compile(project, Selection("alpha"));
+
+        AssertDiagnostic(compilation, ModularDeckDiagnosticRule.InvalidQuantity, "Bad Quantity");
+    }
+
+    [Fact]
+    public void Compile_EmptyCommandZone_ReportsExplicitDiagnosticWithoutColorIdentityFailure()
+    {
+        var project = CreateProject(new[] { Entry("Colored Card", 95) }) with { CommandZone = Array.Empty<DeckEntry>() };
+        var facts = AllFacts();
+        facts["colored card"] = Facts("U");
+        var compilation = new ModularDeckCompiler(new TestCatalog(facts)).Compile(project, Selection("alpha"));
+
+        AssertDiagnostic(compilation, ModularDeckDiagnosticRule.EmptyCommandZone, "command zone");
+        Assert.DoesNotContain(compilation.Diagnostics, diagnostic => diagnostic.Rule == ModularDeckDiagnosticRule.ColorIdentity && diagnostic.AffectedIdentifiers.Contains("Colored Card"));
+    }
+
+    [Fact]
+    public void Compile_SplitPrintingsOfOneCard_DoesNotReportOverlap()
+    {
+        var project = CreateProject(new[] { Entry("Forest", 1, setCode: "lea", collectorNumber: "1"), Entry("Forest", 1, setCode: "lea", collectorNumber: "2"), Entry("Core", 93) });
+        var facts = AllFacts();
+        facts["forest"] = Facts(singletonExempt: true);
+        var compilation = new ModularDeckCompiler(new TestCatalog(facts)).Compile(project, Selection("alpha"));
+
+        Assert.DoesNotContain(compilation.Diagnostics, diagnostic => diagnostic.Rule == ModularDeckDiagnosticRule.Overlap);
+    }
+
+    [Fact]
+    public void Compile_CaseOnlyIdentityDifference_ReportsSingleton()
+    {
+        var project = CreateProject(new[] { Entry("Duplicate", 1), Entry("duplicate", 1), Entry("Core", 93) });
+        var facts = AllFacts();
+        facts["duplicate"] = Facts();
+        var compilation = new ModularDeckCompiler(new TestCatalog(facts)).Compile(project, Selection("alpha"));
+
+        AssertDiagnostic(compilation, ModularDeckDiagnosticRule.Singleton, "Duplicate");
+    }
+
     [Fact]
     public void Compile_IllegalFacts_ReportsNamedColorBannedAndSingletonDiagnostics()
     {
@@ -89,7 +140,7 @@ public sealed class ModularDeckCompilerLegalityAndSwapTests
     private static ModularDeckSelection Selection(string id) => new() { StrategyId = id };
     private static ModularStrategyModule Module(string id, string card, string manaId) => new() { Id = id, DisplayName = id, ManaSupportModuleId = manaId, MainboardEntries = new[] { Entry(card, 3) } };
     private static ModularManaSupportModule Mana(string id, string card) => new() { Id = id, DisplayName = id, MainboardEntries = new[] { Entry(card, 2) } };
-    private static DeckEntry Entry(string name, int quantity, string board = "mainboard") => new() { Name = name, NormalizedName = name.ToLowerInvariant(), Quantity = quantity, Board = board };
+    private static DeckEntry Entry(string name, int quantity, string board = "mainboard", string? setCode = null, string? collectorNumber = null) => new() { Name = name, NormalizedName = name.ToLowerInvariant(), Quantity = quantity, Board = board, SetCode = setCode, CollectorNumber = collectorNumber };
 
     private sealed class TestCatalog(IReadOnlyDictionary<string, ModularCardLegalityFacts> facts) : IModularCardLegalityCatalog
     {

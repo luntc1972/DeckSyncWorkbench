@@ -11,6 +11,12 @@ public enum ModularDeckDiagnosticRule
     /// <summary>The selected strategy identifier does not exist in the project.</summary>
     UnknownStrategy,
 
+    /// <summary>A card entry has a non-positive quantity.</summary>
+    InvalidQuantity,
+
+    /// <summary>The imported command zone is empty.</summary>
+    EmptyCommandZone,
+
     /// <summary>A strategy references a mana-support module that does not exist.</summary>
     MissingLinkedManaSupport,
 

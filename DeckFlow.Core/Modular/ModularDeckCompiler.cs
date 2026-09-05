@@ -32,6 +32,11 @@ public sealed class ModularDeckCompiler
 
         var diagnostics = new List<ModularDeckDiagnostic>();
         AddProjectDiagnostics(project, diagnostics);
+        AddDiagnostic(diagnostics, ModularDeckDiagnosticRule.InvalidQuantity,
+            project.BaselineMainboardEntries.Concat(project.CoreEntries)
+                .Concat(project.StrategyModules.SelectMany(module => module.MainboardEntries))
+                .Concat(project.ManaSupportModules.SelectMany(module => module.MainboardEntries))
+                .Concat(project.CommandZone).Where(entry => entry.Quantity <= 0).Select(entry => entry.Name));
 
         if (selection is null)
         {
@@ -102,8 +107,8 @@ public sealed class ModularDeckCompiler
         List<ModularDeckDiagnostic> diagnostics)
     {
         var factsByName = entries
-            .GroupBy(entry => entry.NormalizedName, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => _legalityCatalog?.GetFacts(group.Key), StringComparer.Ordinal);
+            .GroupBy(entry => entry.NormalizedName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => _legalityCatalog?.GetFacts(group.Key), StringComparer.OrdinalIgnoreCase);
         AddDiagnostic(
             diagnostics,
             ModularDeckDiagnosticRule.UnverifiableCardFacts,
@@ -119,12 +124,18 @@ public sealed class ModularDeckCompiler
             ModularDeckDiagnosticRule.Singleton,
             entries
                 .Where(entry => !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
-                .GroupBy(entry => entry.NormalizedName, StringComparer.Ordinal)
+                .GroupBy(entry => entry.NormalizedName, StringComparer.OrdinalIgnoreCase)
                 .Where(group => group.Sum(entry => entry.Quantity) > 1 && factsByName[group.Key]?.IsSingletonExempt == false)
                 .Select(group => group.First().Name));
 
         if (commandZone.Any(entry => factsByName[entry.NormalizedName] is null))
         {
+            return;
+        }
+
+        if (commandZone.Count == 0)
+        {
+            AddDiagnostic(diagnostics, ModularDeckDiagnosticRule.EmptyCommandZone, "command zone");
             return;
         }
 
@@ -146,16 +157,16 @@ public sealed class ModularDeckCompiler
         var compiledByName = AggregateEntries(compiled);
         var add = new List<ModularDeckSwapEntry>();
         var remove = new List<ModularDeckSwapEntry>();
-        foreach (var key in baselineByName.Keys.Concat(compiledByName.Keys).Distinct(StringComparer.Ordinal))
+        foreach (var key in baselineByName.Keys.Concat(compiledByName.Keys).Distinct(StringComparer.OrdinalIgnoreCase))
         {
             baselineByName.TryGetValue(key, out var baselineEntry);
             compiledByName.TryGetValue(key, out var compiledEntry);
             var delta = (compiledEntry?.Quantity ?? 0) - (baselineEntry?.Quantity ?? 0);
-            if (delta > 0)
+            if (delta > 0 && compiledEntry is not null)
             {
                 add.Add(CreateSwapEntry(compiledEntry!, delta, ModularDeckSwapAction.Add));
             }
-            else if (delta < 0)
+            else if (delta < 0 && baselineEntry is not null)
             {
                 remove.Add(CreateSwapEntry(baselineEntry!, -delta, ModularDeckSwapAction.Remove));
             }
@@ -172,11 +183,11 @@ public sealed class ModularDeckCompiler
     }
 
     private static Dictionary<string, DeckEntry> AggregateEntries(IReadOnlyList<DeckEntry> entries) => entries
-        .GroupBy(entry => entry.NormalizedName, StringComparer.Ordinal)
+        .GroupBy(entry => entry.NormalizedName, StringComparer.OrdinalIgnoreCase)
         .ToDictionary(
             group => group.Key,
             group => group.First() with { Quantity = group.Sum(entry => entry.Quantity) },
-            StringComparer.Ordinal);
+            StringComparer.OrdinalIgnoreCase);
 
     private static ModularDeckSwapEntry CreateSwapEntry(DeckEntry entry, int quantity, ModularDeckSwapAction action) => new()
     {
@@ -223,7 +234,16 @@ public sealed class ModularDeckCompiler
             .Concat(project.StrategyModules.SelectMany(module => module.MainboardEntries))
             .Concat(project.ManaSupportModules.SelectMany(module => module.MainboardEntries))
             .ToArray();
-        foreach (var overlap in configurableEntries.GroupBy(entry => entry.NormalizedName, StringComparer.OrdinalIgnoreCase).Where(group => group.Count() > 1))
+        var sourceEntries = new[]
+        {
+            project.CoreEntries,
+            project.StrategyModules.SelectMany(module => module.MainboardEntries).ToArray(),
+            project.ManaSupportModules.SelectMany(module => module.MainboardEntries).ToArray(),
+        };
+        foreach (var overlap in sourceEntries
+            .SelectMany(source => source.GroupBy(entry => entry.NormalizedName, StringComparer.OrdinalIgnoreCase).Select(group => group.First()))
+            .GroupBy(entry => entry.NormalizedName, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1))
         {
             AddDiagnostic(diagnostics, ModularDeckDiagnosticRule.Overlap, overlap.Select(entry => entry.Name));
         }
