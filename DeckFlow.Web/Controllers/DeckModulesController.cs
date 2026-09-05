@@ -40,7 +40,9 @@ public sealed class DeckModulesController : DeckToolControllerBase
     /// <summary>Imports a baseline deck.</summary>
     [HttpPost("/deck-modules/import")]
     [FeatureFlagGate(FlagKey)]
-    public async Task<IActionResult> Import(DeckModulesImportRequest? request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Import(
+        [FromBody] DeckModulesImportRequest? request,
+        CancellationToken cancellationToken)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
         {
@@ -59,7 +61,7 @@ public sealed class DeckModulesController : DeckToolControllerBase
     /// <summary>Compiles a submitted Deck Modules configuration.</summary>
     [HttpPost("/deck-modules/compile")]
     [FeatureFlagGate(FlagKey)]
-    public IActionResult Compile(DeckModulesCompilationRequest? request)
+    public IActionResult Compile([FromBody] DeckModulesCompilationRequest? request)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
         {
@@ -78,7 +80,7 @@ public sealed class DeckModulesController : DeckToolControllerBase
     /// <summary>Exports a compiled Deck Modules configuration as text.</summary>
     [HttpPost("/deck-modules/export")]
     [FeatureFlagGate(FlagKey)]
-    public IActionResult Export(DeckModulesCompilationRequest? request)
+    public IActionResult Export([FromBody] DeckModulesCompilationRequest? request)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
         {
