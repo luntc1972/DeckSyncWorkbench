@@ -7,6 +7,12 @@ namespace DeckFlow.Core.Modular;
 /// </summary>
 public sealed record ModularDeckCompilation
 {
+    /// <summary>Gets whether the selection and project satisfy structural compilation rules.</summary>
+    public required bool IsStructurallyValid { get; init; }
+
+    /// <summary>Gets the structural diagnostics discovered while compiling.</summary>
+    public required IReadOnlyList<ModularDeckDiagnostic> Diagnostics { get; init; }
+
     /// <summary>Gets the stable identifier of the selected strategy module.</summary>
     public required string SelectedStrategyId { get; init; }
 

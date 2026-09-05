@@ -84,7 +84,7 @@ public sealed class ModularDeckCompilerValidationTests
         AssertDiagnostic(
             compilation,
             ModularDeckDiagnosticRule.CommandZoneMutation,
-            location == "core" ? "Core Card" : "Strategy 1 Card");
+            location == "core" ? new[] { "Core Card" } : new[] { "Strategy 1 Card", "Strategy 2 Card" });
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public sealed class ModularDeckCompilerValidationTests
         ModularDeckDiagnosticRule rule,
         params string[] affectedIdentifiers)
     {
-        var diagnostic = Assert.Single(compilation.Diagnostics.Where(diagnostic => diagnostic.Rule == rule));
+        var diagnostic = Assert.Single(compilation.Diagnostics, diagnostic => diagnostic.Rule == rule);
         Assert.Equal(affectedIdentifiers, diagnostic.AffectedIdentifiers);
     }
 
