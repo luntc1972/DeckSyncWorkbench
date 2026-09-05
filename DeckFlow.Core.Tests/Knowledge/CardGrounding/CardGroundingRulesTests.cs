@@ -1,7 +1,7 @@
 using DeckFlow.Core.Knowledge.CardGrounding;
 using DeckFlow.Core.Normalization;
 
-namespace DeckFlow.Core.Tests;
+namespace DeckFlow.Core.Tests.Knowledge.CardGrounding;
 
 /// <summary>
 /// Tests for the pure card-grounding decision rules.
@@ -77,6 +77,19 @@ public sealed class CardGroundingRulesTests
     }
 
     /// <summary>
+    /// Verifies color identity comparison ignores casing supplied by callers.
+    /// </summary>
+    [Fact]
+    public void IsWithinColorIdentity_ReturnsTrueForMixedCaseCommanderIdentity()
+    {
+        IReadOnlySet<string> commanderIdentity = new HashSet<string>(["g", "u"]);
+
+        var result = CardGroundingRules.IsWithinColorIdentity(["G"], commanderIdentity);
+
+        Assert.True(result);
+    }
+
+    /// <summary>
     /// Verifies basic lands are exempt from singleton duplicate checks.
     /// </summary>
     [Fact]
@@ -90,6 +103,38 @@ public sealed class CardGroundingRulesTests
         var result = CardGroundingRules.IsSingletonViolation("Forest", "Basic Land - Forest", deckCardNames);
 
         Assert.False(result);
+    }
+
+    /// <summary>
+    /// Verifies snow basic lands are exempt from singleton duplicate checks.
+    /// </summary>
+    [Fact]
+    public void IsSingletonViolation_ReturnsFalseForSnowBasicLandEvenWhenPresent()
+    {
+        IReadOnlySet<string> deckCardNames = new HashSet<string>(StringComparer.Ordinal)
+        {
+            CardNormalizer.Normalize("Snow-Covered Forest"),
+        };
+
+        var result = CardGroundingRules.IsSingletonViolation("Snow-Covered Forest", "Basic Snow Land — Forest", deckCardNames);
+
+        Assert.False(result);
+    }
+
+    /// <summary>
+    /// Verifies non-basic lands remain subject to singleton duplicate checks.
+    /// </summary>
+    [Fact]
+    public void IsSingletonViolation_ReturnsTrueForPresentLegendaryLand()
+    {
+        IReadOnlySet<string> deckCardNames = new HashSet<string>(StringComparer.Ordinal)
+        {
+            CardNormalizer.Normalize("Gaea's Cradle"),
+        };
+
+        var result = CardGroundingRules.IsSingletonViolation("Gaea's Cradle", "Legendary Land", deckCardNames);
+
+        Assert.True(result);
     }
 
     /// <summary>
@@ -133,6 +178,22 @@ public sealed class CardGroundingRulesTests
         IReadOnlySet<string> deckCardNames = new HashSet<string>(StringComparer.Ordinal)
         {
             CardNormalizer.Normalize("Commander's Sphere"),
+        };
+
+        var result = CardGroundingRules.IsSingletonViolation("Commander's Sphere", "Artifact", deckCardNames);
+
+        Assert.True(result);
+    }
+
+    /// <summary>
+    /// Verifies raw deck names are normalized before singleton duplicate checks.
+    /// </summary>
+    [Fact]
+    public void IsSingletonViolation_ReturnsTrueForRawUnnormalizedDuplicate()
+    {
+        IReadOnlySet<string> deckCardNames = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "Commander's Sphere",
         };
 
         var result = CardGroundingRules.IsSingletonViolation("Commander's Sphere", "Artifact", deckCardNames);

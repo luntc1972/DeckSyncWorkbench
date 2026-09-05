@@ -13,6 +13,9 @@ public static partial class CardGroundingRules
     [GeneratedRegex(@"\{([^}]+)\}", RegexOptions.CultureInvariant)]
     private static partial Regex ManaSymbolRegex();
 
+    [GeneratedRegex(@"^\s*Basic(\s+\w+)*\s+Land\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex BasicLandTypeRegex();
+
     /// <summary>
     /// Determines whether a card is legal in Commander using Scryfall legality data.
     /// </summary>
@@ -40,9 +43,10 @@ public static partial class CardGroundingRules
             return true;
         }
 
+        var identity = new HashSet<string>(commanderIdentity, StringComparer.OrdinalIgnoreCase);
         foreach (var color in cardColorIdentity)
         {
-            if (!commanderIdentity.Contains(color))
+            if (!identity.Contains(color.Trim()))
             {
                 return false;
             }
@@ -67,15 +71,16 @@ public static partial class CardGroundingRules
         ArgumentNullException.ThrowIfNull(typeLine);
         ArgumentNullException.ThrowIfNull(deckCardNames);
 
-        // Why: Scryfall's type line is the authoritative marker for basic-land status, so this stays correct
-        // across named basics and snow basics without hardcoding a brittle card-name allowlist.
-        if (typeLine.Contains("Basic Land", StringComparison.OrdinalIgnoreCase))
+        // Why: Scryfall renders basics as "Basic Land - X" and snow basics as "Basic Snow Land - X",
+        // so match the "Basic ... Land" supertype shape rather than one literal spelling.
+        if (BasicLandTypeRegex().IsMatch(typeLine))
         {
             return false;
         }
 
         var normalizedName = CardNormalizer.Normalize(canonicalName);
-        return deckCardNames.Contains(normalizedName);
+        var normalizedDeckCardNames = new HashSet<string>(deckCardNames.Select(CardNormalizer.Normalize), StringComparer.OrdinalIgnoreCase);
+        return normalizedDeckCardNames.Contains(normalizedName);
     }
 
     /// <summary>
