@@ -30,12 +30,15 @@ public sealed class ModularDeckCompiler
     {
         ArgumentNullException.ThrowIfNull(project);
 
+        var strategyEntries = project.StrategyModules.SelectMany(module => module.MainboardEntries).ToArray();
+        var manaSupportEntries = project.ManaSupportModules.SelectMany(module => module.MainboardEntries).ToArray();
+
         var diagnostics = new List<ModularDeckDiagnostic>();
-        AddProjectDiagnostics(project, diagnostics);
+        AddProjectDiagnostics(project, strategyEntries, manaSupportEntries, diagnostics);
         AddDiagnostic(diagnostics, ModularDeckDiagnosticRule.InvalidQuantity,
             project.BaselineMainboardEntries.Concat(project.CoreEntries)
-                .Concat(project.StrategyModules.SelectMany(module => module.MainboardEntries))
-                .Concat(project.ManaSupportModules.SelectMany(module => module.MainboardEntries))
+                .Concat(strategyEntries)
+                .Concat(manaSupportEntries)
                 .Concat(project.CommandZone).Where(entry => entry.Quantity <= 0).Select(entry => entry.Name));
 
         if (selection is null)
@@ -164,11 +167,11 @@ public sealed class ModularDeckCompiler
             var delta = (compiledEntry?.Quantity ?? 0) - (baselineEntry?.Quantity ?? 0);
             if (delta > 0 && compiledEntry is not null)
             {
-                add.Add(CreateSwapEntry(compiledEntry!, delta, ModularDeckSwapAction.Add));
+                add.Add(CreateSwapEntry(compiledEntry, delta, ModularDeckSwapAction.Add));
             }
             else if (delta < 0 && baselineEntry is not null)
             {
-                remove.Add(CreateSwapEntry(baselineEntry!, -delta, ModularDeckSwapAction.Remove));
+                remove.Add(CreateSwapEntry(baselineEntry, -delta, ModularDeckSwapAction.Remove));
             }
         }
 
@@ -213,7 +216,11 @@ public sealed class ModularDeckCompiler
         .ToArray()
         .AsReadOnly();
 
-    private static void AddProjectDiagnostics(ModularDeckProject project, List<ModularDeckDiagnostic> diagnostics)
+    private static void AddProjectDiagnostics(
+        ModularDeckProject project,
+        IReadOnlyList<DeckEntry> strategyEntries,
+        IReadOnlyList<DeckEntry> manaSupportEntries,
+        List<ModularDeckDiagnostic> diagnostics)
     {
         if (project.StrategyModules.Count is < 2 or > 4)
         {
@@ -231,14 +238,14 @@ public sealed class ModularDeckCompiler
         AddDiagnostic(diagnostics, ModularDeckDiagnosticRule.MissingLinkedManaSupport, missingManaSupportIds);
 
         var configurableEntries = project.CoreEntries
-            .Concat(project.StrategyModules.SelectMany(module => module.MainboardEntries))
-            .Concat(project.ManaSupportModules.SelectMany(module => module.MainboardEntries))
+            .Concat(strategyEntries)
+            .Concat(manaSupportEntries)
             .ToArray();
         var sourceEntries = new[]
         {
             project.CoreEntries,
-            project.StrategyModules.SelectMany(module => module.MainboardEntries).ToArray(),
-            project.ManaSupportModules.SelectMany(module => module.MainboardEntries).ToArray(),
+            strategyEntries,
+            manaSupportEntries,
         };
         foreach (var overlap in sourceEntries
             .SelectMany(source => source.GroupBy(entry => entry.NormalizedName, StringComparer.OrdinalIgnoreCase).Select(group => group.First()))
