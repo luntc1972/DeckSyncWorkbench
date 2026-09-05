@@ -1,12 +1,7 @@
 {
-  "status": "waiting",
+  "status": "resolved",
   "type": "dependency",
-  "question": "Phase 112 code_review gate blocked again by the same class of issue: fix commits for this phase exist only on sibling worktree branches, not merged into this worktree's branch (feat/continue-cycle-20-personal-tools-after-phase-112, HEAD fa51b0b6). Two confirmed instances: (1) StatedRule/ConflictCalculator widening chain (09670ab2, 33c892f1, ca21d0dd, 956ac943, 4ca37c00) plus uncommitted WR-15/WR-17 work, all on sibling worktree ../2026-08-30-c766d500 branch feat/continue-cycle-20-personal-tools-resume-phase-11 (still not ancestor of HEAD). (2) TranscriptChunker test-assertion fix commit efc756e7 (only production half landed here via a dev-agent checkpoint; the matching test fix did not), live on sibling worktree .claude/worktrees/agent-aefcb90b9fb18af9a branch worktree-agent-aefcb90b9fb18af9a. Latest scoped review (2026-09-05T01:43:42Z) confirms 24 open findings including a reproducible red test (TranscriptChunkerTests.Chunk_LongTranscript_SplitsOnTimestampBoundaries) caused directly by (2). Repeating the fix-dispatch loop in this worktree will keep forking history a third way. Pick a path forward.",
-  "options": [
-    "Consolidate: merge/rebase this branch onto both sibling branches' tips (pull in 09670ab2..4ca37c00 chain AND efc756e7), then continue fixing in this worktree",
-    "Switch: abandon this worktree, resume work directly in whichever sibling worktree is most complete (2026-08-30-c766d500), and let its human-driven wrap-up finish batch1d+ and the TranscriptChunker test fix",
-    "Discard: treat this worktree as canonical, cherry-pick only efc756e7's test-assertion half plus manually redo the StatedRule/ConflictCalculator widening fresh here, abandoning the sibling branches' commits"
-  ],
-  "since": "2026-09-05T01:49:28.925Z",
-  "phase": null
+  "resolution": "User selected Consolidate. Merge commit 93f98cb9 brings the review-fix chain through 4ca37c00 into this branch. The TranscriptChunker regression guard from efc756e7 is present and passes. The first-parent isolation sentinel was retained.",
+  "resolved_at": "2026-09-05T02:39:00Z",
+  "phase": "112"
 }
