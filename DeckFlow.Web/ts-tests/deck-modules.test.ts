@@ -11,8 +11,9 @@ const markup = () => `
   <section data-deck-modules-configuration><input data-deck-modules-name><select data-deck-modules-profile><option value="">Choose a profile</option><option value="Casual">Casual</option><option value="Bracket4HighPower">Bracket 4 High Power</option><option value="Cedh">cEDH</option></select><textarea data-deck-modules-plan></textarea><button data-deck-modules-add-alternative>Add</button><div data-deck-modules-alternatives></div><span data-deck-modules-summary-profile></span><span data-deck-modules-summary-plan></span></section>
   <section data-deck-modules-command-zone></section><p data-deck-modules-reconciliation></p>
   ${['unassigned', 'core', 'strategy', 'mana'].map(panel => `<section data-deck-modules-panel="${panel}"><span data-deck-modules-count="${panel}"></span>${panel === 'strategy' ? '<span data-deck-modules-active-name></span>' : ''}<input data-deck-modules-filter="${panel}"><table><tbody data-deck-modules-entries="${panel}"></tbody></table><button data-deck-modules-move="${panel}:unassigned">Move</button><button data-deck-modules-move="${panel}:core">Move</button><button data-deck-modules-move="${panel}:strategy">Move</button><button data-deck-modules-move="${panel}:mana">Move</button></section>`).join('')}
-  <p data-deck-modules-balance></p><button data-deck-modules-compile>Compile</button><button data-deck-modules-export>Export</button><button data-deck-modules-copy>Copy</button><button data-deck-modules-download>Download</button><button data-deck-modules-restart>Restart</button>
+  <p data-deck-modules-balance></p><button data-deck-modules-compile>Compile</button><button data-deck-modules-analyze>Analyze mana base</button><button data-deck-modules-export>Export</button><button data-deck-modules-copy>Copy</button><button data-deck-modules-download>Download</button><button data-deck-modules-restart>Restart</button>
   <section data-deck-modules-report><span data-deck-modules-report-total></span><span data-deck-modules-report-strategy></span><span data-deck-modules-report-mana></span><ul data-deck-modules-diagnostics></ul><ul data-deck-modules-compiled></ul><ul data-deck-modules-swap="add"></ul><ul data-deck-modules-swap="remove"></ul><ul data-deck-modules-swap="reset"></ul></section>
+  <section data-deck-modules-analysis hidden><p data-deck-modules-analysis-stale hidden>Cards changed since this analysis.</p><p data-deck-modules-core-only hidden></p><span data-deck-modules-analysis-health></span><span data-deck-modules-analysis-lands></span><span data-deck-modules-analysis-target></span><span data-deck-modules-analysis-land-delta></span><span data-deck-modules-analysis-ramp></span><span data-deck-modules-analysis-hardtocast></span><table><tbody data-deck-modules-analysis-colors></tbody></table></section>
 </main>`;
 
 const imported = { baselineToken: 'token with exact bytes ==', commandZone: [{ name: 'Commander', quantity: 1 }], baselineMainboardEntries: [{ name: 'Arcane Signet', quantity: 1 }, { name: 'Swords // Plowshares', quantity: 1 }, { name: 'Lightning Bolt', quantity: 1 }], importNotice: 'Imported.' };
@@ -21,6 +22,12 @@ const importDraft = async () => {
     document.querySelector<HTMLInputElement>('[data-deck-modules-source]')!.value = 'https://example.test/deck';
     document.querySelector<HTMLFormElement>('[data-deck-modules-import-form]')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await vi.waitFor(() => expect(document.querySelector('[data-deck-modules-count="unassigned"]')!.textContent).toBe('3'));
+};
+
+const analysis = { landCount: 29, targetLandCount: 31, landDelta: -2, health: 'Needs attention', rampSourceCount: 8, hardToCastCount: 2, isCoreOnly: false, colorSources: [{ displayColor: 'Blue', actualSources: 18, requiredSources: 20, deficit: -2, drivingSpell: 'Counterspell' }], analysisNotice: null };
+const analyzeDeck = async () => {
+    document.querySelector<HTMLButtonElement>('[data-deck-modules-analyze]')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector<HTMLElement>('[data-deck-modules-analysis]')!.hidden).toBe(false));
 };
 
 describe('DeckFlowDeckModules', () => {
@@ -162,5 +169,50 @@ describe('DeckFlowDeckModules', () => {
         expect(JSON.parse(fetchMock.mock.calls[1][1].body).alternatives.find((alternative: { profile: string }) => alternative.profile === 'Cedh')).toBeTruthy();
         document.querySelector<HTMLButtonElement>('[data-deck-modules-alternative]')!.click();
         expect(document.querySelector<HTMLSelectElement>('[data-deck-modules-profile]')!.value).toBe('Cedh');
+    });
+
+    it('initialize_AnalysisSucceeds_PersistsAndRendersSnapshot', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, json: async () => url === '/deck-modules/analyze' ? { analysisKey: 'analysis-key', analysis } : imported })));
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); await analyzeDeck();
+        const stored = JSON.parse(window.sessionStorage.getItem('deckflow.deck-modules.v1')!);
+        expect(stored.analysis).toEqual(analysis); expect(stored.analysisKey).toBe('analysis-key'); expect(document.querySelector('[data-deck-modules-analysis-health]')!.textContent).toBe('Needs attention');
+    });
+
+    it('initialize_AnalysisThenPanelMove_PreservesNumbersAndShowsStaleMarker', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, json: async () => url === '/deck-modules/analyze' ? { analysisKey: 'analysis-key', analysis } : imported })));
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); await analyzeDeck();
+        const health = document.querySelector('[data-deck-modules-analysis-health]')!.textContent; document.querySelector<HTMLInputElement>('[data-deck-modules-entries="unassigned"] input')!.checked = true; document.querySelector<HTMLButtonElement>('[data-deck-modules-move="unassigned:core"]')!.click();
+        expect(document.querySelector('[data-deck-modules-analysis-health]')!.textContent).toBe(health); expect(document.querySelector<HTMLElement>('[data-deck-modules-analysis-stale]')!.hidden).toBe(false);
+    });
+
+    it('initialize_AnalysisThenAlternativeSelection_ShowsStaleMarker', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, json: async () => url === '/deck-modules/analyze' ? { analysisKey: 'analysis-key', analysis } : imported })));
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); await analyzeDeck();
+        document.querySelector<HTMLInputElement>('[data-deck-modules-name]')!.value = 'Plan A'; document.querySelector<HTMLSelectElement>('[data-deck-modules-profile]')!.value = 'Cedh'; document.querySelector<HTMLTextAreaElement>('[data-deck-modules-plan]')!.value = 'Win.'; document.querySelector<HTMLButtonElement>('[data-deck-modules-add-alternative]')!.click(); document.querySelector<HTMLInputElement>('[data-deck-modules-name]')!.value = 'Plan B'; document.querySelector<HTMLSelectElement>('[data-deck-modules-profile]')!.value = 'Cedh'; document.querySelector<HTMLTextAreaElement>('[data-deck-modules-plan]')!.value = 'Win later.'; document.querySelector<HTMLButtonElement>('[data-deck-modules-add-alternative]')!.click(); document.querySelectorAll<HTMLButtonElement>('[data-deck-modules-alternative]')[0].click();
+        expect(document.querySelector<HTMLElement>('[data-deck-modules-analysis-stale]')!.hidden).toBe(false);
+    });
+
+    it('initialize_AnalysisThenAlternativeEdit_ShowsStaleMarker', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, json: async () => url === '/deck-modules/analyze' ? { analysisKey: 'analysis-key', analysis } : imported })));
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); document.querySelector<HTMLInputElement>('[data-deck-modules-name]')!.value = 'Plan A'; document.querySelector<HTMLSelectElement>('[data-deck-modules-profile]')!.value = 'Cedh'; document.querySelector<HTMLTextAreaElement>('[data-deck-modules-plan]')!.value = 'Win.'; document.querySelector<HTMLButtonElement>('[data-deck-modules-add-alternative]')!.click(); document.querySelector<HTMLButtonElement>('[data-deck-modules-alternative]')!.click(); await analyzeDeck();
+        const name = document.querySelector<HTMLInputElement>('[data-deck-modules-name]')!; name.value = 'Edited'; name.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(document.querySelector<HTMLElement>('[data-deck-modules-analysis-stale]')!.hidden).toBe(false);
+    });
+
+    it('initialize_ReanalyzeAfterStale_ReplacesNumbersAndHidesMarker', async () => {
+        const refreshed = { ...analysis, health: 'Healthy' }; const fetchMock = vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, json: async () => url === '/deck-modules/analyze' ? { analysisKey: 'analysis-key', analysis: fetchMock.mock.calls.filter(call => call[0] === '/deck-modules/analyze').length === 1 ? analysis : refreshed } : imported })); vi.stubGlobal('fetch', fetchMock);
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); await analyzeDeck(); document.querySelector<HTMLInputElement>('[data-deck-modules-entries="unassigned"] input')!.checked = true; document.querySelector<HTMLButtonElement>('[data-deck-modules-move="unassigned:core"]')!.click(); await analyzeDeck(); await vi.waitFor(() => expect(document.querySelector('[data-deck-modules-analysis-health]')!.textContent).toBe('Healthy'));
+        expect(document.querySelector('[data-deck-modules-analysis-health]')!.textContent).toBe('Healthy'); expect(document.querySelector<HTMLElement>('[data-deck-modules-analysis-stale]')!.hidden).toBe(true);
+    });
+
+    it('initialize_StoredAnalysis_RestoresSnapshotAndStaleState', async () => {
+        window.sessionStorage.setItem('deckflow.deck-modules.v1', JSON.stringify({ version: 1, baselineToken: 'token', commandZone: [], baselineMainboardEntries: [], unassignedEntries: [], coreEntries: [], alternatives: [], selectedAlternativeId: '', analysis, analysisKey: 'analysis-key', analysisStale: true }));
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize();
+        expect(document.querySelector<HTMLElement>('[data-deck-modules-analysis]')!.hidden).toBe(false); expect(document.querySelector('[data-deck-modules-analysis-health]')!.textContent).toBe('Needs attention'); expect(document.querySelector<HTMLElement>('[data-deck-modules-analysis-stale]')!.hidden).toBe(false);
+    });
+
+    it('initialize_StoredDraftWithoutAnalysis_HidesAnalysisPanelWithoutThrowing', () => {
+        window.sessionStorage.setItem('deckflow.deck-modules.v1', JSON.stringify({ version: 1, baselineToken: 'token', commandZone: [], baselineMainboardEntries: [], unassignedEntries: [], coreEntries: [], alternatives: [], selectedAlternativeId: '' }));
+        expect(() => (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize()).not.toThrow(); expect(document.querySelector<HTMLElement>('[data-deck-modules-analysis]')!.hidden).toBe(true);
     });
 });
