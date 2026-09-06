@@ -5,6 +5,10 @@ namespace DeckFlow.Core.Knowledge.StatedRulesExtraction;
 /// <summary>
 /// Deterministic content type classifier using existing transcript distillation signals.
 /// </summary>
+// Why (WR-09, maintainer decision 2026-09-06 per WAITING.json): no production caller classifies
+// content type yet - this is the intended classifier for a future stated-rules content-type
+// gate, exercised today only by DeckFlow.Core.Tests. Kept rather than deleted; see
+// ai-context-deckflow/repos/deckflow/notes/2026-09-06-cycle20-branch-divergence.md.
 public static class ContentTypeHeuristic
 {
     /// <summary>Deckbuilding theory content not anchored to a specific archetype.</summary>

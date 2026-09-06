@@ -10,6 +10,11 @@ public static class StatedRuleReducer
     /// </summary>
     /// <param name="candidates">Candidates to reduce.</param>
     /// <returns>A new list containing one survivor per dedupe bucket.</returns>
+    // Why (WR-09, maintainer decision 2026-09-06 per WAITING.json): no production caller uses this
+    // single-arg overload - StatedRulesExtractor.ExtractAsync always has separate chunk-evidence to
+    // pass and calls the two-arg overload below. Kept as the simpler single-source convenience
+    // overload StatedRuleReducerTests.cs already exercises, rather than deleted; see
+    // ai-context-deckflow/repos/deckflow/notes/2026-09-06-cycle20-branch-divergence.md.
     public static IReadOnlyList<StatedRuleCandidate> Reduce(IReadOnlyList<StatedRuleCandidate> candidates)
         => Reduce(candidates, candidates);
 

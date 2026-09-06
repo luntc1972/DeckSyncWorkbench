@@ -28,6 +28,11 @@ public static class StatedMetricKeyMapper
     /// <summary>
     /// Gets the closed category set that maps via the <c>category_ratio:</c> measured prefix.
     /// </summary>
+    // Why (WR-09, maintainer decision 2026-09-06 per WAITING.json): no production caller reads
+    // this set today - GetMapKind below is the only production entry point, and it doesn't need
+    // the enumerated set. Kept as the documented closed-vocabulary anchor
+    // (StatedMetricKeyMapperTests.cs pins it against ContentTagVocabulary.CardCategories) rather
+    // than deleted; see ai-context-deckflow/repos/deckflow/notes/2026-09-06-cycle20-branch-divergence.md.
     public static IReadOnlySet<string> PrefixMappedCategories { get; } =
         new HashSet<string>(ContentTagVocabulary.CardCategories, StringComparer.OrdinalIgnoreCase);
 

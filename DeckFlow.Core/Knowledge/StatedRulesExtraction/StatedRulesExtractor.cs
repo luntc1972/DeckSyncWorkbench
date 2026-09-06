@@ -5,6 +5,10 @@ namespace DeckFlow.Core.Knowledge.StatedRulesExtraction;
 /// <summary>
 /// Pure coordinator for multi-pass stated-rules extraction over transcript chunks.
 /// </summary>
+// Why (WR-09, maintainer decision 2026-09-06 per WAITING.json): no production host wires this
+// coordinator yet - it is the intended entry point once a host calls ExtractAsync against real
+// transcripts, exercised today only by DeckFlow.Core.Tests. Kept rather than deleted; see
+// ai-context-deckflow/repos/deckflow/notes/2026-09-06-cycle20-branch-divergence.md.
 public sealed class StatedRulesExtractor
 {
     private readonly ILlmDistillationService _distiller;
