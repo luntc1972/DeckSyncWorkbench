@@ -97,7 +97,7 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
             UnresolvedCardNames = analysisResult.Unresolved,
             IsCoreOnly = isCoreOnly,
             AnalysisNotice = isCoreOnly
-                ? $"This analysis covers {compilation.TotalCardCount} cards and is not a legality verdict."
+                ? $"Analysed {compilation.TotalCardCount} cards — this configuration is missing its strategy module, so these numbers describe an incomplete deck and are not a legality verdict."
                 : null,
         };
 

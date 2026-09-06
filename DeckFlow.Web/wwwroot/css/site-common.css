@@ -5979,4 +5979,9 @@ pre {
   color: var(--warning, #8a5b00);
   font-weight: 700;
 }
+
+.deck-modules__analysis-notice {
+  color: var(--warning, #8a5b00);
+  font-weight: 700;
+}
 /* end Phase 3: deck-modules analysis */
