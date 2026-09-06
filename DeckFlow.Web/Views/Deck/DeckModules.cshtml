@@ -105,6 +105,7 @@
 
     <p id="deck-modules-balance" data-deck-modules-balance></p>
     <button type="button" data-deck-modules-compile disabled>Compile modules</button>
+    <button type="button" data-deck-modules-analyze disabled>Analyze mana base</button>
     <button type="button" data-deck-modules-export disabled>Download compiled text</button>
     <button type="button" data-deck-modules-copy disabled>Copy compiled text</button>
     <button type="button" data-deck-modules-restart>Restart draft</button>
@@ -119,6 +120,22 @@
         <h3>IN</h3><ul data-deck-modules-swap="add"></ul>
         <h3>OUT</h3><ul data-deck-modules-swap="remove"></ul>
         <h3>RESET</h3><ul data-deck-modules-swap="reset"></ul>
+    </section>
+
+    <section class="deck-modules__panel deck-modules__analysis" data-deck-modules-analysis hidden aria-labelledby="deck-modules-analysis-heading">
+        <h2 id="deck-modules-analysis-heading">Analysis status</h2>
+        <p data-deck-modules-analysis-stale role="status" hidden>Cards changed since this analysis.</p>
+        <p data-deck-modules-core-only role="status" hidden>Analysis uses the Core configuration only.</p>
+        <p data-deck-modules-analysis-notice></p>
+        <dl>
+            <dt>Health</dt><dd><span data-deck-modules-analysis-health></span></dd>
+            <dt>Lands</dt><dd><span data-deck-modules-analysis-lands></span> / <span data-deck-modules-analysis-target></span> (<span data-deck-modules-analysis-land-delta></span>)</dd>
+            <dt>Ramp sources</dt><dd><span data-deck-modules-analysis-ramp></span></dd>
+            <dt>Hard to cast</dt><dd><span data-deck-modules-analysis-hardtocast></span></dd>
+        </dl>
+        <table>
+            <tbody data-deck-modules-analysis-colors></tbody>
+        </table>
     </section>
 </section>
 

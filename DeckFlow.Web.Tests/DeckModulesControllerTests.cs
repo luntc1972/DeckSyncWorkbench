@@ -10,6 +10,7 @@ using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.DeckModules;
+using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Modular;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -250,7 +251,7 @@ public sealed class DeckModulesControllerTests
     {
         var actions = GetDeckModulesActions();
 
-        Assert.Equal(new[] { "Compile", "Export", "Import", "Index" }, actions.Select(static action => action.Name).OrderBy(static name => name).ToArray());
+        Assert.Equal(new[] { "Analyze", "Compile", "Export", "Import", "Index" }, actions.Select(static action => action.Name).OrderBy(static name => name).ToArray());
 
         foreach (var method in actions)
         {
@@ -268,7 +269,12 @@ public sealed class DeckModulesControllerTests
             .ToArray();
 
     private static DeckModulesController CreateController(IDeckModulesPageService service) =>
-        new(service, NullLogger<DeckModulesController>.Instance)
+        CreateController(service, new FakeConfigurationAnalysisService());
+
+    private static DeckModulesController CreateController(
+        IDeckModulesPageService service,
+        IConfigurationAnalysisService analysisService) =>
+        new(service, NullLogger<DeckModulesController>.Instance, analysisService, new PacketSessionCache())
         {
             ControllerContext = new ControllerContext
             {
@@ -383,5 +389,13 @@ public sealed class DeckModulesControllerTests
             CompileCallCount++;
             return CompileResult ?? DeckModulesServiceResult<DeckModulesCompilationViewModel>.Failure("not configured");
         }
+    }
+
+    private sealed class FakeConfigurationAnalysisService : IConfigurationAnalysisService
+    {
+        public Task<DeckModulesServiceResult<ConfigurationAnalysisResult>> AnalyzeAsync(
+            ConfigurationAnalysisRequest request,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(DeckModulesServiceResult<ConfigurationAnalysisResult>.Failure("not configured"));
     }
 }

@@ -1,0 +1,59 @@
+import { expect, test, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { withToolEnabled } from './support/admin-tools';
+import { uiDesignDir } from './support/ui-design-dir';
+
+const winotaDeck = readFileSync(join(__dirname, 'fixtures', 'winota-cedh.txt'), 'utf8').trim();
+
+test.describe.configure({ mode: 'serial' });
+test.setTimeout(120_000);
+withToolEnabled('Deck Modules');
+
+async function assignWithKeyboard(page: Page, from: string, to: string): Promise<void> {
+  const selection = page.locator(`[data-deck-modules-entries="${from}"] [data-deck-modules-select]`).first();
+  await selection.focus();
+  await page.keyboard.press('Space');
+  await expect(selection).toBeChecked();
+
+  const move = page.locator(`[data-deck-modules-move="${from}:${to}"]`);
+  await move.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator(`[data-deck-modules-filter="${to}"]`)).toBeFocused();
+}
+
+test('analyzes a compiled configuration', async ({ page }, testInfo) => {
+  const response = await page.goto('/deck-modules');
+  expect(response?.ok(), '/deck-modules should return 200 with flag ON').toBeTruthy();
+
+  await page.locator('[data-deck-modules-source]').fill(winotaDeck);
+  const importResponse = page.waitForResponse('/deck-modules/import');
+  await page.getByRole('button', { name: 'Import deck' }).click();
+  expect((await importResponse).status()).toBe(200);
+
+  await page.locator('[data-deck-modules-name]').fill('Winota Combat');
+  await page.locator('[data-deck-modules-profile]').selectOption('Cedh');
+  await page.locator('[data-deck-modules-plan]').fill('Trigger Winota early and pressure every combat.');
+  await page.locator('[data-deck-modules-add-alternative]').click();
+  await assignWithKeyboard(page, 'unassigned', 'core');
+  await assignWithKeyboard(page, 'unassigned', 'strategy');
+  await assignWithKeyboard(page, 'unassigned', 'mana');
+
+  await page.locator('[data-deck-modules-name]').fill('Winota Stax');
+  await page.locator('[data-deck-modules-profile]').selectOption('Cedh');
+  await page.locator('[data-deck-modules-plan]').fill('Lock opponents while Winota supplies pressure.');
+  await page.locator('[data-deck-modules-add-alternative]').click();
+  await assignWithKeyboard(page, 'unassigned', 'strategy');
+  await assignWithKeyboard(page, 'unassigned', 'mana');
+
+  await page.locator('[data-deck-modules-compile]').click();
+  await expect(page.locator('.deck-modules__report')).toBeVisible();
+
+  const analysisResponse = page.waitForResponse('/deck-modules/analyze');
+  await page.locator('[data-deck-modules-analyze]').click();
+  expect((await analysisResponse).status()).toBe(200);
+  await expect(page.locator('[data-deck-modules-analysis]')).toBeVisible();
+  await expect(page.locator('[data-deck-modules-analysis-health]')).not.toBeEmpty();
+
+  await page.screenshot({ path: join(uiDesignDir('deck-modules-analysis'), `${testInfo.title}.png`), fullPage: true });
+});

@@ -5,6 +5,7 @@ using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.DeckModules;
 using DeckFlow.Web.Security;
+using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Modular;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,6 +18,8 @@ public sealed class DeckModulesController : DeckToolControllerBase
 {
     private const string FlagKey = "tool.deck-modules.enabled";
     private readonly IDeckModulesPageService _service;
+    private readonly IConfigurationAnalysisService _analysisService;
+    private readonly PacketSessionCache _packetSessionCache;
     private readonly ILogger<DeckModulesController> _logger;
 
     /// <summary>
@@ -24,12 +27,22 @@ public sealed class DeckModulesController : DeckToolControllerBase
     /// </summary>
     /// <param name="service">Deck Modules page service.</param>
     /// <param name="logger">Logger.</param>
-    public DeckModulesController(IDeckModulesPageService service, ILogger<DeckModulesController> logger)
+    /// <param name="analysisService">Configuration analysis service.</param>
+    /// <param name="packetSessionCache">Packet session cache.</param>
+    public DeckModulesController(
+        IDeckModulesPageService service,
+        ILogger<DeckModulesController> logger,
+        IConfigurationAnalysisService analysisService,
+        PacketSessionCache packetSessionCache)
     {
         ArgumentNullException.ThrowIfNull(service);
+        ArgumentNullException.ThrowIfNull(analysisService);
+        ArgumentNullException.ThrowIfNull(packetSessionCache);
         ArgumentNullException.ThrowIfNull(logger);
         _service = service;
         _logger = logger;
+        _analysisService = analysisService;
+        _packetSessionCache = packetSessionCache;
     }
 
     /// <summary>Renders the Deck Modules page.</summary>
@@ -105,7 +118,40 @@ public sealed class DeckModulesController : DeckToolControllerBase
         }
 
         var fileName = $"deck-modules-{SanitizeFileName(compilation.SelectedStrategyName)}.txt";
-        return File(Encoding.UTF8.GetBytes(CreateExport(compilation)), "text/plain; charset=utf-8", fileName);
+        return File(Encoding.UTF8.GetBytes(DeckModulesDecklistSerializer.BuildExportText(compilation)), "text/plain; charset=utf-8", fileName);
+    }
+
+    /// <summary>Analyzes a compiled Deck Modules configuration.</summary>
+    [HttpPost("/deck-modules/analyze")]
+    [FeatureFlagGate(FlagKey)]
+    public async Task<IActionResult> Analyze(
+        [FromBody] ConfigurationAnalysisRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return Forbidden();
+        }
+
+        if (request is null)
+        {
+            return BadRequest(new { message = "Request body is required." });
+        }
+
+        var key = PacketSessionCache.ComputeKey(new { request.Configuration, request.Mode });
+        if (_packetSessionCache.TryGet<ConfigurationAnalysisResult>(key, out var cached))
+        {
+            return Ok(new { analysisKey = key, analysis = cached });
+        }
+
+        var result = await _analysisService.AnalyzeAsync(request, cancellationToken);
+        if (!result.Succeeded)
+        {
+            return Failure(result.ErrorMessage);
+        }
+
+        _packetSessionCache.Set(key, result.Value!, PacketSizeEstimator.EstimateSizeBytes(result.Value!));
+        return Ok(new { analysisKey = key, analysis = result.Value });
     }
 
     private IActionResult Forbidden()
@@ -115,37 +161,6 @@ public sealed class DeckModulesController : DeckToolControllerBase
     }
 
     private IActionResult Failure(string? message) => BadRequest(new { message = message ?? "Request failed." });
-
-    private static string CreateExport(DeckModulesCompilationViewModel compilation)
-    {
-        var builder = new StringBuilder();
-        AppendEntries(builder, "Command Zone", compilation.CommandZoneEntries);
-        AppendEntries(builder, "Mainboard", compilation.MainboardEntries);
-        AppendSwapEntries(builder, "IN", compilation.SwapPlan.ToAdd);
-        AppendSwapEntries(builder, "OUT", compilation.SwapPlan.ToRemove);
-        AppendSwapEntries(builder, "RESET", compilation.SwapPlan.ToReset);
-        return builder.ToString();
-    }
-
-    private static void AppendEntries(StringBuilder builder, string heading, IReadOnlyList<DeckEntry> entries)
-    {
-        builder.Append("== ").Append(heading).AppendLine(" ==");
-        foreach (var entry in entries)
-        {
-            builder.Append(entry.Quantity).Append(' ').AppendLine(NormalizeLine(entry.Name));
-        }
-
-        builder.AppendLine();
-    }
-
-    private static void AppendSwapEntries(StringBuilder builder, string prefix, IReadOnlyList<ModularDeckSwapEntry> entries)
-    {
-        foreach (var entry in entries)
-        {
-            var sign = entry.Action == ModularDeckSwapAction.Add ? '+' : '-';
-            builder.Append(prefix).Append(" - ").Append(sign).Append(entry.Quantity).Append(' ').AppendLine(NormalizeLine(entry.Name));
-        }
-    }
 
     private static string NormalizeLine(string value) => value.Replace("\r", " ", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal).Trim();
 

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Models.DeckModules;
 
 namespace DeckFlow.Web.Services;
 
@@ -183,6 +184,16 @@ internal static class PacketSizeEstimator
             + (result.SchemaJson?.Length ?? 0)
             + (result.RequestContextText?.Length ?? 0)
             + (result.DecklistText?.Length ?? 0);
+    }
+
+    public static int EstimateSizeBytes(ConfigurationAnalysisResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return result.ConfigurationId.Length
+            + result.ConfigurationName.Length
+            + (result.AnalysisNotice?.Length ?? 0)
+            + result.UnresolvedCardNames.Sum(name => name.Length)
+            + result.ColorSources.Sum(row => row.Color.Length + row.DisplayColor.Length + row.DrivingSpell.Length);
     }
 }
 

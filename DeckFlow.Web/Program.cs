@@ -191,6 +191,7 @@ public partial class Program
             builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabWhatifService, DeckFlow.Web.Services.CutLab.CutLabWhatifService>();
             builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabExportService, DeckFlow.Web.Services.CutLab.CutLabExportService>();
             builder.Services.AddScoped<IDeckModulesPageService, DeckModulesPageService>();
+            builder.Services.AddDeckFlowDeckModulesAnalysisServices();
             builder.Services.AddScoped<IDeckConvertService>(sp =>
                 new DeckConvertService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),

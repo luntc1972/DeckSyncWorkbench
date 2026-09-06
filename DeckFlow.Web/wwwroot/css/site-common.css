@@ -5973,3 +5973,10 @@ pre {
     min-block-size: 44px;
   }
 }
+
+/* Phase 3: deck-modules analysis */
+.deck-modules__analysis [data-deck-modules-analysis-stale] {
+  color: var(--warning, #8a5b00);
+  font-weight: 700;
+}
+/* end Phase 3: deck-modules analysis */
