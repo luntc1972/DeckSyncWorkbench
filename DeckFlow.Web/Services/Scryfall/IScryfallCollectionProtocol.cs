@@ -6,11 +6,6 @@ namespace DeckFlow.Web.Services.Scryfall;
 public interface IScryfallCollectionProtocol
 {
     /// <summary>
-    /// Maximum identifiers Scryfall accepts in one collection request.
-    /// </summary>
-    const int CollectionBatchSize = 75;
-
-    /// <summary>
     /// Executes a collection request through Scryfall safeguards.
     /// </summary>
     Task<ScryfallCollectionProtocolResponse> ResolveAsync(

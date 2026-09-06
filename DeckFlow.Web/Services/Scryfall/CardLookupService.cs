@@ -7,6 +7,7 @@ using Polly;
 using Polly.Registry;
 using RestSharp;
 using DeckFlow.Web.Services.Http;
+using DeckFlow.Web.Services.Scryfall;
 
 namespace DeckFlow.Web.Services;
 
@@ -41,7 +42,6 @@ public sealed record SingleCardLookupResult(string CardName, string VerifiedText
 /// </summary>
 public sealed class ScryfallCardLookupService : ICardLookupService
 {
-    private const int CollectionBatchSize = 75;
     private const int MaxCardsPerSubmission = 100;
     private static readonly Regex QuantityPrefixRegex = new(@"^(?<quantity>\d+)\s+(?<name>.+)$", RegexOptions.Compiled);
     private static readonly Regex AbilityWordRegex = new(@"^(?<term>[A-Za-z][A-Za-z' -]{1,40})\s+—\s+", RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -115,7 +115,7 @@ public sealed class ScryfallCardLookupService : ICardLookupService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        foreach (var chunk in Chunk(uniqueNames, CollectionBatchSize))
+        foreach (var chunk in Chunk(uniqueNames, ScryfallLimits.CollectionBatchSize))
         {
             var request = new RestRequest("cards/collection", Method.Post);
             request.AddJsonBody(new

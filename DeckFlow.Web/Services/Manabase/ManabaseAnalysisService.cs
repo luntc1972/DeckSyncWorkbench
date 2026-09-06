@@ -1173,7 +1173,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         }
 
         var unpairedCards = new List<ScryfallCard>();
-        foreach (var batch in identifiersToSubmit.Chunk(IScryfallCollectionProtocol.CollectionBatchSize))
+        foreach (var batch in identifiersToSubmit.Chunk(ScryfallLimits.CollectionBatchSize))
         {
             var positionedReturnedCards = new Dictionary<int, int>();
             var request = new ScryfallCollectionProtocolRequest(batch.Select(identifier => identifier.Name is null

@@ -4,6 +4,7 @@ using DeckFlow.Core.Models;
 using DeckFlow.Core.Normalization;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services.Http;
+using DeckFlow.Web.Services.Scryfall;
 using Polly;
 using Polly.Registry;
 using RestSharp;
@@ -31,8 +32,6 @@ public interface IDeckConvertService
 /// </summary>
 public sealed class DeckConvertService : IDeckConvertService
 {
-    private const int CollectionBatchSize = 75;
-
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
 
@@ -124,9 +123,9 @@ public sealed class DeckConvertService : IDeckConvertService
 
         var canonicalNames = new Dictionary<(string Set, string Collector), string>();
 
-        for (var i = 0; i < distinctKeys.Count; i += CollectionBatchSize)
+        for (var i = 0; i < distinctKeys.Count; i += ScryfallLimits.CollectionBatchSize)
         {
-            var batch = distinctKeys.Skip(i).Take(CollectionBatchSize)
+            var batch = distinctKeys.Skip(i).Take(ScryfallLimits.CollectionBatchSize)
                 .Select(k => new ScryfallPrintingIdentifier(k.Set, k.Collector))
                 .ToList();
 
