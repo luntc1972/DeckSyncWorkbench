@@ -247,6 +247,20 @@ public sealed class CreatorStylePacketServiceTests
     }
 
     [Fact]
+    public async Task TryComputeCacheKeyAsync_FlagMissingFromSnapshot_DefaultsOnReturnsNull()
+    {
+        // WR-07 regression: an unseeded flag store must default the tool-enabled flag ON,
+        // matching Program.cs's documented default-on-if-missing semantics for
+        // tool.creator-style.enabled, not the "missing == off" behavior this used to fall back to.
+        var request = CreateCacheRequest();
+        CreatorStylePacketService sut = CreateSut(flagCache: new FakeFeatureFlagCache(new Dictionary<string, bool>()));
+
+        string? key = await sut.TryComputeCacheKeyAsync(request, CancellationToken.None);
+
+        Assert.Null(key);
+    }
+
+    [Fact]
     public async Task TryComputeCacheKeyAsync_FlagOff_Returns64CharacterKey()
     {
         var request = CreateCacheRequest();

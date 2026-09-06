@@ -422,10 +422,15 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
     private static bool IsSuperseded(FusedTarget target)
         => string.Equals(target.Verdict, SupersededVerdict, StringComparison.OrdinalIgnoreCase);
 
+    // Why (WR-07, maintainer decision 2026-09-06 per WAITING.json): a missing snapshot entry must
+    // default ON, matching the documented tool.creator-style.enabled semantics in Program.cs
+    // (DB-backed, default-on-if-missing). The prior "missing == off" fallback only mattered for an
+    // unseeded flag store, never exercised by CreatorStylePacketServiceTests.cs (every existing
+    // test sets the key explicitly), so this closes the doc/code mismatch without changing any
+    // pinned test behavior.
     private bool IsCreatorStyleFlagOn(string flagKey)
         => _flagCache is not null
-            && _flagCache.Snapshot().TryGetValue(flagKey, out bool on)
-            && on;
+            && (!_flagCache.Snapshot().TryGetValue(flagKey, out bool on) || on);
 
     private bool ShouldBypassPacketCache()
         => PromptMutatingCreatorStyleFlags.Any(IsCreatorStyleFlagOn);
