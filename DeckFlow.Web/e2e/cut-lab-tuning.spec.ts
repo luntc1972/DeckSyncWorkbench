@@ -1,15 +1,15 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
 import { expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
+import { uiDesignDir } from './support/ui-design-dir';
 
 import { resolveE2EPort } from './support/e2e-port';
 
 const baseUrl = `http://localhost:${resolveE2EPort()}`;
-const screenshotDir = resolve(__dirname, '../../.planning/ui-design/cut-lab/screenshots');
+const screenshotDir = uiDesignDir('cut-lab');
 
 const guildThemes = [
   { name: 'azorius', cookie: 'site-azorius.css' },
@@ -328,8 +328,6 @@ test('captures the tuner screenshot matrix across guild themes and desktop/mobil
   // adding zero behavioral coverage (tuning behavior is covered by the tests
   // above). Skip it on CI; run it locally to regenerate the screenshot matrix.
   test.skip(Boolean(process.env.CI), 'screenshot capture — slow + non-behavioral; run locally for visual UAT');
-  mkdirSync(screenshotDir, { recursive: true });
-
   for (const viewport of viewports) {
     for (const theme of guildThemes) {
       const capturePage = await page.context().newPage();
