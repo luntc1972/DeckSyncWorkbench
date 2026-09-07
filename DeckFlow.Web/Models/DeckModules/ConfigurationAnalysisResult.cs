@@ -25,6 +25,9 @@ public sealed record ConfigurationAnalysisResult
     /// </summary>
     public const int HardToCastCastPercentThreshold = 90;
 
+    /// <summary>Gets optional bracket and Game Changer signals for this configuration.</summary>
+    public ConfigurationSignalSummary? Signals { get; init; }
+
     /// <summary>Gets the identifier of the analyzed compiled configuration's selected alternative.</summary>
     public required string ConfigurationId { get; init; }
 

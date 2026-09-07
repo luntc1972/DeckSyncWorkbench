@@ -5984,4 +5984,12 @@ pre {
   color: var(--warning, #8a5b00);
   font-weight: 700;
 }
+
+.deck-modules__signals {
+  margin-top: 1rem;
+}
+
+.deck-modules__signals ul {
+  margin: 0.5rem 0;
+}
 /* end Phase 3: deck-modules analysis */

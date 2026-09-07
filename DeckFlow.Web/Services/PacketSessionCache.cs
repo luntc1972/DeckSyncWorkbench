@@ -193,7 +193,13 @@ internal static class PacketSizeEstimator
             + result.ConfigurationName.Length
             + (result.AnalysisNotice?.Length ?? 0)
             + result.UnresolvedCardNames.Sum(name => name.Length)
-            + result.ColorSources.Sum(row => row.Color.Length + row.DisplayColor.Length + row.DrivingSpell.Length);
+            + result.ColorSources.Sum(row => row.Color.Length + row.DisplayColor.Length + row.DrivingSpell.Length)
+            + (result.Signals is null
+                ? 0
+                : result.Signals.CatalogEffectiveDate.Length
+                    + result.Signals.GameChangers.Sum(name => name.Length)
+                    + result.Signals.MassLandDenialCards.Sum(name => name.Length)
+                    + result.Signals.ExtraTurnCards.Sum(name => name.Length));
     }
 }
 

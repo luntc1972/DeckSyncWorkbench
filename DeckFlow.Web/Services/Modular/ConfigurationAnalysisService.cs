@@ -1,5 +1,8 @@
+using DeckFlow.Core.Bracket;
 using DeckFlow.Core.Manabase;
+using DeckFlow.Core.Models;
 using DeckFlow.Web.Models.DeckModules;
+using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.Manabase;
 
 namespace DeckFlow.Web.Services.Modular;
@@ -14,23 +17,28 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
 {
     private readonly IDeckModulesPageService _pageService;
     private readonly IManabaseAnalysisService _manabaseAnalysisService;
+    private readonly IGameChangerCatalogService _gameChangerCatalogService;
     private readonly ILogger<ConfigurationAnalysisService> _logger;
 
     /// <summary>Creates the configuration analysis service.</summary>
     /// <param name="pageService">Deck Modules compilation service.</param>
     /// <param name="manabaseAnalysisService">Existing manabase analysis service.</param>
     /// <param name="logger">Logger.</param>
+    /// <param name="gameChangerCatalogService">Warm-cached Game Changer catalog service.</param>
     public ConfigurationAnalysisService(
         IDeckModulesPageService pageService,
         IManabaseAnalysisService manabaseAnalysisService,
-        ILogger<ConfigurationAnalysisService> logger)
+        ILogger<ConfigurationAnalysisService> logger,
+        IGameChangerCatalogService gameChangerCatalogService)
     {
         ArgumentNullException.ThrowIfNull(pageService);
         ArgumentNullException.ThrowIfNull(manabaseAnalysisService);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(gameChangerCatalogService);
         _pageService = pageService;
         _manabaseAnalysisService = manabaseAnalysisService;
         _logger = logger;
+        _gameChangerCatalogService = gameChangerCatalogService;
     }
 
     /// <inheritdoc />
@@ -47,6 +55,21 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
         }
 
         var compilation = compileResult.Value!;
+        var boardedEntries = compilation.CommandZoneEntries
+            .Select(static entry => new DeckEntry { Name = entry.Name, NormalizedName = entry.NormalizedName, Quantity = entry.Quantity, Board = "commander" })
+            .Concat(compilation.MainboardEntries.Select(static entry => new DeckEntry { Name = entry.Name, NormalizedName = entry.NormalizedName, Quantity = entry.Quantity, Board = "mainboard" }))
+            .ToList();
+        // No combo detection service runs on this path; null means unavailable, while an empty list would falsely claim detection ran.
+        var classification = BracketClassifier.Classify(boardedEntries, _gameChangerCatalogService.GetCatalog(), twoCardCombos: null);
+        var signals = new ConfigurationSignalSummary
+        {
+            BracketNumber = classification.BracketNumber,
+            GameChangers = classification.DetectedGameChangers,
+            MassLandDenialCards = classification.DetectedMassLandDenial,
+            ExtraTurnCards = classification.DetectedExtraTurnCards,
+            ComboDetectionAvailable = classification.ComboDetectionAvailable,
+            CatalogEffectiveDate = classification.EffectiveDate,
+        };
         var decklistText = DeckModulesDecklistSerializer.BuildAnalysisDecklistText(compilation);
 
         var analysisResult = await _manabaseAnalysisService.AnalyzeAsync(
@@ -99,6 +122,7 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
             AnalysisNotice = isCoreOnly
                 ? $"Analysed {compilation.TotalCardCount} cards — this configuration is missing its strategy module, so these numbers describe an incomplete deck and are not a legality verdict."
                 : null,
+            Signals = signals,
         };
 
         return DeckModulesServiceResult<ConfigurationAnalysisResult>.Success(result);
