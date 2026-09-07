@@ -15,7 +15,18 @@ public sealed class AnalysisWarningAttributionService : IAnalysisWarningAttribut
         ArgumentNullException.ThrowIfNull(swapPlan);
         ArgumentNullException.ThrowIfNull(moduleMap);
 
-        var swaps = swapPlan.ToAdd.Concat(swapPlan.ToRemove).ToDictionary(entry => entry.NormalizedName, StringComparer.Ordinal);
+        // Why: ModularDeckCompiler groups swap entries with OrdinalIgnoreCase
+        // (ModularDeckCompiler.cs:189,251), and CardNormalizer.Normalize collapses split cards at
+        // " / " so two distinct split-card names can share a normalized key. An unguarded
+        // ToDictionary with a mismatched comparer threw ArgumentException on any add/remove
+        // collision, an unhandled 500 on the analyze endpoint (WR-04). Use the same comparer the
+        // compiler used to build the plan, and let the first writer win on a collision.
+        var swaps = new Dictionary<string, ModularDeckSwapEntry>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in swapPlan.ToAdd.Concat(swapPlan.ToRemove))
+        {
+            swaps.TryAdd(entry.NormalizedName, entry);
+        }
+
         return findings.Select(finding => AttributeFinding(finding, swaps, moduleMap)).ToArray();
     }
 

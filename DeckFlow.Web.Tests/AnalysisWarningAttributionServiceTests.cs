@@ -85,6 +85,33 @@ public sealed class AnalysisWarningAttributionServiceTests
         => Assert.Throws<ArgumentNullException>(() => _service.AttributeFindings(null!, Plan(), Map()));
 
     [Fact]
+    public void AttributeFindings_AddAndRemoveNormalizeToTheSameKey_DoesNotThrowAndAttributesFirstWriter()
+    {
+        // WR-04: CardNormalizer.Normalize collapses split cards at " / ", so "Fire // Ice" and
+        // "Fire // Something" both normalize to "fire". An unguarded ToDictionary threw
+        // ArgumentException on this collision; TryAdd must keep the first writer instead.
+        var result = Attribute(
+            [Finding("Fire // Ice")],
+            Plan(add: [Swap("Fire // Ice", ModularDeckSwapAction.Add)], remove: [Swap("Fire // Something", ModularDeckSwapAction.Remove)]));
+
+        Assert.Equal(ConfigurationAttributionStrength.NamedCard, result[0].Strength);
+        Assert.Equal("Fire // Ice", result[0].AttributedCard);
+        Assert.Equal("added", result[0].SwapDirection);
+    }
+
+    [Fact]
+    public void AttributeFindings_SwapComparerMatchesCompilerGrouping_ReturnsNamedCardOnCaseInsensitiveCollision()
+    {
+        // The dictionary must use the same comparer ModularDeckCompiler used to build the plan
+        // (OrdinalIgnoreCase), not a stricter one, or a case-only collision would also throw.
+        var result = Attribute(
+            [Finding("Ancient Tomb")],
+            Plan(add: [Swap("Ancient Tomb", ModularDeckSwapAction.Add)], remove: [Swap("ANCIENT TOMB", ModularDeckSwapAction.Remove)]));
+
+        Assert.Equal(ConfigurationAttributionStrength.NamedCard, result[0].Strength);
+    }
+
+    [Fact]
     public void AttributeFindings_MultipleFindings_PreservesInputOrder()
     {
         var result = Attribute([Finding("Second"), Finding("First")], Plan(add: [Swap("First", ModularDeckSwapAction.Add), Swap("Second", ModularDeckSwapAction.Add)]));
