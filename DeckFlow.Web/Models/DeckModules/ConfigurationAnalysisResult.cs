@@ -55,8 +55,8 @@ public sealed record ConfigurationAnalysisResult
     /// <summary>Gets the count of non-commander cards whose cast percent falls below <see cref="HardToCastCastPercentThreshold"/>.</summary>
     public required int HardToCastCount { get; init; }
 
-    /// <summary>Gets the per-colour source findings, in the order the report supplies (tail-risk composite — do not re-sort).</summary>
-    public IReadOnlyList<ConfigurationColorSourceRow> ColorSources { get; init; } = Array.Empty<ConfigurationColorSourceRow>();
+    /// <summary>Gets attributed per-colour source findings in the report's supplied order.</summary>
+    public IReadOnlyList<ConfigurationAttributedFinding> AttributedFindings { get; init; } = Array.Empty<ConfigurationAttributedFinding>();
 
     /// <summary>Gets card names the analyzer could not resolve, if any.</summary>
     public IReadOnlyList<string> UnresolvedCardNames { get; init; } = Array.Empty<string>();
@@ -71,24 +71,24 @@ public sealed record ConfigurationAnalysisResult
     public string? AnalysisNotice { get; init; }
 }
 
-/// <summary>One per-colour mana-source finding row, projected for display from <c>ManabaseReport.ColorFindings</c>.</summary>
+/// <summary>Legacy per-colour source finding row retained for advisory invariant tests.</summary>
 public sealed record ConfigurationColorSourceRow
 {
     /// <summary>Gets the color examined, as a display string.</summary>
     public required string Color { get; init; }
 
-    /// <summary>Gets the display label for this row — the special-category label when present, otherwise <see cref="Color"/>.</summary>
+    /// <summary>Gets the display label for this row.</summary>
     public required string DisplayColor { get; init; }
 
-    /// <summary>Gets the effective sources of this color currently in the deck (weighted).</summary>
+    /// <summary>Gets effective sources.</summary>
     public required double ActualSources { get; init; }
 
-    /// <summary>Gets the sources required by the most demanding spell of this color (Karsten threshold).</summary>
+    /// <summary>Gets required sources.</summary>
     public required int RequiredSources { get; init; }
 
-    /// <summary>Gets the required sources minus the actual sources.</summary>
+    /// <summary>Gets the required sources minus actual sources.</summary>
     public required double Deficit { get; init; }
 
-    /// <summary>Gets the name of the spell driving this color's requirement.</summary>
+    /// <summary>Gets the driving spell.</summary>
     public required string DrivingSpell { get; init; }
 }

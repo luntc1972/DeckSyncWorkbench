@@ -5985,6 +5985,18 @@ pre {
   font-weight: 700;
 }
 
+.deck-modules__cause--named {
+  display: block;
+  font-weight: 700;
+}
+
+.deck-modules__cause--inferred {
+  display: block;
+  font-size: 0.875em;
+  font-style: italic;
+  font-weight: 400;
+}
+
 .deck-modules__signals {
   margin-top: 1rem;
 }

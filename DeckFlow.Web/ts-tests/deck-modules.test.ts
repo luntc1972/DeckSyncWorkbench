@@ -24,7 +24,7 @@ const importDraft = async () => {
     await vi.waitFor(() => expect(document.querySelector('[data-deck-modules-count="unassigned"]')!.textContent).toBe('3'));
 };
 
-const analysis = { landCount: 29, targetLandCount: 31, landDelta: -2, health: 'Needs attention', rampSourceCount: 8, hardToCastCount: 2, isCoreOnly: false, colorSources: [{ displayColor: 'Blue', actualSources: 18, requiredSources: 20, deficit: -2, drivingSpell: 'Counterspell' }], analysisNotice: null };
+const analysis = { landCount: 29, targetLandCount: 31, landDelta: -2, health: 'Needs attention', rampSourceCount: 8, hardToCastCount: 2, isCoreOnly: false, attributedFindings: [{ displayColor: 'Blue', actualSources: 18, requiredSources: 20, deficit: -2, drivingSpell: 'Counterspell', strength: 'NamedCard', attributedCard: 'Ancient Tomb', swapDirection: 'added' }], analysisNotice: null };
 const analyzeDeck = async () => {
     document.querySelector<HTMLButtonElement>('[data-deck-modules-analyze]')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await vi.waitFor(() => expect(document.querySelector<HTMLElement>('[data-deck-modules-analysis]')!.hidden).toBe(false));
@@ -176,6 +176,26 @@ describe('DeckFlowDeckModules', () => {
         (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); await analyzeDeck();
         const stored = JSON.parse(window.sessionStorage.getItem('deckflow.deck-modules.v1')!);
         expect(stored.analysis).toEqual(analysis); expect(stored.analysisKey).toBe('analysis-key'); expect(document.querySelector('[data-deck-modules-analysis-health]')!.textContent).toBe('Needs attention');
+    });
+
+    it('initialize_NamedAttributedFinding_RendersNamedCause', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, json: async () => url === '/deck-modules/analyze' ? { analysisKey: 'analysis-key', analysis } : imported })));
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); await analyzeDeck();
+        expect(document.querySelector('[data-deck-modules-cause="named"]')).not.toBeNull();
+    });
+
+    it('initialize_InferredAttributedFinding_RendersInferredCause', async () => {
+        const inferred = { ...analysis, attributedFindings: [{ ...analysis.attributedFindings[0], strength: 'ModuleMembership', attributedCard: null, attributedModule: 'Strategy B', swapDirection: null }] };
+        vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, json: async () => url === '/deck-modules/analyze' ? { analysisKey: 'analysis-key', analysis: inferred } : imported })));
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); await analyzeDeck();
+        expect(document.querySelector('[data-deck-modules-cause="inferred"]')).not.toBeNull();
+    });
+
+    it('initialize_UnattributedFinding_RendersNoCause', async () => {
+        const none = { ...analysis, attributedFindings: [{ ...analysis.attributedFindings[0], strength: 'None', attributedCard: null, attributedModule: null, swapDirection: null }] };
+        vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, json: async () => url === '/deck-modules/analyze' ? { analysisKey: 'analysis-key', analysis: none } : imported })));
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); await analyzeDeck();
+        expect(document.querySelector('[data-deck-modules-cause]')).toBeNull();
     });
 
     it('initialize_AnalysisThenPanelMove_PreservesNumbersAndShowsStaleMarker', async () => {

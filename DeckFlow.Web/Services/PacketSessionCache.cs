@@ -193,7 +193,7 @@ internal static class PacketSizeEstimator
             + result.ConfigurationName.Length
             + (result.AnalysisNotice?.Length ?? 0)
             + result.UnresolvedCardNames.Sum(name => name.Length)
-            + result.ColorSources.Sum(row => row.Color.Length + row.DisplayColor.Length + row.DrivingSpell.Length)
+            + result.AttributedFindings.Sum(row => row.Color.Length + row.DisplayColor.Length + row.DrivingSpell.Length + (row.AttributedCard?.Length ?? 0) + (row.AttributedModule?.Length ?? 0) + (row.SwapDirection?.Length ?? 0))
             + (result.Signals is null
                 ? 0
                 : result.Signals.CatalogEffectiveDate.Length

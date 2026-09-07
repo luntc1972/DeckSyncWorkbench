@@ -25,26 +25,41 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
 
     private readonly IDeckModulesPageService _pageService;
     private readonly IManabaseAnalysisService _manabaseAnalysisService;
+    private readonly IAnalysisWarningAttributionService _warningAttributionService;
     private readonly IGameChangerCatalogService _gameChangerCatalogService;
     private readonly ILogger<ConfigurationAnalysisService> _logger;
 
-    /// <summary>Creates the configuration analysis service.</summary>
-    /// <param name="pageService">Deck Modules compilation service.</param>
-    /// <param name="manabaseAnalysisService">Existing manabase analysis service.</param>
-    /// <param name="logger">Logger.</param>
-    /// <param name="gameChangerCatalogService">Warm-cached Game Changer catalog service.</param>
+    /// <summary>Creates the configuration analysis service for existing callers.</summary>
     public ConfigurationAnalysisService(
         IDeckModulesPageService pageService,
         IManabaseAnalysisService manabaseAnalysisService,
         ILogger<ConfigurationAnalysisService> logger,
         IGameChangerCatalogService gameChangerCatalogService)
+        : this(pageService, manabaseAnalysisService, new AnalysisWarningAttributionService(), logger, gameChangerCatalogService)
+    {
+    }
+
+    /// <summary>Creates the configuration analysis service.</summary>
+    /// <param name="pageService">Deck Modules compilation service.</param>
+    /// <param name="manabaseAnalysisService">Existing manabase analysis service.</param>
+    /// <param name="warningAttributionService">Warning attribution service.</param>
+    /// <param name="logger">Logger.</param>
+    /// <param name="gameChangerCatalogService">Warm-cached Game Changer catalog service.</param>
+    public ConfigurationAnalysisService(
+        IDeckModulesPageService pageService,
+        IManabaseAnalysisService manabaseAnalysisService,
+        IAnalysisWarningAttributionService warningAttributionService,
+        ILogger<ConfigurationAnalysisService> logger,
+        IGameChangerCatalogService gameChangerCatalogService)
     {
         ArgumentNullException.ThrowIfNull(pageService);
         ArgumentNullException.ThrowIfNull(manabaseAnalysisService);
+        ArgumentNullException.ThrowIfNull(warningAttributionService);
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(gameChangerCatalogService);
         _pageService = pageService;
         _manabaseAnalysisService = manabaseAnalysisService;
+        _warningAttributionService = warningAttributionService;
         _logger = logger;
         _gameChangerCatalogService = gameChangerCatalogService;
     }
@@ -117,17 +132,10 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
 
         var report = analysisResult.Report;
         var hardToCastCount = report.Castability.Count(row => !row.IsCommander && row.CastPercent < ConfigurationAnalysisResult.HardToCastCastPercentThreshold);
-        var colorSources = report.ColorFindings
-            .Select(finding => new ConfigurationColorSourceRow
-            {
-                Color = finding.Color.ToString(),
-                DisplayColor = finding.IsSpecialCategory ? finding.DisplayColor : finding.Color.ToString(),
-                ActualSources = finding.ActualSources,
-                RequiredSources = finding.RequiredSources,
-                Deficit = finding.Deficit,
-                DrivingSpell = finding.DrivingSpell,
-            })
-            .ToArray();
+        var attributedFindings = _warningAttributionService.AttributeFindings(
+            report.ColorFindings,
+            compilation.SwapPlan,
+            ConfigurationModuleMap.Build(request.Configuration));
 
         var selectedAlternative = request.Configuration.Alternatives.FirstOrDefault(
             alternative => alternative.Id == request.Configuration.SelectedAlternativeId);
@@ -145,7 +153,7 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
             Health = report.Health.ToString(),
             RampSourceCount = report.RampSourceCount,
             HardToCastCount = hardToCastCount,
-            ColorSources = colorSources,
+            AttributedFindings = attributedFindings,
             UnresolvedCardNames = analysisResult.Unresolved,
             IsCoreOnly = isCoreOnly,
             AnalysisNotice = isCoreOnly

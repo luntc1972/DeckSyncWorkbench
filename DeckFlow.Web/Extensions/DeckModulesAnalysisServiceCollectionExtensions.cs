@@ -11,6 +11,7 @@ public static class DeckModulesAnalysisServiceCollectionExtensions
     public static IServiceCollection AddDeckFlowDeckModulesAnalysisServices(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+        services.AddScoped<IAnalysisWarningAttributionService, AnalysisWarningAttributionService>();
         services.AddScoped<IConfigurationAnalysisService, ConfigurationAnalysisService>();
         return services;
     }
