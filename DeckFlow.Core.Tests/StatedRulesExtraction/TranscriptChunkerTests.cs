@@ -24,9 +24,13 @@ public sealed class TranscriptChunkerTests
         IReadOnlyList<string> chunks = TranscriptChunker.Chunk(transcript);
 
         Assert.True(chunks.Count > 1);
+        // Why (CR-03): only the first chunk is guaranteed to start with a marker — the transcript
+        // itself starts with one. Later chunks correctly lead with the previous chunk's
+        // chronologically-earlier overlap tail (no marker of its own), so only "contains a marker"
+        // is a universal guarantee; "starts with a marker" is not.
+        Assert.Matches("^\\[\\d{2}:\\d{2}\\]", chunks[0]);
         foreach (string chunk in chunks)
         {
-            Assert.Matches("^\\[\\d{2}:\\d{2}\\]", chunk);
             Assert.DoesNotContain("segment 20 sentence 10 [", chunk, StringComparison.Ordinal);
             Assert.True(TranscriptChunker.CountTimestampMarkers(chunk) >= 1);
         }
@@ -43,6 +47,11 @@ public sealed class TranscriptChunkerTests
         for (int index = 1; index < chunks.Count; index++)
         {
             string overlap = TranscriptChunker.GetTrailingSentencesForTests(chunks[index - 1], TranscriptChunker.OverlapSentences);
+            Assert.Contains(overlap, chunks[index], StringComparison.Ordinal);
+
+            // Why (CR-03): the overlap is the PREVIOUS chunk's chronologically-earlier tail, so it
+            // must LEAD the new chunk — not just appear somewhere inside it — or the [mm:ss]
+            // markers handed to the stated-rules extractor are out of chronological order.
             Assert.StartsWith(overlap, chunks[index], StringComparison.Ordinal);
         }
     }

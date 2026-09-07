@@ -115,6 +115,8 @@ public static partial class TranscriptChunker
         ref int currentWords,
         ref string? pendingOverlap)
     {
+        // Why (CR-03): the overlap is the PREVIOUS chunk's tail, so it must lead the new chunk to
+        // keep the chunk's [mm:ss] markers in chronological order for the stated-rules extractor.
         if (!string.IsNullOrWhiteSpace(pendingOverlap))
         {
             currentSegments.Add(pendingOverlap);
