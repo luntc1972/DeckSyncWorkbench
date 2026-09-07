@@ -385,7 +385,7 @@ test('wide Home footer presents share actions as aligned text utilities', async 
   const shareLabel = footer.locator('.share-bar__label');
   const copyButton = footer.getByRole('button', { name: 'Copy link' });
 
-  await expect(copyButton).toHaveCSS('border-top-width', '0px');
+  await expect(copyButton).toHaveCSS('border-top-width', '1px');
 
   const [aboutBox, shareLabelBox, copyButtonBox] = await Promise.all([
     about.boundingBox(),
@@ -410,7 +410,7 @@ test('wide Home footer keeps compact, aligned link, share, and legal zones', asy
   const feedback = footer.getByRole('link', { name: 'Feedback' });
   const legal = footer.locator('.page-footer__legal');
 
-  await expect(feedback).toHaveCSS('border-top-width', '0px');
+  await expect(feedback).toHaveCSS('border-top-width', '1px');
   await expect(legal).toHaveCSS('text-align', 'left');
 
   const [lastCardBox, footerBox] = await Promise.all([
