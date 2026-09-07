@@ -1994,7 +1994,8 @@ internal static class RoleFloorResearchCommandRunner
             .Where(role => string.Equals(goNoGo[role].JsonStatus, status, StringComparison.Ordinal))
             .ToArray();
 
-    private static string BuildProtectionUnderDetectionNotice(
+    // Why: this seam is internal so DeckFlow.Core.Tests can exercise the real CLI disclosure through the existing InternalsVisibleTo, matching the project rule that CLI additions carry Core test coverage.
+    internal static string BuildProtectionUnderDetectionNotice(
         bool includeHeading = true,
         bool includeHistoryPointer = true)
     {
