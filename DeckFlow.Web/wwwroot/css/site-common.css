@@ -1410,8 +1410,7 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
 .feedback-banner--success { background: rgba(76, 175, 80, 0.15); border: 1px solid rgba(76, 175, 80, 0.4); }
 .feedback-honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
-/* ============================================================
-   Card Lookup readability redesign (shared across all themes)
+/* =====================================================   Card Lookup readability redesign (shared across all themes)
    Layout + accordion + icon copy buttons + auto-grow pre.
    Uses theme CSS variables for palette so it works under every theme.
    ============================================================ */
@@ -2194,8 +2193,7 @@ details.prompt-helper-panel > summary:focus-visible {
   }
 }
 
-/* ============================================================
-   F4 — Typography weight/letter-spacing hierarchy (48-02).
+/* =====================================================   F4 — Typography weight/letter-spacing hierarchy (48-02).
    Three tiers — display heading / section label / body — using the
    existing system font stack only. No new font-family introduced.
    ============================================================ */
@@ -2224,8 +2222,7 @@ label.field > span,
   letter-spacing: 0.02em;
 }
 
-/* ============================================================
-   F1 — Hub icon classes (48-02: inline-SVG icon affordance)
+/* =====================================================   F1 — Hub icon classes (48-02: inline-SVG icon affordance)
    Icons are decorative: aria-hidden="true" on every <svg>.
    color: var(--accent) so icons inherit the theme accent color.
    ============================================================ */
@@ -2260,8 +2257,7 @@ label.field > span,
   display: block;
 }
 
-/* ============================================================
-   F6 + F7 — Short-form page cap/center + example panel (48-02).
+/* =====================================================   F6 + F7 — Short-form page cap/center + example panel (48-02).
    .short-form: optional wrapper for short tool pages to cap the
    content column and prevent a wide empty band on large viewports.
    .short-form-footer: closing example/next-step panel (F7 empty-state).
@@ -3897,8 +3893,7 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   }
 }
 
-/* ===========================================================================
-   Print — tool results to paper
+/* ====================================================================   Print — tool results to paper
    Strips site chrome and page inputs, leaving only the rendered result panel on
    each tool that opts in with `data-print-region` (deck-analysis, deck-comparison,
    cedh-meta-gap, manabase). Fired by each tool's "Print results" button
@@ -6026,3 +6021,220 @@ pre {
 .cutlab-progress__round {
   opacity: 0.85;
 }
+/* Deck Modules: shared responsive layout for all guild themes. */
+.deck-modules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.deck-modules > h1,
+.deck-modules > p,
+.deck-modules > form,
+.deck-modules > [data-deck-modules-live],
+.deck-modules > [data-deck-modules-error],
+.deck-modules > [data-deck-modules-notice],
+.deck-modules > [data-deck-modules-reconciliation],
+.deck-modules > [data-deck-modules-balance],
+.deck-modules__configuration,
+.deck-modules__command-zone,
+.deck-modules__report {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+}
+
+.deck-modules__panel,
+.deck-modules > form {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft-bg, var(--panel));
+}
+
+.deck-modules > form,
+.deck-modules__configuration {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.35fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem 0.85rem;
+}
+
+.deck-modules > form > label,
+.deck-modules > form > textarea,
+.deck-modules > form > button,
+.deck-modules__configuration > button,
+.deck-modules__configuration > p,
+.deck-modules__configuration > [data-deck-modules-alternatives] {
+  grid-column: 1 / -1;
+}
+
+.deck-modules textarea,
+.deck-modules input:not([type="checkbox"]),
+.deck-modules select {
+  inline-size: 100%;
+  box-sizing: border-box;
+}
+
+.deck-modules > form textarea {
+  min-block-size: 7rem;
+}
+
+.deck-modules__assignment {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.deck-modules__assignment h2,
+.deck-modules__report h2 {
+  margin-top: 0;
+}
+
+.deck-modules__entries {
+  display: block;
+  max-inline-size: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.deck-modules__entries th,
+.deck-modules__entries td {
+  white-space: nowrap;
+}
+
+.deck-modules [data-deck-modules-error]:not(:empty),
+.deck-modules [data-deck-modules-balance]:not(:empty),
+.deck-modules [data-deck-modules-reconciliation]:not(:empty) {
+  padding: 0.65rem 0.8rem;
+  border-inline-start: 4px solid var(--ink);
+  background: var(--panel-soft-bg, var(--panel));
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.deck-modules__report [data-deck-modules-compiled],
+.deck-modules__report [data-deck-modules-swap] {
+  max-block-size: 16rem;
+  overflow: auto;
+  padding-inline-start: 1.25rem;
+}
+
+.deck-modules [data-deck-modules-alternatives] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.deck-modules > button {
+  min-inline-size: 0;
+}
+
+@media (max-width: 760px) {
+  .deck-modules {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.8rem;
+  }
+
+  .deck-modules > *,
+  .deck-modules__configuration,
+  .deck-modules__command-zone,
+  .deck-modules__report {
+    grid-column: 1;
+  }
+
+  .deck-modules > form,
+  .deck-modules__configuration {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .deck-modules__assignment {
+    counter-increment: deck-modules-step;
+    scroll-margin-top: 1rem;
+  }
+
+  .deck-modules__assignment::before {
+    content: "Assignment step " counter(deck-modules-step) " of 4";
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .deck-modules {
+    counter-reset: deck-modules-step;
+  }
+
+  .deck-modules button,
+  .deck-modules input:not([type="checkbox"]),
+  .deck-modules select {
+    min-block-size: 44px;
+  }
+}
+
+/* Phase 3: deck-modules analysis */
+/* Why: --warning is a background/surface token in the guild themes, not a foreground one; using
+   it as `color:` renders near-invisible text. --gold-warning is the established foreground
+   token for warning text elsewhere in this file (see line 2853), with --warning only as its
+   last-resort fallback. See CR-04. */
+.deck-modules__analysis [data-deck-modules-analysis-stale],
+.deck-modules__analysis-notice {
+  color: var(--gold-warning, var(--warning, #c8a040));
+  font-weight: 700;
+}
+
+.deck-modules__handoff {
+  display: inline-block;
+  margin-block-start: 1rem;
+}
+
+.deck-modules__handoff-note {
+  color: var(--muted-text, currentColor);
+  font-size: 0.875em;
+}
+
+.deck-modules__cause--named {
+  display: block;
+  font-weight: 700;
+}
+
+.deck-modules__cause--inferred {
+  display: block;
+  font-size: 0.875em;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.deck-modules__signals {
+  margin-top: 1rem;
+}
+
+.deck-modules__signals ul {
+  margin: 0.5rem 0;
+}
+
+.deck-modules__signals table {
+  margin: 0.5rem 0;
+}
+
+.deck-modules__disclosure {
+  margin-block-start: 1rem;
+}
+
+.deck-modules__disclosure p {
+  margin: 0.5rem 0;
+}
+
+.deck-modules__comparison table {
+  min-width: 390px;
+}
+
+.deck-modules__comparison th,
+.deck-modules__comparison td {
+  min-width: 9rem;
+  vertical-align: top;
+}
+/* end Phase 3: deck-modules analysis */

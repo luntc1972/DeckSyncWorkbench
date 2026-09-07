@@ -426,7 +426,8 @@ public sealed class ManabaseBracketResolutionTests
             new StubCardSearchService(),
             featureFlags ?? new FakeFeatureFlagCache(),
             bracketClassificationService ?? new FakeBracketClassificationService(),
-            NullLogger<ManabaseController>.Instance)
+            NullLogger<ManabaseController>.Instance,
+            new PacketSessionCache())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };

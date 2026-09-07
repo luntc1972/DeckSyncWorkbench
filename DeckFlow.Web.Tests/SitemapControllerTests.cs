@@ -161,7 +161,7 @@ public sealed class SitemapControllerTests
         var urls = GetSitemapUrls(CreateController(helpContent: helpContent));
 
         var topics = helpContent.GetAll();
-        Assert.Equal(18, topics.Count);
+        Assert.Equal(19, topics.Count);
         Assert.All(topics, topic => Assert.Contains($"https://deckflow.test/help/{topic.Slug}", urls));
     }
 

@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { getToolEnabled, setToolEnabled } from './support/admin-tools';
 import { clickManabasePillRadio } from './support/manabase-pill';
+import { uiDesignDir } from './support/ui-design-dir';
 
 // Live smoke spec for the /bracket Bracket Check tool (flag-gated, tool.bracket.enabled).
 //
@@ -28,9 +28,8 @@ import { resolveE2EPort } from './support/e2e-port';
 
 const baseUrl = `http://localhost:${resolveE2EPort()}`;
 
-// Why: __dirname is DeckFlow.Web/e2e → resolve up 2 levels for the repo root, then into
-// .planning/ui-design/cycle13/screenshots/ where Phase 75 screenshots already live.
-const screenshotDir = resolve(__dirname, '../../.planning/ui-design/cycle13/screenshots');
+// Why: "cycle13" names the artifact area; the Phase 75 screenshots for this spec live there.
+const screenshotDir = uiDesignDir('cycle13');
 
 // A high-power Commander deck that classifies above B3 (→ B4) via:
 //   - 5 Game Changers (Force of Will, Cyclonic Rift, Demonic Tutor, Vampiric Tutor, Necropotence)
@@ -190,8 +189,6 @@ test('POST classifies a high-power deck and renders badge / reasons / violations
 test('captures screenshots across Classic / Azorius / Nyx at the current project viewport', async ({
   page,
 }) => {
-  mkdirSync(screenshotDir, { recursive: true });
-
   const projectName = test.info().project.name;
 
   for (const theme of themes) {

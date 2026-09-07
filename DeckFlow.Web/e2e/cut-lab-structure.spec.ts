@@ -1,15 +1,15 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
+import { uiDesignDir } from './support/ui-design-dir';
 
 import { resolveE2EPort } from './support/e2e-port';
 
 const baseUrl = `http://localhost:${resolveE2EPort()}`;
-const screenshotDir = resolve(__dirname, '../../.planning/ui-design/cut-lab/screenshots');
+const screenshotDir = uiDesignDir('cut-lab');
 
 const themes = [
   { name: 'classic', cookie: 'site.css' },
@@ -471,8 +471,6 @@ test('submits the accept form through the no-JS fallback and re-renders with the
 });
 
 test('captures the structure screenshot matrix across themes and viewports', async ({ page }) => {
-  mkdirSync(screenshotDir, { recursive: true });
-
   for (const viewport of viewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
 

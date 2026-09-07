@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Models.DeckModules;
 
 namespace DeckFlow.Web.Services;
 
@@ -140,6 +141,14 @@ public sealed class PacketSessionCache
 /// </summary>
 internal static class PacketSizeEstimator
 {
+    // WR-03: ManabaseHandoffPayload.Result is the whole ManabaseAnalysisResult -- the full
+    // castability table, every colour finding, tap analysis, mulligan evaluation, and
+    // AnalyzedSpells, each with its own nested collections. A hand-summed field list drifted
+    // every time a new field was added to that deep object graph (that is what caused this
+    // estimator to under-count). Serializing to UTF-8 JSON (the same technique
+    // PacketSessionCache.ComputeKey already uses) tracks the object graph automatically.
+    private static readonly JsonSerializerOptions SizeEstimationJsonOptions = new() { WriteIndented = false };
+
     public static int EstimateSizeBytes(DeckAnalysisPacketResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
@@ -183,6 +192,29 @@ internal static class PacketSizeEstimator
             + (result.SchemaJson?.Length ?? 0)
             + (result.RequestContextText?.Length ?? 0)
             + (result.DecklistText?.Length ?? 0);
+    }
+
+    public static int EstimateSizeBytes(ConfigurationAnalysisResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        // WR-03 hit this estimator twice as a hand-summed field list (once missing the Declared
+        // disclosure block entirely): every new field on this deep, JSON-round-trippable result
+        // silently drops back out of the size accounting until the next bug report. Serializing
+        // the whole result (same technique as EstimateSizeBytes(ManabaseHandoffPayload) below)
+        // tracks the object graph automatically instead of patching this list again next time.
+        return JsonSerializer.SerializeToUtf8Bytes(result, SizeEstimationJsonOptions).Length;
+    }
+
+    /// <summary>Estimates the cache footprint of a short-lived mana-base handoff payload.</summary>
+    public static int EstimateSizeBytes(ManabaseHandoffPayload result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        // The stored payload's dominant cost is result.Result (the full ManabaseAnalysisResult,
+        // including the castability table and AnalyzedSpells); serialize the whole payload so no
+        // future field addition silently drops back out of the size accounting.
+        return JsonSerializer.SerializeToUtf8Bytes(result, SizeEstimationJsonOptions).Length;
     }
 }
 

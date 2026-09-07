@@ -1,0 +1,62 @@
+using DeckFlow.Core.Manabase;
+using DeckFlow.Core.Modular;
+using DeckFlow.Core.Normalization;
+using DeckFlow.Web.Models.DeckModules;
+
+namespace DeckFlow.Web.Services.Modular;
+
+/// <summary>Attributes warnings using direct swap evidence before module-membership inference.</summary>
+public sealed class AnalysisWarningAttributionService : IAnalysisWarningAttributionService
+{
+    /// <inheritdoc />
+    public IReadOnlyList<ConfigurationAttributedFinding> AttributeFindings(IReadOnlyList<ColorSourceFinding> findings, ModularDeckSwapPlan swapPlan, ConfigurationModuleMap moduleMap)
+    {
+        ArgumentNullException.ThrowIfNull(findings);
+        ArgumentNullException.ThrowIfNull(swapPlan);
+        ArgumentNullException.ThrowIfNull(moduleMap);
+
+        // Why: ModularDeckCompiler groups swap entries with OrdinalIgnoreCase
+        // (ModularDeckCompiler.cs:189,251), and CardNormalizer.Normalize collapses split cards at
+        // " / " so two distinct split-card names can share a normalized key. An unguarded
+        // ToDictionary with a mismatched comparer threw ArgumentException on any add/remove
+        // collision, an unhandled 500 on the analyze endpoint (WR-04). Use the same comparer the
+        // compiler used to build the plan, and let the first writer win on a collision.
+        var swaps = new Dictionary<string, ModularDeckSwapEntry>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in swapPlan.ToAdd.Concat(swapPlan.ToRemove))
+        {
+            swaps.TryAdd(entry.NormalizedName, entry);
+        }
+
+        return findings.Select(finding => AttributeFinding(finding, swaps, moduleMap)).ToArray();
+    }
+
+    private static ConfigurationAttributedFinding AttributeFinding(ColorSourceFinding finding, IReadOnlyDictionary<string, ModularDeckSwapEntry> swaps, ConfigurationModuleMap moduleMap)
+    {
+        if (TryFindSwap(finding.DrivingSpell, swaps, out var swap) || TryFindSwap(finding.WorstSpell, swaps, out swap))
+        {
+            return CreateFinding(finding) with { AttributedCard = swap.Name, SwapDirection = swap.Action == ModularDeckSwapAction.Add ? "added" : "removed", Strength = ConfigurationAttributionStrength.NamedCard };
+        }
+
+        if (moduleMap.TryResolve(finding.DrivingSpell, out var kind, out var module))
+        {
+            return CreateFinding(finding) with { AttributedModule = module, AttributedModuleKind = kind, Strength = ConfigurationAttributionStrength.ModuleMembership };
+        }
+
+        return CreateFinding(finding);
+    }
+
+    private static bool TryFindSwap(string cardName, IReadOnlyDictionary<string, ModularDeckSwapEntry> swaps, out ModularDeckSwapEntry entry)
+        => swaps.TryGetValue(CardNormalizer.Normalize(cardName), out entry!);
+
+    private static ConfigurationAttributedFinding CreateFinding(ColorSourceFinding finding) => new()
+    {
+        Color = finding.Color.ToString(),
+        DisplayColor = finding.IsSpecialCategory ? finding.DisplayColor : finding.Color.ToString(),
+        ActualSources = finding.ActualSources,
+        RequiredSources = finding.RequiredSources,
+        Deficit = finding.Deficit,
+        DrivingSpell = finding.DrivingSpell,
+        NeedsMoreSources = finding.NeedsMoreSources,
+        Strength = ConfigurationAttributionStrength.None,
+    };
+}

@@ -17,6 +17,9 @@ public sealed class ManabaseViewModel
     /// <summary>User-facing error message, or null when the request succeeded.</summary>
     public string? ErrorMessage { get; init; }
 
+    /// <summary>User-facing informational notice, or null when none applies.</summary>
+    public string? NoticeMessage { get; init; }
+
     /// <summary>The computed report, or null before a successful analysis.</summary>
     public ManabaseReport? Report { get; init; }
 

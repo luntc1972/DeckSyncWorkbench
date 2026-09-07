@@ -28,6 +28,11 @@
     @Model.ErrorMessage
 </div>
 
+@if (!string.IsNullOrWhiteSpace(Model.NoticeMessage))
+{
+    <p class="form-hint">@Model.NoticeMessage</p>
+}
+
 <form method="post" action="@Url.Content("~/manabase")" class="result-panel"
       data-cache-key="manabase"
       data-busy-title="Analyzing mana base"

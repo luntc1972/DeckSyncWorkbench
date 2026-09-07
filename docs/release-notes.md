@@ -20,6 +20,21 @@ Card classification, affecting Mana Base and Deck Analysis:
   Mana Base's interaction read and 10 to the interaction audit's protection bucket; no card was
   removed.
 
+### 2026.09.1 — Deck Modules (Modular Deck Compiler)
+
+New tool (behind `tool.deck-modules.enabled`, seeded OFF):
+- **Deck Modules** (`/deck-modules`): import one baseline Commander deck, keep its legal command
+  zone fixed, and manually assign the rest of the pool to a shared Core plus 2-4 named strategy
+  alternatives with linked mana support. Selecting one alternative compiles it into a single
+  100-card configuration with legality diagnostics and an exact IN/OUT/reset swap checklist,
+  in-process with no network calls during compile.
+- **Per-configuration analysis**: mana-base and interaction/signal deltas against the existing Mana
+  Base and Bracket/Game Changer math, a two-up comparison table between compiled configurations, and
+  a short-lived handoff link that opens the full Mana Base report already populated with the
+  compiled decklist.
+- Session-only by design: no saved project, share link, or collaboration surface anywhere in the
+  stack.
+
 ### 2026.08.1 — UI & SEO Polish, Scryfall Cache Consolidation (2026-08-28)
 
 Scryfall reliability (internal, dark behind `service.scryfall-collection-cache.enabled`):

@@ -1,14 +1,15 @@
 import { expect, test } from '@playwright/test';
-import { mkdirSync, mkdtempSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { mkdtempSync } from 'node:fs';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
+import { uiDesignDir } from './support/ui-design-dir';
 
 import { resolveE2EPort } from './support/e2e-port';
 
 const baseUrl = `http://localhost:${resolveE2EPort()}`;
-const screenshotDir = resolve(__dirname, '../../.planning/ui-design/deck-history/screenshots');
+const screenshotDir = uiDesignDir('deck-history');
 
 const DECK_V1 = [
   'Commander',
@@ -83,8 +84,6 @@ test('/deck-history renders the form when the flag is ON', async ({ page }) => {
 test('creates history, intercepts download, appends a second version, and captures screenshots across themes', async ({
   page,
 }) => {
-  mkdirSync(screenshotDir, { recursive: true });
-
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 
   const projectName = test.info().project.name;

@@ -47,6 +47,8 @@ public static class FeatureFlagCatalog
             ["analysis.cut-lab.proven-equivalence"] =
                 "Disclosure-only deterministic Cut Lab evidence for complete distinct-card semantic profiles. " +
                 "NOT YET WIRED -- no runtime path reads this flag; toggling it currently has no effect. Seeded OFF.",
+            ["tool.deck-modules.enabled"] =
+                "Deck Modules tool: import one baseline deck, manually assign 2-4 named strategy alternatives with linked mana support, and compile a complete 100-card configuration with legality diagnostics and an exact swap/reset checklist. Session-scoped only, no saved projects. Seeded OFF.",
             ["service.scryfall-collection-cache.enabled"] =
                 "Cache individual Scryfall cards/collection results in process memory (24h TTL). Off makes every lookup hit Scryfall as before. Seeded OFF.",
             ["tool.card-lookup.enabled"] =

@@ -54,6 +54,7 @@ public static class SeoPaths
         new("/bracket", true, SeoPageKind.Tool),
         new("/deck-history", true, SeoPageKind.Tool),
         new("/cut-lab", true, SeoPageKind.Tool),
+        new("/deck-modules", true, SeoPageKind.Tool),
         new("/content-kb", false, SeoPageKind.Tool),
         new("/deckflow-bridge", true, SeoPageKind.Utility),
         new("/help", true, SeoPageKind.Static),

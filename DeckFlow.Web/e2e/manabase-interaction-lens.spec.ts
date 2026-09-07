@@ -1,12 +1,12 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { clickManabasePillRadio } from './support/manabase-pill';
+import { uiDesignDir } from './support/ui-design-dir';
 
 import { resolveE2EPort } from './support/e2e-port';
 
 const baseUrl = `http://localhost:${resolveE2EPort()}`;
-const screenshotDir = resolve(__dirname, '../../.planning/ui-design/mbgap-09/screenshots');
+const screenshotDir = uiDesignDir('mbgap-09');
 
 const themes = [
   { name: 'classic', cookie: 'site.css' },
@@ -146,8 +146,6 @@ test('Casual mode omits the early-interaction lens', async ({ page }) => {
 
 test('captures desktop/mobile screenshots for a light and dark theme', async ({ page, baseURL }) => {
   await applyProjectViewport(page);
-  mkdirSync(screenshotDir, { recursive: true });
-
   for (const theme of themes) {
     await setTheme(page, theme.cookie, baseURL);
 

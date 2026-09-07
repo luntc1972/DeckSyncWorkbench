@@ -1,15 +1,15 @@
 import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
+import { uiDesignDir } from './support/ui-design-dir';
 
 import { resolveE2EPort } from './support/e2e-port';
 
 const baseUrl = `http://localhost:${resolveE2EPort()}`;
-const screenshotDir = resolve(__dirname, '../../.planning/ui-design/cut-lab/screenshots');
+const screenshotDir = uiDesignDir('cut-lab');
 const desktopViewport = { width: 1280, height: 900 };
 // 2200px left no scrollable headroom below nav.cutlab-anchor-nav for the position:sticky assertion.
 const mobileViewport = { width: 430, height: 932 };
@@ -236,7 +236,6 @@ test.afterEach(async () => {
 });
 
 test('captures cross-theme mobile chrome coverage for Cut Lab navigation and disclosures', async ({ page }) => {
-  mkdirSync(screenshotDir, { recursive: true });
   await page.setViewportSize(mobileViewport);
 
   for (const theme of themes) {
@@ -321,8 +320,6 @@ test('captures cross-theme mobile chrome coverage for Cut Lab navigation and dis
 });
 
 test('captures Lock your pool review screenshots across themes at desktop and mobile', async ({ page }) => {
-  mkdirSync(screenshotDir, { recursive: true });
-
   for (const theme of themes) {
     for (const viewport of [
       { name: 'desktop', size: desktopViewport },

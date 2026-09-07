@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Manabase;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -221,7 +222,8 @@ public sealed class ManabaseControllerModeTests
             cardSearchService ?? new StubCardSearchService(),
             new FakeFeatureFlagCache(),
             new FakeBracketClassificationService(),
-            NullLogger<ManabaseController>.Instance)
+            NullLogger<ManabaseController>.Instance,
+            new PacketSessionCache())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };
