@@ -91,6 +91,36 @@ public sealed class ConfigurationSignalSummaryTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_ProfileWithoutADeclaredRange_SkipsDisclosureInsteadOfThrowing()
+    {
+        // WR-05: DeclaredProfileRanges[...] was an unguarded indexer over a hand-maintained
+        // dictionary, safe only because DeckModulesPageService.ValidateAlternative runs
+        // Enum.IsDefined first -- an implicit, undocumented coupling this test bypasses via the
+        // stub page service, the same way a newly added enum member with no matching range entry
+        // would in production.
+        var service = CreateService(new FakeManabaseAnalysisService(), [Entry("Commander")], [Entry("Ordinary Card")]);
+
+        var result = await service.AnalyzeAsync(Request((DeckModulesProfile)99, "Plan"));
+
+        Assert.True(result.Succeeded);
+        Assert.Null(Assert.IsType<ConfigurationSignalSummary>(result.Value!.Signals).Declared);
+    }
+
+    [Fact]
+    public void DeclaredProfileRanges_CoversEveryDeckModulesProfileMember()
+    {
+        // Guards WR-05's root cause directly: every DeckModulesProfile enum member must have a
+        // matching entry in the hand-maintained DeclaredProfileRanges dictionary, or a future
+        // profile addition compiles clean and 500s at runtime.
+        var field = typeof(ConfigurationAnalysisService).GetField("DeclaredProfileRanges", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var ranges = Assert.IsAssignableFrom<System.Collections.IDictionary>(field!.GetValue(null));
+
+        var coveredProfiles = ranges.Keys.Cast<DeckModulesProfile>().ToHashSet();
+
+        Assert.Equal(Enum.GetValues<DeckModulesProfile>().ToHashSet(), coveredProfiles);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_DeclaredPlayPlan_PreservesExactPlayerText()
     {
         const string playPlan = "  A grindy — \"value\" plan  ";

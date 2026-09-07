@@ -97,21 +97,33 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
             alternative => alternative.Id == request.Configuration.SelectedAlternativeId);
         if (declaredAlternative is not null)
         {
-            var profileRange = DeclaredProfileRanges[declaredAlternative.Profile];
-            var profileDisagreementNote = signals.BracketNumber < profileRange.MinimumBracket
-                || signals.BracketNumber > profileRange.MaximumBracket
-                ? $"You declared {profileRange.DisplayLabel}; the bracket rubric reads this list as bracket {signals.BracketNumber}."
-                : null;
-            signals = signals with
+            // WR-05: DeclaredProfileRanges is a hand-maintained dictionary; the indexer was safe
+            // only because DeckModulesPageService.ValidateAlternative runs Enum.IsDefined first --
+            // an implicit, undocumented coupling across two files. Adding a profile to the enum
+            // without a matching range entry would compile clean and 500 at runtime.
+            if (!DeclaredProfileRanges.TryGetValue(declaredAlternative.Profile, out var profileRange))
             {
-                Declared = new ConfigurationDeclaredDisclosure
+                _logger.LogWarning(
+                    "No declared bracket range for profile {Profile}; skipping the declared-profile disclosure.",
+                    declaredAlternative.Profile);
+            }
+            else
+            {
+                var profileDisagreementNote = signals.BracketNumber < profileRange.MinimumBracket
+                    || signals.BracketNumber > profileRange.MaximumBracket
+                    ? $"You declared {profileRange.DisplayLabel}; the bracket rubric reads this list as bracket {signals.BracketNumber}."
+                    : null;
+                signals = signals with
                 {
-                    Profile = profileRange.DisplayLabel,
-                    PlayPlan = declaredAlternative.PlayPlan,
-                    IsDeclared = true,
-                    ProfileDisagreementNote = profileDisagreementNote,
-                },
-            };
+                    Declared = new ConfigurationDeclaredDisclosure
+                    {
+                        Profile = profileRange.DisplayLabel,
+                        PlayPlan = declaredAlternative.PlayPlan,
+                        IsDeclared = true,
+                        ProfileDisagreementNote = profileDisagreementNote,
+                    },
+                };
+            }
         }
         var decklistText = DeckModulesDecklistSerializer.BuildAnalysisDecklistText(compilation);
 
