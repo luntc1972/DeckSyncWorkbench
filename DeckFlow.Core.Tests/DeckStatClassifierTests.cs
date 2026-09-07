@@ -315,6 +315,39 @@ public sealed class DeckStatClassifierTests
     // Mother of Runes: singular "gains protection from" — the ROADMAP-named D-06 defect. This is
     // the plan's real Scryfall oracle text, quoted verbatim from 09.1-RESEARCH.md.
     [InlineData("Mother of Runes", "{T}: Target creature you control gains protection from the color of your choice until end of turn.", true)]
+    // -----------------------------------------------------------------------------------------
+    // 09.1-02 per-needle positive rows. Every row below uses an empty `name` argument (never a
+    // real card's name) so `StaxProtectionCatalog.IsProtection` — which is checked FIRST inside
+    // `IsProtectionCard` and always returns false for an empty/whitespace name — cannot be the
+    // reason the assertion passes. Each oracle string is quoted verbatim from the real Scryfall
+    // card named in the trailing comment (fetched from the same bulk archive plan `09.1-02` Task 1
+    // derived counts from), never hand-authored, per RESEARCH.md's "Don't Hand-Roll" table.
+    // -----------------------------------------------------------------------------------------
+    [InlineData("", "Target creature you control gets +2/+2 and gains hexproof until end of turn. (It can't be the target of spells or abilities your opponents control.)", true)] // Blossoming Defense — gains hexproof (singular)
+    [InlineData("", "Prevent all damage that would be dealt to creatures this turn. Creatures you control gain hexproof until end of turn. (They can't be the targets of spells or abilities your opponents control.)", true)] // Blinding Fog — gain hexproof (plural)
+    [InlineData("", "Target creature gets +2/+2 and gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)", true)] // Adamant Will — gains indestructible (singular)
+    [InlineData("", "Whenever you attack with this creature and/or your commander, for each opponent, create a 1/1 red Goblin creature token that's tapped and attacking that player.\nSacrifice this creature: Creature tokens you control gain indestructible until end of turn.", true)] // Ainok Strike Leader — gain indestructible (plural)
+    [InlineData("", "Lifelink\n{1}, Sacrifice this creature: Target creature or enchantment you control gains protection from the color of your choice until end of turn.", true)] // Alseid of Life's Bounty — gains protection from (singular)
+    [InlineData("", "Choose a color. White creatures you control gain protection from the chosen color until end of turn.", true)] // Brave the Elements — gain protection from (plural)
+    [InlineData("", "Double strike\nTeleport — {3}{W}: This creature phases out. (Treat it and anything attached to it as though they don't exist until your next turn.)", true)] // Blink Dog — phases out (singular)
+    [InlineData("", "Whenever this creature blocks or becomes blocked by a creature, this creature and that creature phase out. (While they're phased out, they're treated as though they don't exist. Each one phases in before its controller untaps during their next untap step.)", true)] // Dream Fighter — phase out (plural)
+    [InlineData("", "Enchant creature\nEnchanted creature has hexproof and can't be blocked by more than one creature.", true)] // Alpha Authority — has hexproof (Equipment/conditional status, singular)
+    [InlineData("", "Flash\nEnchant creature\nEnchanted creature has shroud. (It can't be the target of spells or abilities.)", true)] // Alexi's Cloak — has shroud (Equipment/conditional status, singular)
+    [InlineData("", "All Slivers have shroud. (They can't be the targets of spells or abilities.)", true)] // Crystalline Sliver — have shroud (Equipment/conditional status, plural)
+    [InlineData("", "Flying\n{S}{S}: This creature gains shroud until end of turn. ({S} can be paid with one mana from a snow source. A creature with shroud can't be the target of spells or abilities.)", true)] // Frost Raptor — gains shroud (temporary grant, singular)
+    [InlineData("", "You gain shroud until end of turn. (You can't be the target of spells or abilities.)\nCycling {2} ({2}, Discard this card: Draw a card.)", true)] // Gilded Light — gain shroud (temporary grant, plural)
+    [InlineData("", "Regenerate target creature.", true)] // Death Ward — regenerate target
+    [InlineData("", "Discard a card: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)", true)] // Patchwork Gnomes — regenerate this creature
+    [InlineData("", "Commander creatures you own get +3/+3 and have flying, deathtouch, \"Ward—Pay 3 life,\" and \"At the beginning of your upkeep, sacrifice a creature.\"", true)] // Cultist of the Absolute — ward—pay
+    // -----------------------------------------------------------------------------------------
+    // 09.1-02 ROADMAP-named misses (real card names, real oracle text) — genuine end-to-end
+    // coverage on top of the per-needle rows above. None of these four names is on
+    // StaxProtectionCatalog's curated list, so the assertion still exercises the needle table.
+    // -----------------------------------------------------------------------------------------
+    [InlineData("Swiftfoot Boots", "Equipped creature has hexproof and haste. (It can't be the target of spells or abilities your opponents control. It can attack and {T} no matter when it came under your control.)\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)", true)]
+    [InlineData("Lightning Greaves", "Equipped creature has haste and shroud. (It can't be the target of spells or abilities.)\nEquip {0}", true)]
+    [InlineData("Goblin Chirurgeon", "Sacrifice a Goblin: Regenerate target creature.", true)]
+    [InlineData("Hexing Squelcher", "This spell can't be countered.\nWard—Pay 2 life.\nSpells you control can't be countered.\nOther creatures you control have \"Ward—Pay 2 life.\"", true)]
     public void IsProtectionCard_TrueCases(string name, string oracleText, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsProtectionCard(name, oracleText));
@@ -322,9 +355,70 @@ public sealed class DeckStatClassifierTests
 
     [Theory]
     [InlineData("Lightning Bolt", "Deal 3 damage to any target.", false)]
+    // The five real "cannot be regenerated" removal spells named in this plan's objective —
+    // Success Criterion 4's bounded over-match family. Real Scryfall oracle text throughout.
+    [InlineData("Artifact Mutation", "Destroy target artifact. It can't be regenerated. Create X 1/1 green Saproling creature tokens, where X is that artifact's mana value.", false)]
+    [InlineData("Damn", "Destroy target creature. A creature destroyed this way can't be regenerated.\nOverload {2}{W}{W} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")", false)]
+    [InlineData("Damnation", "Destroy all creatures. They can't be regenerated.", false)]
+    [InlineData("Putrefy", "Destroy target artifact or creature. It can't be regenerated.", false)]
+    [InlineData("Terminate", "Destroy target creature. It can't be regenerated.", false)]
+    // A real, non-granting hexproof mention: Detection Tower strips hexproof FROM OPPONENTS so you
+    // can target it — the exact removal-enabler collision that got bare `have hexproof` rejected in
+    // docs/research/protection-vocabulary-corpus-2026-09.md. Unconditionally required by Criterion 4.
+    [InlineData("Detection Tower", "{T}: Add {C}.\n{1}, {T}: Until end of turn, your opponents and creatures your opponents control with hexproof can be the targets of spells and abilities you control as though they didn't have hexproof.", false)]
+    // A real, non-granting indestructible mention: Smite the Deathless strips indestructible from
+    // the target rather than granting it. Unconditionally required by Criterion 4.
+    [InlineData("Smite the Deathless", "Smite the Deathless deals 3 damage to target creature. That creature loses indestructible until end of turn. If that creature would die this turn, exile it instead.", false)]
     public void IsProtectionCard_FalseCases(string name, string oracleText, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsProtectionCard(name, oracleText));
+    }
+
+    // Why: Success Criterion 2 as a machine-checked invariant, not prose. This is the RATIFIED
+    // pairing rule from docs/research/protection-vocabulary-corpus-2026-09.md's "Ratified needles"
+    // table (plan 09.1-02 Task 1), expressed as a small test-owned list — NOT yet asserted against
+    // the live DeckStatClassifier.ProtectionOracleNeedles, which at RED time still holds only plan
+    // 09.1-01's five needles. Plan 09.1-02 Task 3 adds a second, separate assertion once the table
+    // is widened, projecting the real ProtectionOracleNeedles and asserting it exactly equals this
+    // list; that second assertion is what legitimately stays red until Task 3 lands. Regenerate and
+    // Ward are recorded with subject form "none" (no grammatically varying subject) and are excluded
+    // from the pairing rule by that value, not by a name-based exception list.
+    private static readonly IReadOnlyList<(string Effect, string SubjectForm)> RatifiedProtectionPairing =
+    [
+        ("hexproof", "singular"),       // gains hexproof
+        ("hexproof", "plural"),         // gain hexproof
+        ("hexproof", "singular"),       // has hexproof (Equipment/conditional status)
+        ("indestructible", "singular"), // gains indestructible
+        ("indestructible", "plural"),   // gain indestructible
+        ("protection-from", "singular"),// gains protection from
+        ("protection-from", "plural"),  // gain protection from
+        ("phase-out", "singular"),      // phases out
+        ("phase-out", "plural"),        // phase out
+        ("shroud", "singular"),         // has shroud (Equipment/conditional status)
+        ("shroud", "plural"),           // have shroud (Equipment/conditional status)
+        ("shroud", "singular"),         // gains shroud (temporary grant)
+        ("shroud", "plural"),           // gain shroud (temporary grant)
+        ("regenerate", "none"),         // regenerate target
+        ("regenerate", "none"),         // regenerate this creature
+        ("ward", "none"),               // ward—pay
+    ];
+
+    [Fact]
+    public void RatifiedProtectionPairing_EveryPairableEffectHasBothSubjectForms()
+    {
+        IEnumerable<string> pairableEffects = RatifiedProtectionPairing
+            .Where(entry => entry.SubjectForm != "none")
+            .Select(entry => entry.Effect)
+            .Distinct();
+
+        foreach (string effect in pairableEffects)
+        {
+            bool hasSingular = RatifiedProtectionPairing.Any(entry => entry.Effect == effect && entry.SubjectForm == "singular");
+            bool hasPlural = RatifiedProtectionPairing.Any(entry => entry.Effect == effect && entry.SubjectForm == "plural");
+
+            Assert.True(hasSingular, $"Effect '{effect}' has no singular-subject needle in the ratified pairing list.");
+            Assert.True(hasPlural, $"Effect '{effect}' has no plural-subject needle in the ratified pairing list.");
+        }
     }
 
     // Why: a needle that is listed in ProtectionOracleNeedles but unreachable through
