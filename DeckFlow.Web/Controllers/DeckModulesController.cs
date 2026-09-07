@@ -169,7 +169,7 @@ public sealed class DeckModulesController : DeckToolControllerBase
     /// <summary>Compares cached analyses for Deck Modules configurations.</summary>
     [HttpPost("/deck-modules/compare")]
     [FeatureFlagGate(FlagKey)]
-    public IActionResult Compare([FromBody] ConfigurationComparisonRequest? request, CancellationToken cancellationToken)
+    public IActionResult Compare([FromBody] ConfigurationComparisonRequest? request)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
         {

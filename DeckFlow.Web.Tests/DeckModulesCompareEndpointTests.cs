@@ -24,7 +24,7 @@ public sealed class DeckModulesCompareEndpointTests
         cache.Set("key-b", CreateAnalysis("alt-b"), PacketSizeEstimator.EstimateSizeBytes(CreateAnalysis("alt-b")));
         var controller = CreateController(cache);
 
-        var result = controller.Compare(CreateRequest(), CancellationToken.None);
+        var result = controller.Compare(CreateRequest());
 
         Assert.IsType<OkObjectResult>(result);
     }
@@ -34,7 +34,7 @@ public sealed class DeckModulesCompareEndpointTests
     {
         var controller = CreateController(new PacketSessionCache());
 
-        var result = controller.Compare(CreateRequest(), CancellationToken.None);
+        var result = controller.Compare(CreateRequest());
 
         var conflict = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
@@ -50,7 +50,7 @@ public sealed class DeckModulesCompareEndpointTests
         var controller = CreateController(cache);
         var request = CreateRequest(CreateAnalysis("alt-a"), CreateAnalysis("alt-b"));
 
-        var result = controller.Compare(request, CancellationToken.None);
+        var result = controller.Compare(request);
 
         Assert.IsType<OkObjectResult>(result);
     }
@@ -64,7 +64,7 @@ public sealed class DeckModulesCompareEndpointTests
         var controller = CreateController(cache);
         var request = CreateRequest(CreateAnalysis("alt-a"), CreateAnalysis("alt-b"));
 
-        controller.Compare(request, CancellationToken.None);
+        controller.Compare(request);
 
         Assert.False(cache.TryGet<ConfigurationAnalysisResult>("key-a", out _));
         Assert.False(cache.TryGet<ConfigurationAnalysisResult>("key-b", out _));
@@ -82,7 +82,7 @@ public sealed class DeckModulesCompareEndpointTests
             ReferenceConfigurationId = "alt-a",
         };
 
-        var result = controller.Compare(request, CancellationToken.None);
+        var result = controller.Compare(request);
 
         Assert.IsType<BadRequestObjectResult>(result);
     }
@@ -98,19 +98,19 @@ public sealed class DeckModulesCompareEndpointTests
         };
         var unknownReference = CreateRequest(CreateAnalysis("alt-a"), CreateAnalysis("alt-b")) with { ReferenceConfigurationId = "missing" };
 
-        Assert.IsType<BadRequestObjectResult>(controller.Compare(tooFewSides, CancellationToken.None));
-        Assert.IsType<BadRequestObjectResult>(controller.Compare(unknownReference, CancellationToken.None));
+        Assert.IsType<BadRequestObjectResult>(controller.Compare(tooFewSides));
+        Assert.IsType<BadRequestObjectResult>(controller.Compare(unknownReference));
     }
 
     [Fact]
     public void Compare_ReturnsBadRequestForbiddenAndHasFeatureGate_ForInvalidRequestContext()
     {
         var controller = CreateController(new PacketSessionCache());
-        Assert.IsType<BadRequestObjectResult>(controller.Compare(null, CancellationToken.None));
+        Assert.IsType<BadRequestObjectResult>(controller.Compare(null));
 
         controller.Request.Host = new HostString("deckflow.test");
         controller.Request.Headers.Origin = "https://evil.test";
-        var forbidden = Assert.IsType<ObjectResult>(controller.Compare(CreateRequest(), CancellationToken.None));
+        var forbidden = Assert.IsType<ObjectResult>(controller.Compare(CreateRequest()));
         Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
 
         var method = typeof(DeckModulesController).GetMethod(nameof(DeckModulesController.Compare));
@@ -126,7 +126,7 @@ public sealed class DeckModulesCompareEndpointTests
         var cache = new PacketSessionCache();
         cache.Set("key-a", CreateAnalysis("alt-a"), PacketSizeEstimator.EstimateSizeBytes(CreateAnalysis("alt-a")));
         cache.Set("key-b", CreateAnalysis("alt-b"), PacketSizeEstimator.EstimateSizeBytes(CreateAnalysis("alt-b")));
-        var response = Assert.IsType<OkObjectResult>(CreateController(cache).Compare(CreateRequest(), CancellationToken.None));
+        var response = Assert.IsType<OkObjectResult>(CreateController(cache).Compare(CreateRequest()));
 
         var names = response.Value!.GetType().GetProperties().Select(property => property.Name);
         Assert.DoesNotContain(names, name => name.Contains("prompt", StringComparison.OrdinalIgnoreCase) || name.Contains("schema", StringComparison.OrdinalIgnoreCase) || name.Contains("combo", StringComparison.OrdinalIgnoreCase));
