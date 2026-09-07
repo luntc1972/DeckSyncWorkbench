@@ -78,25 +78,3 @@ public sealed record ConfigurationAnalysisResult
     /// </summary>
     public string? AnalysisNotice { get; init; }
 }
-
-/// <summary>Legacy per-colour source finding row retained for advisory invariant tests.</summary>
-public sealed record ConfigurationColorSourceRow
-{
-    /// <summary>Gets the color examined, as a display string.</summary>
-    public required string Color { get; init; }
-
-    /// <summary>Gets the display label for this row.</summary>
-    public required string DisplayColor { get; init; }
-
-    /// <summary>Gets effective sources.</summary>
-    public required double ActualSources { get; init; }
-
-    /// <summary>Gets required sources.</summary>
-    public required int RequiredSources { get; init; }
-
-    /// <summary>Gets the required sources minus actual sources.</summary>
-    public required double Deficit { get; init; }
-
-    /// <summary>Gets the driving spell.</summary>
-    public required string DrivingSpell { get; init; }
-}

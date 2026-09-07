@@ -16,7 +16,7 @@ public sealed class DeckModulesAnalysisAdvisoryInvariantTests
     {
         var prohibitedNames = new[] { "IsValid", "IsLegal", "IsVerifiedLegal", "IsStructurallyValid" };
         var properties = typeof(ConfigurationAnalysisResult).GetProperties()
-            .Concat(typeof(ConfigurationColorSourceRow).GetProperties());
+            .Concat(typeof(ConfigurationAttributedFinding).GetProperties());
 
         Assert.DoesNotContain(properties, property => prohibitedNames.Contains(property.Name, StringComparer.Ordinal));
     }
