@@ -192,12 +192,35 @@ public sealed class ConfigurationSignalSummaryTests
         Assert.Empty(signals.InteractionsByModule);
     }
 
+    [Fact]
+    public async Task AnalyzeAsync_StructurallyInvalidCompilation_StillAnalysesButDisclosesTheCaveat()
+    {
+        // WR-06: Export refuses a structurally invalid compilation, but Analyze previously
+        // produced a confident Health/TargetLandCount/bracket with no caveat at all -- the only
+        // notice was the core-only one, which does not fire for Overlap/UnknownStrategy/etc.
+        // Analyze must stay advisory-only (D-22: no IsValid/IsStructurallyValid verdict on this
+        // record), so it still returns the numbers with the same caveat Export enforces.
+        var manabase = new FakeManabaseAnalysisService();
+        var service = new ConfigurationAnalysisService(
+            new StubDeckModulesPageService(Compilation([Entry("Commander")], [Entry("Ordinary Card")], isStructurallyValid: false)),
+            manabase,
+            NullLogger<ConfigurationAnalysisService>.Instance,
+            new StubGameChangerCatalogService());
+
+        var result = await service.AnalyzeAsync(Request());
+
+        Assert.True(result.Succeeded);
+        Assert.NotNull(result.Value!.AnalysisNotice);
+        Assert.Contains("not a legality verdict", result.Value.AnalysisNotice);
+        Assert.False(result.Value.IsCoreOnly);
+    }
+
     private static ConfigurationAnalysisService CreateService(FakeManabaseAnalysisService manabase, IReadOnlyList<DeckEntry> commandZone, IReadOnlyList<DeckEntry> mainboard)
         => new(new StubDeckModulesPageService(Compilation(commandZone, mainboard)), manabase, NullLogger<ConfigurationAnalysisService>.Instance, new StubGameChangerCatalogService());
 
-    private static DeckModulesCompilationViewModel Compilation(IReadOnlyList<DeckEntry> commandZone, IReadOnlyList<DeckEntry> mainboard) => new()
+    private static DeckModulesCompilationViewModel Compilation(IReadOnlyList<DeckEntry> commandZone, IReadOnlyList<DeckEntry> mainboard, bool isStructurallyValid = true) => new()
     {
-        IsStructurallyValid = true,
+        IsStructurallyValid = isStructurallyValid,
         IsVerifiedLegal = true,
         Diagnostics = [],
         SelectedStrategyId = "strategy",

@@ -179,9 +179,7 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
             AttributedFindings = attributedFindings,
             UnresolvedCardNames = analysisResult.Unresolved,
             IsCoreOnly = isCoreOnly,
-            AnalysisNotice = isCoreOnly
-                ? $"Analysed {compilation.TotalCardCount} cards — this configuration is missing its strategy module, so these numbers describe an incomplete deck and are not a legality verdict."
-                : null,
+            AnalysisNotice = BuildAnalysisNotice(compilation, isCoreOnly),
             Signals = signals,
             ManabaseHandoffPayload = new ManabaseHandoffPayload
             {
@@ -193,6 +191,30 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
         };
 
         return DeckModulesServiceResult<ConfigurationAnalysisResult>.Success(result);
+    }
+
+    /// <summary>
+    /// WR-06: Export refuses to ship a structurally invalid compilation
+    /// (<c>!compilation.IsStructurallyValid</c>), but Analyze previously proceeded regardless --
+    /// a build carrying Overlap/UnknownStrategy/MissingSelection/TotalCardCount diagnostics still
+    /// produced a confident Health, TargetLandCount, and bracket number with no caveat at all
+    /// (the only notice was the core-only one). Analyze stays advisory-only by design (D-22:
+    /// this record never carries an IsValid/IsStructurallyValid verdict), so it still returns the
+    /// numbers -- it now discloses the same caveat Export enforces instead of staying silent.
+    /// </summary>
+    private static string? BuildAnalysisNotice(DeckModulesCompilationViewModel compilation, bool isCoreOnly)
+    {
+        if (isCoreOnly)
+        {
+            return $"Analysed {compilation.TotalCardCount} cards — this configuration is missing its strategy module, so these numbers describe an incomplete deck and are not a legality verdict.";
+        }
+
+        if (!compilation.IsStructurallyValid)
+        {
+            return $"Analysed {compilation.TotalCardCount} cards — this compiled configuration has unresolved compilation diagnostics, so these numbers describe a build that isn't legal yet and are not a legality verdict.";
+        }
+
+        return null;
     }
 
     private static IReadOnlyList<ConfigurationModuleInteractionCount> BuildInteractionRows(
