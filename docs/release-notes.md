@@ -8,6 +8,18 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 
 ### Unreleased
 
+Cut Lab (internal, dark behind `tool.cut-lab.enabled`):
+- **Protection detection no longer depends on how a card happens to word the effect.** The card
+  classifier that decides whether a card counts as "protection" — for Cut Lab's interaction floor
+  and for the deck-analysis interaction audit — previously matched only four specific oracle-text
+  phrasings, and those four needles disagreed with each other on singular-vs-plural wording. That
+  meant cards like Swiftfoot Boots ("Equipped creature **has** hexproof and haste") and Mother of
+  Runes ("target creature you control **gains** protection from...") were missed outright, even
+  though both plainly grant protection. The vocabulary is now derived from the card corpus rather
+  than guessed, with matching verb agreement across every recognized effect — hexproof,
+  indestructible, protection-from, phase-out, shroud, regeneration, and ward. Cut Lab remains
+  behind its flag, so nothing here is visible to any user in production.
+
 ### 2026.08.1 — UI & SEO Polish, Scryfall Cache Consolidation (2026-08-28)
 
 Scryfall reliability (internal, dark behind `service.scryfall-collection-cache.enabled`):
