@@ -360,6 +360,17 @@ describe('DeckFlowDeckModules', () => {
         expect(fetchMock.mock.calls.filter(call => call[0] === '/deck-modules/compare')).toHaveLength(1);
     });
 
+    it('initialize_ComparisonNetworkFault_ShowsFailureMessageInsteadOfUnhandledRejection', async () => {
+        // WR-09: a network fault rejects postJson()'s fetch promise; without a catch, the
+        // rejection propagated out of `void compare()` as an unhandled promise rejection and the
+        // panel silently did nothing -- no message rendered at all.
+        const fetchMock = vi.fn().mockImplementation((url: string) => url === '/deck-modules/compare' ? Promise.reject(new TypeError('Failed to fetch')) : Promise.resolve({ ok: true, status: 200, json: async () => imported }));
+        vi.stubGlobal('fetch', fetchMock);
+        await prepareComparison();
+        document.querySelector<HTMLButtonElement>('[data-deck-modules-compare]')!.click();
+        await vi.waitFor(() => expect(document.querySelector<HTMLElement>('[data-deck-modules-comparison-message]')!.textContent).toBe('Configuration comparison failed.'));
+    });
+
     it('initialize_ComparisonAfterMoveInvalidatesSnapshots_PromptsToReanalyseInsteadOfRenderingStaleTable', async () => {
         // CR-05: comparisonAnalyses snapshots must be invalidated by the same mutations that mark
         // the single-configuration panel stale, or Compare silently posts and renders outdated
