@@ -306,6 +306,23 @@ describe('DeckFlowDeckModules', () => {
         expect(document.querySelector<HTMLElement>('[data-deck-modules-analysis]')!.hidden).toBe(false); expect(document.querySelector('[data-deck-modules-analysis-health]')!.textContent).toBe('Needs attention'); expect(document.querySelector<HTMLElement>('[data-deck-modules-analysis-stale]')!.hidden).toBe(false);
     });
 
+    it('initialize_MalformedRestoredProfileValue_DoesNotAbortRenderWithSyntaxError', () => {
+        // WR-13: alternative.profile round-trips through sessionStorage unvalidated. Building a
+        // dynamic attribute selector from it (`option[value="${...}"]`) let a value containing `"`
+        // throw a querySelector SyntaxError, aborting the rest of render() -- panels, balance
+        // state, and the comparison picker all stopped updating with no error surfaced.
+        window.sessionStorage.setItem('deckflow.deck-modules.v1', JSON.stringify({
+            version: 1, baselineToken: 'token', commandZone: [], baselineMainboardEntries: [{ name: 'Sol Ring', quantity: 1 }], unassignedEntries: [{ name: 'Sol Ring', quantity: 1 }], coreEntries: [],
+            alternatives: [{ id: 'a', name: 'Plan A', profile: 'Cedh"][malformed', playPlan: 'Win.', mainboardEntries: [], manaSupportName: 'Mana', manaSupportEntries: [] }],
+            selectedAlternativeId: 'a',
+        }));
+
+        expect(() => (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize()).not.toThrow();
+        // Panels rendered past the malformed-selector line rather than aborting.
+        expect(document.querySelector('[data-deck-modules-count="unassigned"]')!.textContent).toBe('1');
+        expect(document.querySelector<HTMLElement>('[data-deck-modules-summary-profile]')!.textContent).toBe('Cedh"][malformed');
+    });
+
     it('initialize_StoredDraftWithoutAnalysis_HidesAnalysisPanelWithoutThrowing', () => {
         window.sessionStorage.setItem('deckflow.deck-modules.v1', JSON.stringify({ version: 1, baselineToken: 'token', commandZone: [], baselineMainboardEntries: [], unassignedEntries: [], coreEntries: [], alternatives: [], selectedAlternativeId: '' }));
         expect(() => (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize()).not.toThrow(); expect(document.querySelector<HTMLElement>('[data-deck-modules-analysis]')!.hidden).toBe(true);
