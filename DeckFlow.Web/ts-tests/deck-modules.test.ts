@@ -96,6 +96,21 @@ describe('DeckFlowDeckModules', () => {
         expect((globalThis.DeckFlowDeckModules as DeckModulesApi).buildExportText(report)).toBe("== Command Zone ==\n1 Krenko's Command\n\n== Mainboard ==\n1 Sol Ring\n\nIN - +1 Sol Ring\nOUT - -1 Llanowar Elves\nRESET - -1 Arcane Signet\n");
     });
 
+    it('initialize_CalledTwiceOnTheSamePageElement_DoesNotDoubleRegisterListeners', async () => {
+        // WR-11: re-initializing against the same page element previously double-registered every
+        // listener (initializeWithHandoff also leaked a MutationObserver on top). A single click
+        // must fire its handler exactly once no matter how many times initialize() ran.
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize();
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize();
+        await importDraft();
+        document.querySelector<HTMLInputElement>('[data-deck-modules-name]')!.value = 'Plan A';
+        document.querySelector<HTMLSelectElement>('[data-deck-modules-profile]')!.value = 'Cedh';
+        document.querySelector<HTMLTextAreaElement>('[data-deck-modules-plan]')!.value = 'Win.';
+        document.querySelector<HTMLButtonElement>('[data-deck-modules-add-alternative]')!.click();
+        const stored = JSON.parse(window.sessionStorage.getItem('deckflow.deck-modules.v1')!);
+        expect(stored.alternatives).toHaveLength(1);
+    });
+
     it('initialize_AddAlternativeWithoutName_ReportsValidationError', async () => {
         (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); document.querySelector<HTMLTextAreaElement>('[data-deck-modules-plan]')!.value = 'Win with cards.'; document.querySelector<HTMLButtonElement>('[data-deck-modules-add-alternative]')!.click();
         expect(document.querySelector('[data-deck-modules-error]')!.textContent).toContain('Enter a baseline strategy name');
@@ -355,8 +370,7 @@ describe('DeckFlowDeckModules', () => {
         document.querySelector<HTMLInputElement>('[data-deck-modules-name]')!.value = 'Plan B'; document.querySelector<HTMLSelectElement>('[data-deck-modules-profile]')!.value = 'Cedh'; document.querySelector<HTMLTextAreaElement>('[data-deck-modules-plan]')!.value = 'B.'; document.querySelector<HTMLButtonElement>('[data-deck-modules-add-alternative]')!.click();
         const stored = JSON.parse(window.sessionStorage.getItem('deckflow.deck-modules.v1')!); ids = stored.alternatives.map((alternative: { id: string }) => alternative.id); stored.comparisonAnalyses = Object.fromEntries(ids.map((id, index) => [id, { analysis, analysisKey: `${index}-key` }])); window.sessionStorage.setItem('deckflow.deck-modules.v1', JSON.stringify(stored));
         // comparisonAnalyses is held in-memory (populated by analyze(), mirroring what a live tab
-        // actually holds), so simulate a reload against a fresh page element -- re-initializing
-        // against the same page element would double-register its event listeners.
+        // actually holds), so simulate a reload against a fresh page element.
         document.body.innerHTML = markup(); (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize();
         document.querySelector<HTMLSelectElement>('[data-deck-modules-compare-reference]')!.value = ids[0]; const other = document.querySelector<HTMLSelectElement>('[data-deck-modules-compare-other]')!; other.value = ids[1]; other.dispatchEvent(new Event('change', { bubbles: true })); document.querySelector<HTMLButtonElement>('[data-deck-modules-compare]')!.click();
         await vi.waitFor(() => expect(fetchMock.mock.calls.filter(call => call[0] === '/deck-modules/compare')).toHaveLength(2));
