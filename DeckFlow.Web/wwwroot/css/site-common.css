@@ -5975,13 +5975,13 @@ pre {
 }
 
 /* Phase 3: deck-modules analysis */
-.deck-modules__analysis [data-deck-modules-analysis-stale] {
-  color: var(--warning, #8a5b00);
-  font-weight: 700;
-}
-
+/* Why: --warning is a background/surface token in the guild themes, not a foreground one; using
+   it as `color:` renders near-invisible text. --gold-warning is the established foreground
+   token for warning text elsewhere in this file (see line 2853), with --warning only as its
+   last-resort fallback. See CR-04. */
+.deck-modules__analysis [data-deck-modules-analysis-stale],
 .deck-modules__analysis-notice {
-  color: var(--warning, #8a5b00);
+  color: var(--gold-warning, var(--warning, #c8a040));
   font-weight: 700;
 }
 
