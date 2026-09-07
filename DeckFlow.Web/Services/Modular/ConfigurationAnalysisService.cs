@@ -171,6 +171,13 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
                 ? $"Analysed {compilation.TotalCardCount} cards — this configuration is missing its strategy module, so these numbers describe an incomplete deck and are not a legality verdict."
                 : null,
             Signals = signals,
+            ManabaseHandoffPayload = new ManabaseHandoffPayload
+            {
+                Result = analysisResult,
+                DecklistText = decklistText,
+                DeckName = compilation.SelectedStrategyName,
+                Mode = request.Mode,
+            },
         };
 
         return DeckModulesServiceResult<ConfigurationAnalysisResult>.Success(result);

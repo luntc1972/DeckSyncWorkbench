@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace DeckFlow.Web.Models.DeckModules;
 
 /// <summary>
@@ -19,6 +21,12 @@ namespace DeckFlow.Web.Models.DeckModules;
 /// </remarks>
 public sealed record ConfigurationAnalysisResult
 {
+    /// <summary>The separate cache key used to render this analysis on the mana-base page.</summary>
+    public string? ManabaseHandoffKey { get; init; }
+
+    /// <summary>The transient, non-serialized payload consumed only by the server-side controller.</summary>
+    [JsonIgnore]
+    public ManabaseHandoffPayload? ManabaseHandoffPayload { get; init; }
     /// <summary>
     /// Display definition of "hard to cast": a non-commander card whose simulated cast percent
     /// falls below this threshold. A Phase 3 display definition, not a Core verdict.

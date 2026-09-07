@@ -202,6 +202,19 @@ internal static class PacketSizeEstimator
                     + result.Signals.ExtraTurnCards.Sum(name => name.Length)
                     + result.Signals.InteractionsByModule.Sum(row => row.ModuleName.Length));
     }
+
+    /// <summary>Estimates the cache footprint of a short-lived mana-base handoff payload.</summary>
+    public static int EstimateSizeBytes(ManabaseHandoffPayload result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return result.DecklistText.Length
+            + result.DeckName.Length
+            + result.Result.InputSummary.Length
+            + (result.Result.ImportWarning?.Length ?? 0)
+            + result.Result.PromptSwapPrompt.Length
+            + result.Result.Unresolved.Sum(name => name.Length)
+            + (result.Result.Report?.Summary.Length ?? 0);
+    }
 }
 
 internal sealed record DeckAnalysisCacheInputs(

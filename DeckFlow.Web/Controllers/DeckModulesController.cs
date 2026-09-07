@@ -154,8 +154,15 @@ public sealed class DeckModulesController : DeckToolControllerBase
             return Failure(result.ErrorMessage);
         }
 
-        _packetSessionCache.Set(key, result.Value!, PacketSizeEstimator.EstimateSizeBytes(result.Value!));
-        return Ok(new { analysisKey = key, analysis = result.Value });
+        var handoffKey = PacketSessionCache.ComputeKey(new { handoff = key });
+        var analysis = result.Value! with { ManabaseHandoffKey = handoffKey };
+        if (analysis.ManabaseHandoffPayload is not null)
+        {
+            _packetSessionCache.Set(handoffKey, analysis.ManabaseHandoffPayload, PacketSizeEstimator.EstimateSizeBytes(analysis.ManabaseHandoffPayload));
+        }
+
+        _packetSessionCache.Set(key, analysis, PacketSizeEstimator.EstimateSizeBytes(analysis));
+        return Ok(new { analysisKey = key, analysis });
     }
 
     /// <summary>Compares cached analyses for Deck Modules configurations.</summary>

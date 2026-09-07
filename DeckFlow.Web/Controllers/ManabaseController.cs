@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Models.DeckModules;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.FeatureFlags;
@@ -22,6 +23,7 @@ public sealed class ManabaseController : DeckToolControllerBase
     private readonly ICardSearchService _cardSearchService;
     private readonly IFeatureFlagCache _featureFlags;
     private readonly IBracketClassificationService _bracketClassification;
+    private readonly PacketSessionCache _packetSessionCache;
     private readonly ILogger<ManabaseController> _logger;
 
     /// <summary>Creates the mana-base controller.</summary>
@@ -30,7 +32,8 @@ public sealed class ManabaseController : DeckToolControllerBase
         ICardSearchService cardSearchService,
         IFeatureFlagCache featureFlags,
         IBracketClassificationService bracketClassification,
-        ILogger<ManabaseController> logger)
+        ILogger<ManabaseController> logger,
+        PacketSessionCache? packetSessionCache = null)
     {
         ArgumentNullException.ThrowIfNull(manabaseAnalysisService);
         ArgumentNullException.ThrowIfNull(cardSearchService);
@@ -43,15 +46,41 @@ public sealed class ManabaseController : DeckToolControllerBase
         _featureFlags = featureFlags;
         _bracketClassification = bracketClassification;
         _logger = logger;
+        _packetSessionCache = packetSessionCache ?? new PacketSessionCache();
     }
 
     /// <summary>Renders the empty mana-base form.</summary>
     [HttpGet("/manabase")]
     [FeatureFlagGate("tool.manabase.enabled")]
-    public IActionResult Manabase()
+    public IActionResult Manabase(string? handoff = null)
     {
         bool focusedTierEnabled = IsFocusedTierEnabled();
         bool baselineEnabled = IsBaselineFlagEnabled();
+        if (!string.IsNullOrWhiteSpace(handoff))
+        {
+            if (_packetSessionCache.TryGet<ManabaseHandoffPayload>(handoff, out var payload))
+            {
+                _logger.LogInformation("Mana-base handoff cache hit for {KeyPrefix}.", PacketSessionCache.GetKeyPrefix(handoff));
+                var request = new ManabaseRequest
+                {
+                    DeckInputSource = DeckInputSource.PasteText,
+                    DeckText = payload.DecklistText,
+                    DeckName = payload.DeckName,
+                    Mode = payload.Mode,
+                };
+                NormalizeKnobs(request, focusedTierEnabled);
+                return View("Manabase", BuildAnalysisViewModel(request, payload.Result, [], focusedTierEnabled, baselineEnabled));
+            }
+
+            _logger.LogInformation("Mana-base handoff cache miss for {KeyPrefix}.", PacketSessionCache.GetKeyPrefix(handoff));
+            return View("Manabase", new ManabaseViewModel
+            {
+                NoticeMessage = "That Deck Modules result expired. Please re-run the analysis.",
+                ShowFocusedTier = focusedTierEnabled,
+                ShowCommunityBaseline = baselineEnabled,
+            });
+        }
+
         return View("Manabase", new ManabaseViewModel
         {
             ShowFocusedTier = focusedTierEnabled,
@@ -124,33 +153,41 @@ public sealed class ManabaseController : DeckToolControllerBase
                     .Concat(result.UnmatchedOverrideNames)
                     .ToList();
 
-                return View("Manabase", new ManabaseViewModel
-                {
-                    Request = request,
-                    Report = result.Report,
-                    InputSummary = result.InputSummary,
-                    Unresolved = result.Unresolved,
-                    ImportWarning = result.ImportWarning,
-                    PromptSwapPrompt = result.PromptSwapPrompt,
-                    Suggestions = result.Suggestions,
-                    PlainLanguageVerdict = result.Verdict,
-                    RampDrawBudget = result.Budget,
-                    ShowPlainLanguage = result.ShowPlainLanguage,
-                    ShowCommanderCastability = result.CommanderCastabilityEnabled,
-                    ShowTapAnalyzer = result.ShowTapAnalyzer,
-                    ShowMulliganEval = result.ShowMulliganEval,
-                    ShowPlanPresence = result.ShowPlanPresence,
-                    ShowKeepShapes = result.ShowKeepShapes,
-                    ShowFocusedTier = focusedTierEnabled,
-                    ShowSourceList = result.ShowSourceList,
-                    ShowCedhInteractionLens = result.ShowCedhInteractionLens,
-                    CompanionCallout = result.CompanionRow,
-                    CommunityBaseline = result.CommunityBaseline,
-                    ShowCommunityBaseline = baselineEnabled,
-                    NotAppliedOverrides = notApplied,
-                });
+                return View("Manabase", BuildAnalysisViewModel(request, result, notApplied, focusedTierEnabled, baselineEnabled));
             });
     }
+
+    private static ManabaseViewModel BuildAnalysisViewModel(
+        ManabaseRequest request,
+        ManabaseAnalysisResult result,
+        IReadOnlyList<string> notAppliedOverrides,
+        bool focusedTierEnabled,
+        bool baselineEnabled)
+        => new()
+        {
+            Request = request,
+            Report = result.Report,
+            InputSummary = result.InputSummary,
+            Unresolved = result.Unresolved,
+            ImportWarning = result.ImportWarning,
+            PromptSwapPrompt = result.PromptSwapPrompt,
+            Suggestions = result.Suggestions,
+            PlainLanguageVerdict = result.Verdict,
+            RampDrawBudget = result.Budget,
+            ShowPlainLanguage = result.ShowPlainLanguage,
+            ShowCommanderCastability = result.CommanderCastabilityEnabled,
+            ShowTapAnalyzer = result.ShowTapAnalyzer,
+            ShowMulliganEval = result.ShowMulliganEval,
+            ShowPlanPresence = result.ShowPlanPresence,
+            ShowKeepShapes = result.ShowKeepShapes,
+            ShowFocusedTier = focusedTierEnabled,
+            ShowSourceList = result.ShowSourceList,
+            ShowCedhInteractionLens = result.ShowCedhInteractionLens,
+            CompanionCallout = result.CompanionRow,
+            CommunityBaseline = result.CommunityBaseline,
+            ShowCommunityBaseline = baselineEnabled,
+            NotAppliedOverrides = notAppliedOverrides,
+        };
 
     /// <summary>
     /// Re-runs the mana-base analysis for the submitted deck and returns the full report as a
