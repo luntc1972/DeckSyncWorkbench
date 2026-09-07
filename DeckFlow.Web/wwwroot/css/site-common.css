@@ -1553,26 +1553,63 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
     background: var(--panel-soft-bg, transparent);
 }
 /* Feedback page */
-.feedback-page { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+.feedback-page {
+    max-width: 760px;
+    margin: 3rem auto 4rem;
+    padding: 0 1.5rem;
+}
 .feedback-panel {
-    padding: 1.5rem;
-    border-radius: 8px;
+    padding: 2rem;
+    border-radius: 10px;
     background: var(--panel);
     border: 1px solid var(--line);
+    border-top: 3px solid var(--accent);
 }
-.feedback-form { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
-.feedback-field { display: flex; flex-direction: column; gap: 0.25rem; }
-.feedback-field label { font-weight: 600; }
+.feedback-heading {
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--line);
+}
+.feedback-eyebrow {
+    display: block;
+    margin-bottom: 0.4rem;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.feedback-heading h1 {
+    margin: 0;
+    color: var(--ink);
+    font-size: var(--fs-xl);
+    line-height: 1.15;
+}
+.feedback-heading p {
+    max-width: 40rem;
+    margin: 0.65rem 0 0;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+}
+.feedback-form { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; }
+.feedback-field { display: flex; flex-direction: column; gap: 0.4rem; }
+.feedback-field label { color: var(--ink); font-size: var(--fs-sm); font-weight: 600; }
 .feedback-field input, .feedback-field select, .feedback-field textarea {
     background: var(--panel);
     color: var(--ink, inherit);
     border: 1px solid var(--line);
-    border-radius: 4px;
-    padding: 0.5rem;
+    border-radius: 6px;
+    padding: 0.65rem 0.75rem;
     font: inherit;
     /* Why: --fs-base is 0.95rem (~15.2px); iOS Safari auto-zooms the viewport on focus for any
        form control under 16px. The max() keeps larger inherited sizes intact. */
     font-size: max(16px, 1em);
+}
+.feedback-field textarea { min-height: 11rem; resize: vertical; }
+.feedback-field input:focus, .feedback-field select:focus, .feedback-field textarea:focus {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 /* Phase 84: decorative brand emphasis, intentionally stays on --accent-strong (D2) */
 .feedback-submit {
@@ -1580,12 +1617,12 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
     background: var(--accent-strong);
     color: var(--on-accent);
     border: none;
-    padding: 0.6rem 1.1rem;
-    border-radius: 4px;
+    padding: 0.7rem 1.2rem;
+    border-radius: 6px;
     cursor: pointer;
     font-weight: 600;
 }
-.feedback-submit:hover { filter: brightness(1.1); }
+.feedback-submit:hover, .feedback-submit:focus-visible { background: var(--accent); }
 
 .feedback-submit--busy {
     opacity: 0.75;
@@ -1609,8 +1646,8 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
 }
 
 .feedback-error { color: var(--danger); font-size: var(--fs-sm); }
-.feedback-banner { padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
-.feedback-banner--success { background: rgba(76, 175, 80, 0.15); border: 1px solid rgba(76, 175, 80, 0.4); }
+.feedback-banner { padding: 0.85rem 1rem; border-radius: 6px; margin: 1.5rem 0 0; }
+.feedback-banner--success { color: var(--success); background: var(--panel-soft-bg); border: 1px solid var(--success); }
 .feedback-honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
 /* =====================================================   Card Lookup readability redesign (shared across all themes)
