@@ -2,6 +2,20 @@
    Rules targeting selectors that themes redefine live here. */
 
 @media (max-width: 900px) {
+  .hub-hero__icon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--accent);
+  }
+
+  .page-nav__link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
   .back-to-top-button {
     width: 2rem;
     height: 2rem;
@@ -47,13 +61,14 @@
   }
 
   .page-nav {
-    margin-left: auto;
+    margin-left: 0;
     margin-right: 0;
   }
 
   /* mobile UI phase 1: compact header, secondary download CTA, tighter form chrome */
   .page-header {
     align-items: center;
+    gap: 0;
   }
 
   .theme-picker {

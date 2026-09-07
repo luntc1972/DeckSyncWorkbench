@@ -1,5 +1,34 @@
 import { expect, test } from '@playwright/test';
 
+test('mobile Home accents the hero icon and preserves a 44px Help target', async ({ page }) => {
+  test.skip(!test.info().project.name.includes('mobile'), 'mobile-only coverage');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+
+  const heroIcon = page.locator('.hub-hero--primary .hub-hero__icon');
+  const helpLink = page.getByRole('link', { name: 'Help' });
+
+  await expect(heroIcon).toBeVisible();
+  await expect(heroIcon).toHaveCSS('display', 'inline-flex');
+
+  const [iconColor, heroColor] = await heroIcon.evaluate((element) => [
+    getComputedStyle(element).color,
+    getComputedStyle(element.parentElement!).color,
+  ]);
+  expect(iconColor).not.toBe(heroColor);
+
+  const helpBox = await helpLink.boundingBox();
+  const themeBox = await page.locator('.theme-picker').boundingBox();
+  expect(helpBox).not.toBeNull();
+  expect(themeBox).not.toBeNull();
+  expect(helpBox!.width).toBeGreaterThanOrEqual(44);
+  expect(helpBox!.height).toBeGreaterThanOrEqual(44);
+  expect(Math.abs(helpBox!.y - themeBox!.y)).toBeLessThanOrEqual(8);
+  expect(themeBox!.x).toBeGreaterThanOrEqual(helpBox!.x + helpBox!.width);
+  await expect(page.locator('body')).toHaveJSProperty('scrollWidth', await page.locator('body').evaluate((body) => body.clientWidth));
+});
+
 test('home tool directory keeps links discoverable in three wide desktop columns', async ({ page }) => {
   test.skip(!test.info().project.name.includes('desktop'), 'desktop-only coverage');
 

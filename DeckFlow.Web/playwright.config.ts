@@ -56,7 +56,7 @@ export default defineConfig({
       // simulation-heavy cut-lab specs that already run single-worker on the
       // 2-core CI runner, and duplicating those on a second engine would blow the
       // CI budget for no added signal.
-      testMatch: /(ui-responsive|sibling-pages-mobile|deck-analysis-mobile)\.spec\.ts/,
+      testMatch: /(ui-responsive|sibling-pages-mobile|deck-analysis-mobile|home-desktop-directory)\.spec\.ts/,
     },
   ],
   // NOTE: WSL verification runs start the app first via scripts/run-web-test.sh and
