@@ -2013,7 +2013,9 @@ internal static class RoleFloorResearchCommandRunner
         }
 
         builder.AppendLine(FormattableString.Invariant(
-            $"The vocabulary was widened in Phase 9.1 from the four needles the classifier originally carried ({string.Join(", ", ProtectionHistoricalNarrowNeedles.Select(needle => $"`{needle}`"))}). Runs produced before that widening used only those four needles, so their reported protection counts are a lower bound, not the true count; runs produced after it use the corpus-derived table above."));
+            $"The vocabulary was widened in Phase 9.1 from the four needles the classifier originally carried ({string.Join(", ", ProtectionHistoricalNarrowNeedles.Select(needle => $"`{needle}`"))}). Runs produced before that widening used only those four needles, so their reported `protection` and `interaction-targeted` counts are lower bounds, not true counts; runs produced after it use the corpus-derived table above."));
+        builder.AppendLine(
+            "`interaction-targeted` is affected because CutLabRoleAssigner grants it on PlanRoleClassifier's pre-gate interaction signal, which IsProtectionCard feeds. On the nine-fixture reference sample the widening moved it from 68 to 77 cards.");
         builder.AppendLine("Cards previously missed under the narrow four-needle set, now detected, with evidence grade stated rather than flattened:");
         foreach (ProtectionMissedCardDisclosure card in ProtectionKnownMissedCards)
         {

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Reflection;
 using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Services.CutLab;
@@ -229,6 +230,35 @@ public sealed class ProtectionVocabularyBlastRadiusTests
         "Plaza of Heroes",
         "The One Ring",
     ];
+
+    [Fact]
+    public void ProtectionVocabularyDisclosure_UsesInteractionTargetedLowerBoundWording()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string cliAssemblyPath = Path.Combine(repositoryRoot, "DeckFlow.CLI", "bin", "Release", "net10.0", "DeckFlow.CLI.dll");
+        Assembly cliAssembly = Assembly.LoadFrom(cliAssemblyPath);
+        Type runnerType = cliAssembly.GetType("DeckFlow.CLI.RoleFloorResearchCommandRunner", throwOnError: true)!;
+        MethodInfo builder = runnerType.GetMethod(
+            "BuildProtectionUnderDetectionNotice",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        string markdown = Assert.IsType<string>(builder.Invoke(null, [true, true]));
+
+        Assert.Contains("interaction-targeted", markdown, StringComparison.Ordinal);
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "DeckFlow.sln")))
+            {
+                return directory.FullName;
+            }
+        }
+
+        throw new DirectoryNotFoundException("Could not locate the repository root containing DeckFlow.sln.");
+    }
 
     [Fact]
     public void ProtectionRole_AcrossNineFixtures_MatchesMeasuredAcceptedSet()
