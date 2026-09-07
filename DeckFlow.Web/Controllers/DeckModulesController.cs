@@ -180,7 +180,10 @@ public sealed class DeckModulesController : DeckToolControllerBase
             return BadRequest(new { message = "Request body is required." });
         }
 
-        if (request.Sides is null || request.Sides.Count < ConfigurationComparisonRequest.MinSideCount || request.Sides.Count > ConfigurationComparisonRequest.MaxSideCount)
+        if (request.Sides is null
+            || request.Sides.Count < ConfigurationComparisonRequest.MinSideCount
+            || request.Sides.Count > ConfigurationComparisonRequest.MaxSideCount
+            || request.Sides.Any(side => side is null))
         {
             return Failure($"Submit between {ConfigurationComparisonRequest.MinSideCount} and {ConfigurationComparisonRequest.MaxSideCount} configuration analyses.");
         }

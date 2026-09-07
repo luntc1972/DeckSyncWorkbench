@@ -71,6 +71,23 @@ public sealed class DeckModulesCompareEndpointTests
     }
 
     [Fact]
+    public void Compare_ReturnsBadRequest_WhenASideElementIsNull()
+    {
+        // WR-02: request.Sides is null-checked, but its elements were not -- a null element
+        // dereferenced inside the FindIndex lambda as an unhandled NullReferenceException (500).
+        var controller = CreateController(new PacketSessionCache());
+        var request = new ConfigurationComparisonRequest
+        {
+            Sides = new[] { new ConfigurationComparisonSide { ConfigurationId = "alt-a", AnalysisKey = "key-a" }, null! },
+            ReferenceConfigurationId = "alt-a",
+        };
+
+        var result = controller.Compare(request, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
     public void Compare_ReturnsBadRequest_ForInvalidSideCountOrReference()
     {
         var controller = CreateController(new PacketSessionCache());
