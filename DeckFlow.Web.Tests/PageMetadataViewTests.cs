@@ -33,6 +33,7 @@ public sealed class PageMetadataViewTests
             ["/bracket"] = ("Deck", "Bracket.cshtml"),
             ["/deck-history"] = ("Deck", "DeckHistory.cshtml"),
             ["/cut-lab"] = ("Deck", "CutLab.cshtml"),
+            ["/deck-modules"] = ("Deck", "DeckModules.cshtml"),
             ["/deckflow-bridge"] = ("Bridge", "Index.cshtml"),
             ["/help"] = ("Help", "Index.cshtml"),
             ["/about"] = ("About", "Index.cshtml"),
