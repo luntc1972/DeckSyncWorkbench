@@ -313,6 +313,10 @@ Per-color "add N sources" wording is now explicitly tagged as **heuristic guidan
 
 ---
 
+## Short-lived inbound handoff
+
+`/manabase` accepts an optional `handoff` query parameter produced by another tool. It names a cached analysis and renders that report without resolving the deck again. The cached result is available for five minutes; after it expires, `/manabase` renders the empty form with a notice inviting the user to run the source analysis again. This expiry is a normal property of the handoff.
+
 ## Feature Flag Catalog
 
 Keys read via `MAS.IsFlagOn` (fail-safe OFF). Seed defaults in `FeatureFlagStore.cs`.

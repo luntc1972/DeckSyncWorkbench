@@ -58,7 +58,7 @@ public sealed class ManabaseController : DeckToolControllerBase
         bool baselineEnabled = IsBaselineFlagEnabled();
         if (!string.IsNullOrWhiteSpace(handoff))
         {
-            if (_packetSessionCache.TryGet<ManabaseHandoffPayload>(handoff, out var payload))
+            if (_packetSessionCache.TryGet<ManabaseHandoffPayload>(handoff, out var payload) && payload is not null)
             {
                 _logger.LogInformation("Mana-base handoff cache hit for {KeyPrefix}.", PacketSessionCache.GetKeyPrefix(handoff));
                 var request = new ManabaseRequest
