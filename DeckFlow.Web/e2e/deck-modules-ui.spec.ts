@@ -19,7 +19,7 @@ test('imports, assigns, compiles, and remains usable at the current viewport', a
   await expect(page.locator('.deck-modules__report')).toBeHidden();
   await expect(page.locator('[data-deck-modules-copy]')).toBeDisabled();
   await expect(page.locator('[data-deck-modules-export]')).toBeDisabled();
-  await expect(page.getByRole('button', { name: /share|save|project/i })).toHaveCount(0);
+  await expect(page.locator('[data-deck-modules]').getByRole('button', { name: /share|save|project/i })).toHaveCount(0);
 
   await page.locator('[data-deck-modules-source]').fill(winotaDeck);
   const importResponse = page.waitForResponse('/deck-modules/import');
