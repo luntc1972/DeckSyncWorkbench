@@ -197,26 +197,13 @@ internal static class PacketSizeEstimator
     public static int EstimateSizeBytes(ConfigurationAnalysisResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
-        return result.ConfigurationId.Length
-            + result.ConfigurationName.Length
-            + (result.AnalysisNotice?.Length ?? 0)
-            + result.UnresolvedCardNames.Sum(name => name.Length)
-            + result.AttributedFindings.Sum(row => row.Color.Length + row.DisplayColor.Length + row.DrivingSpell.Length + (row.AttributedCard?.Length ?? 0) + (row.AttributedModule?.Length ?? 0) + (row.SwapDirection?.Length ?? 0))
-            + (result.Signals is null
-                ? 0
-                : result.Signals.CatalogEffectiveDate.Length
-                    + result.Signals.GameChangers.Sum(name => name.Length)
-                    + result.Signals.MassLandDenialCards.Sum(name => name.Length)
-                    + result.Signals.ExtraTurnCards.Sum(name => name.Length)
-                    + result.Signals.InteractionsByModule.Sum(row => row.ModuleName.Length)
-                    // WR-03: the Declared disclosure block (Profile, PlayPlan, ProfileDisagreementNote)
-                    // is stored in the cached result but was not walked, so it did not count toward
-                    // the 10 MB cap.
-                    + (result.Signals.Declared is null
-                        ? 0
-                        : result.Signals.Declared.Profile.Length
-                            + result.Signals.Declared.PlayPlan.Length
-                            + (result.Signals.Declared.ProfileDisagreementNote?.Length ?? 0)));
+
+        // WR-03 hit this estimator twice as a hand-summed field list (once missing the Declared
+        // disclosure block entirely): every new field on this deep, JSON-round-trippable result
+        // silently drops back out of the size accounting until the next bug report. Serializing
+        // the whole result (same technique as EstimateSizeBytes(ManabaseHandoffPayload) below)
+        // tracks the object graph automatically instead of patching this list again next time.
+        return JsonSerializer.SerializeToUtf8Bytes(result, SizeEstimationJsonOptions).Length;
     }
 
     /// <summary>Estimates the cache footprint of a short-lived mana-base handoff payload.</summary>
