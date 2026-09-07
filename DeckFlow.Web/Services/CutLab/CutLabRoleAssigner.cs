@@ -119,7 +119,7 @@ public static class CutLabRoleAssigner
         ArgumentNullException.ThrowIfNull(categories);
 
         string typeLine = fact.TypeLine;
-        string oracle = fact.FrontFaceOracleText ?? fact.OracleText ?? string.Empty;
+        string oracle = fact.FrontOracleText;
         bool isLand = CutLabLockRules.IsLand(typeLine) || fact.HasLandFace;
         PlanRole roles = PlanRoleClassifier.Classify(fact, categories, isComboPiece, mode, out bool interactionMeritPreGate);
 

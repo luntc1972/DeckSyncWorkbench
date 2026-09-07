@@ -181,7 +181,7 @@ public sealed class ManabaseFlagBaselineHarness
     public async Task DumpFlagBaselines()
     {
         if (Environment.GetEnvironmentVariable("DECKFLOW_MANABASE_HARNESS") != "1"
-            && !File.Exists(Path.Combine(RepoRoot(), ".manabase-harness-on")))
+            && !File.Exists(Path.Combine(RepoPaths.Root(), ".manabase-harness-on")))
         {
             return; // gated
         }
@@ -202,7 +202,7 @@ public sealed class ManabaseFlagBaselineHarness
             AppendDeckSection(sb, facts);
         }
 
-        string outDir = Path.Combine(RepoRoot(), ".planning", "phases", "70-manabase-accuracy-mana-quantity");
+        string outDir = Path.Combine(RepoPaths.Root(), ".planning", "phases", "70-manabase-accuracy-mana-quantity");
         Directory.CreateDirectory(outDir);
         string outPath = Path.Combine(outDir, "70-flag-baseline.md");
         await File.WriteAllTextAsync(outPath, sb.ToString());
@@ -372,7 +372,7 @@ public sealed class ManabaseFlagBaselineHarness
         yield return ("Meren Golgari ramp/ritual", GolgariList, ".manabase-golgari-facts.json");
 
         // 5 recent real Commander decks harvested from Archidekt by scripts/harvest-archidekt-decks.py.
-        string harvestPath = Path.Combine(RepoRoot(), "archidekt-baseline-decks.json");
+        string harvestPath = Path.Combine(RepoPaths.Root(), "archidekt-baseline-decks.json");
         if (File.Exists(harvestPath))
         {
             using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(harvestPath));
@@ -390,11 +390,11 @@ public sealed class ManabaseFlagBaselineHarness
     // Brago cache predates the ManaAmount field, so re-derive it from oracle text on load.
     private static async Task<IReadOnlyList<CardFact>> LoadFactsAsync(string? list, string cacheFile)
     {
-        string cachePath = Path.Combine(RepoRoot(), "DeckFlow.Web.Tests", "Manabase", "fixtures", cacheFile);
+        string cachePath = Path.Combine(RepoPaths.Root(), "DeckFlow.Web.Tests", "Manabase", "fixtures", cacheFile);
         List<CardFact> facts;
         if (File.Exists(cachePath))
         {
-            facts = JsonSerializer.Deserialize<List<CardFact>>(await File.ReadAllTextAsync(cachePath))!;
+            facts = await CardFactFixtureFile.LoadAsync(cachePath);
         }
         else
         {
@@ -469,16 +469,5 @@ public sealed class ManabaseFlagBaselineHarness
         }
 
         return entries;
-    }
-
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "DeckFlow.sln")))
-        {
-            dir = dir.Parent;
-        }
-
-        return dir?.FullName ?? Directory.GetCurrentDirectory();
     }
 }

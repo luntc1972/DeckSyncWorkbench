@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json;
 using DeckFlow.Core.Manabase;
 using Xunit;
 
@@ -19,16 +18,15 @@ public sealed class ManaQuantityBaselineHarness
     public async Task DumpManaQuantityDiff()
     {
         if (Environment.GetEnvironmentVariable("DECKFLOW_MANABASE_HARNESS") != "1"
-            && !File.Exists(Path.Combine(RepoRoot(), ".manabase-harness-on")))
+            && !File.Exists(Path.Combine(RepoPaths.Root(), ".manabase-harness-on")))
         {
             return; // gated
         }
 
-        string cachePath = Path.Combine(RepoRoot(), "DeckFlow.Web.Tests", "Manabase", "fixtures", ".manabase-brago-facts.json");
+        string cachePath = Path.Combine(RepoPaths.Root(), "DeckFlow.Web.Tests", "Manabase", "fixtures", ".manabase-brago-facts.json");
         Assert.True(File.Exists(cachePath), $"missing cached facts: {cachePath}");
 
-        List<CardFact> raw = JsonSerializer.Deserialize<List<CardFact>>(
-            await File.ReadAllTextAsync(cachePath))!;
+        List<CardFact> raw = await CardFactFixtureFile.LoadAsync(cachePath);
 
         // The cache predates MQ-02, so re-parse the amount each source makes from its oracle text.
         var facts = raw.Select(f => f with { ManaAmount = ManaProductionAmount.Parse(f.OracleText) }).ToList();
@@ -77,23 +75,12 @@ public sealed class ManaQuantityBaselineHarness
             sb.AppendLine();
         }
 
-        string outDir = Path.Combine(RepoRoot(), ".planning", "phases", "70-manabase-accuracy-mana-quantity");
+        string outDir = Path.Combine(RepoPaths.Root(), ".planning", "phases", "70-manabase-accuracy-mana-quantity");
         Directory.CreateDirectory(outDir);
         string outPath = Path.Combine(outDir, "70-02-baseline-diff.md");
         await File.WriteAllTextAsync(outPath, sb.ToString());
 
         // Echo to test output too.
         System.Console.WriteLine(sb.ToString());
-    }
-
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "DeckFlow.sln")))
-        {
-            dir = dir.Parent;
-        }
-
-        return dir?.FullName ?? Directory.GetCurrentDirectory();
     }
 }

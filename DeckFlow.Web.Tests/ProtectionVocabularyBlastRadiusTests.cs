@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Reflection;
 using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Manabase;
@@ -254,7 +253,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
         string[] afterNames = cards
             .Where(fact =>
             {
-                string oracle = FrontOracle(fact);
+                string oracle = fact.FrontOracleText;
                 bool isProtection = DeckStatClassifier.IsProtectionCard(fact.Name, oracle);
                 PlanRole roles = PlanRoleClassifier.Classify(
                     fact, Array.Empty<string>(), isComboPiece: false, ManabaseMode.Casual, out _);
@@ -273,7 +272,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
         IReadOnlyList<CardFact> cards = DistinctFixtureCardsCache.Value;
 
         var inputs = cards
-            .Select(fact => new InteractionCardInput(1, fact.Name, fact.TypeLine, FrontOracle(fact), fact.ManaCost ?? string.Empty))
+            .Select(fact => new InteractionCardInput(1, fact.Name, fact.TypeLine, fact.FrontOracleText, fact.ManaCost ?? string.Empty))
             .ToArray();
         InteractionAudit audit = InteractionAuditAggregator.Compute(inputs);
         Dictionary<string, CardFact> byName = cards.ToDictionary(fact => fact.Name, StringComparer.Ordinal);
@@ -286,7 +285,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
             .Select(card => card.Name)
             .Where(name =>
             {
-                string oracle = FrontOracle(byName[name]);
+                string oracle = byName[name].FrontOracleText;
                 return DeckStatClassifier.IsProtectionCard(name, oracle) && !DeckStatClassifier.IsRecursionCard(oracle);
             })
             .OrderBy(name => name, StringComparer.Ordinal)
@@ -301,7 +300,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
         IReadOnlyList<CardFact> cards = DistinctFixtureCardsCache.Value;
 
         string[] beforeCutLabAndAudit = cards
-            .Where(fact => BeforeProtection(fact.Name, FrontOracle(fact)))
+            .Where(fact => BeforeProtection(fact.Name, fact.FrontOracleText))
             .Select(fact => fact.Name)
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
@@ -311,7 +310,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
         // before-set here: none of the ten narrow-vocabulary protection cards in these fixtures are
         // also recursion cards, so the recursion exclusion changes nothing pre-widening.
         string[] beforeAudit = cards
-            .Where(fact => BeforeProtection(fact.Name, FrontOracle(fact)) && !DeckStatClassifier.IsRecursionCard(FrontOracle(fact)))
+            .Where(fact => BeforeProtection(fact.Name, fact.FrontOracleText) && !DeckStatClassifier.IsRecursionCard(fact.FrontOracleText))
             .Select(fact => fact.Name)
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
@@ -320,7 +319,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
         string[] beforePlanRole = cards
             .Where(fact =>
             {
-                string oracle = FrontOracle(fact);
+                string oracle = fact.FrontOracleText;
                 bool beforeIsProtection = BeforeProtection(fact.Name, oracle);
                 bool grantsInteraction = BeforeGrantsInteraction(fact.Name, fact.TypeLine, oracle)
                     && !CardTypeLine.IsNonPermanentFront(fact.TypeLine);
@@ -339,7 +338,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
         Dictionary<string, CardFact> byName = cards.ToDictionary(fact => fact.Name, StringComparer.Ordinal);
 
         var inputs = cards
-            .Select(fact => new InteractionCardInput(1, fact.Name, fact.TypeLine, FrontOracle(fact), fact.ManaCost ?? string.Empty))
+            .Select(fact => new InteractionCardInput(1, fact.Name, fact.TypeLine, fact.FrontOracleText, fact.ManaCost ?? string.Empty))
             .ToArray();
         InteractionAudit audit = InteractionAuditAggregator.Compute(inputs);
         HashSet<string> auditBucketNames = audit.ProtectionRecursion.Confident
@@ -350,7 +349,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
         {
             Assert.True(byName.ContainsKey(name), $"Fixture sanity: expected {name} to be present in the committed fixtures.");
             CardFact fact = byName[name];
-            string oracle = FrontOracle(fact);
+            string oracle = fact.FrontOracleText;
 
             // Independent of the pinned arrays above: the classifier itself must never call this
             // card protection. Since every one of the three consumers requires IsProtectionCard to
@@ -372,8 +371,6 @@ public sealed class ProtectionVocabularyBlastRadiusTests
             Assert.False(attributableToProtectionViaAudit);
         }
     }
-
-    private static string FrontOracle(CardFact fact) => fact.FrontFaceOracleText ?? fact.OracleText ?? string.Empty;
 
     // Test-local reproduction of GrantsInteraction's non-protection arms (PlanRoleClassifier.cs),
     // needed only to recompute the HISTORICAL (pre-widening) Interaction grant with the narrow
@@ -411,18 +408,19 @@ public sealed class ProtectionVocabularyBlastRadiusTests
 
     // Loads all nine dot-prefixed real-deck fact fixtures (they are dot-prefixed, so a bare
     // "*.json" glob would silently match nothing -- the leading dot is part of the pattern) and
-    // deduplicates cards by name across decks. Reuses the same repo-root resolution convention as
-    // BragoRealDeckHarness/ManabaseHealthBandRegressionTests rather than inventing a second one.
+    // deduplicates cards by name across decks. Shares RepoPaths/CardFactFixtureFile with
+    // BragoRealDeckHarness/ManabaseHealthBandRegressionTests rather than each re-implementing the
+    // repo-root walk and the fixture deserialize.
     private static List<CardFact> LoadDistinctFixtureCardsFromDisk()
     {
-        string fixturesDir = Path.Combine(RepoRoot(), "DeckFlow.Web.Tests", "Manabase", "fixtures");
+        string fixturesDir = Path.Combine(RepoPaths.Root(), "DeckFlow.Web.Tests", "Manabase", "fixtures");
         string[] files = Directory.GetFiles(fixturesDir, ".manabase-*-facts.json");
         Assert.True(files.Length == 9, $"Expected nine dot-prefixed fixtures, found {files.Length} at {fixturesDir}.");
 
         var byName = new Dictionary<string, CardFact>(StringComparer.Ordinal);
         foreach (string file in files)
         {
-            List<CardFact> facts = JsonSerializer.Deserialize<List<CardFact>>(File.ReadAllText(file))!;
+            List<CardFact> facts = CardFactFixtureFile.Load(file);
             foreach (CardFact fact in facts)
             {
                 byName.TryAdd(fact.Name, fact);
@@ -430,16 +428,5 @@ public sealed class ProtectionVocabularyBlastRadiusTests
         }
 
         return byName.Values.ToList();
-    }
-
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "DeckFlow.sln")))
-        {
-            dir = dir.Parent;
-        }
-
-        return dir?.FullName ?? Directory.GetCurrentDirectory();
     }
 }

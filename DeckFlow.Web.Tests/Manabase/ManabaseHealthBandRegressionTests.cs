@@ -271,8 +271,8 @@ public sealed class ManabaseHealthBandRegressionTests
             return;
         }
 
-        string deckPath = Path.Combine(RepoRoot(), ".planning", "debug", "manabase-brago-promote-deck.txt");
-        string cachePath = Path.Combine(RepoRoot(), "DeckFlow.Web.Tests", "Manabase", "fixtures", BragoPromoteDeck.FactsFile);
+        string deckPath = Path.Combine(RepoPaths.Root(), ".planning", "debug", "manabase-brago-promote-deck.txt");
+        string cachePath = Path.Combine(RepoPaths.Root(), "DeckFlow.Web.Tests", "Manabase", "fixtures", BragoPromoteDeck.FactsFile);
         string list = await File.ReadAllTextAsync(deckPath);
         IReadOnlyList<DeckCardEntry> entries = await ResolveAsync(ParseDeck(list));
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(entries).ToList();
@@ -308,8 +308,7 @@ public sealed class ManabaseHealthBandRegressionTests
         Assert.True(File.Exists(FactsCachePath),
             $"Avatar facts cache not found at {FactsCachePath}. Run the baseline harness once to populate it.");
 
-        List<CardFact> facts = JsonSerializer.Deserialize<List<CardFact>>(
-            await File.ReadAllTextAsync(FactsCachePath))!;
+        List<CardFact> facts = await CardFactFixtureFile.LoadAsync(FactsCachePath);
 
         // Re-derive ManaAmount from oracle text: older caches may predate this field.
         return facts.Select(f => f with { ManaAmount = ManaProductionAmount.Parse(f.OracleText) }).ToList();
@@ -319,12 +318,11 @@ public sealed class ManabaseHealthBandRegressionTests
     {
         string path = calibration.IsAssemblyFixture
             ? FactsCachePath
-            : Path.Combine(RepoRoot(), "DeckFlow.Web.Tests", "Manabase", "fixtures", calibration.FactsFile);
+            : Path.Combine(RepoPaths.Root(), "DeckFlow.Web.Tests", "Manabase", "fixtures", calibration.FactsFile);
 
         Assert.True(File.Exists(path), $"Facts cache not found at {path}.");
 
-        List<CardFact> facts = JsonSerializer.Deserialize<List<CardFact>>(
-            await File.ReadAllTextAsync(path))!;
+        List<CardFact> facts = await CardFactFixtureFile.LoadAsync(path);
 
         return facts.Select(f => f with { ManaAmount = ManaProductionAmount.Parse(f.OracleText) }).ToList();
     }
@@ -380,20 +378,9 @@ public sealed class ManabaseHealthBandRegressionTests
             UseHealthBandHeadlineFloor = useHealthBandHeadlineFloor,
         };
 
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "DeckFlow.sln")))
-        {
-            dir = dir.Parent;
-        }
-
-        return dir?.FullName ?? Directory.GetCurrentDirectory();
-    }
-
     private static bool HarnessEnabled() =>
         Environment.GetEnvironmentVariable("DECKFLOW_MANABASE_HARNESS") == "1"
-        || File.Exists(Path.Combine(RepoRoot(), ".manabase-harness-on"));
+        || File.Exists(Path.Combine(RepoPaths.Root(), ".manabase-harness-on"));
 
     private static List<(int Qty, string Name, bool IsCommander)> ParseDeck(string list)
     {

@@ -69,4 +69,12 @@ public sealed record CardFact
     /// power among creatures you control" (e.g. The Skullspore Nexus).
     /// </summary>
     public int? Power { get; init; }
+
+    /// <summary>
+    /// The oracle text to read for front-face-sensitive heuristics: <see cref="FrontFaceOracleText"/>
+    /// when set, else <see cref="OracleText"/>, else empty — the fallback documented on
+    /// <see cref="FrontFaceOracleText"/>. Every classifier that needs front-face-only text reads this
+    /// instead of re-deriving the same two-property fallback at each call site.
+    /// </summary>
+    public string FrontOracleText => FrontFaceOracleText ?? OracleText ?? string.Empty;
 }

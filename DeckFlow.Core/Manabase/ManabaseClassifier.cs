@@ -1094,7 +1094,7 @@ public static class ManabaseClassifier
             return null;
         }
 
-        string text = card.FrontFaceOracleText ?? card.OracleText ?? string.Empty;
+        string text = card.FrontOracleText;
         if (text.Length == 0)
         {
             return null;
@@ -1153,7 +1153,7 @@ public static class ManabaseClassifier
     // (Goldspan's granted Treasure ability is also excluded by its "Sacrifice" cost).
     private static bool HasRepeatableManaAbility(CardFact card)
     {
-        string text = card.FrontFaceOracleText ?? card.OracleText ?? string.Empty;
+        string text = card.FrontOracleText;
         if (text.Length == 0)
         {
             return false;
@@ -1838,7 +1838,7 @@ public static class ManabaseClassifier
     // so they must not earn the −0.28 repeatable-ramp land credit — matching the H2 sac-guard.
     private static bool HasNonOneShotFrontAdd(CardFact card)
     {
-        string text = card.FrontFaceOracleText ?? card.OracleText ?? string.Empty;
+        string text = card.FrontOracleText;
         if (text.Length == 0)
         {
             return false;

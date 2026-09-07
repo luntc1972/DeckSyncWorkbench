@@ -109,7 +109,7 @@ public sealed class BragoRealDeckHarness
     public async Task DumpBragoReport()
     {
         bool enabled = Environment.GetEnvironmentVariable("DECKFLOW_MANABASE_HARNESS") == "1"
-            || File.Exists(Path.Combine(RepoRoot(), ".manabase-harness-on"));
+            || File.Exists(Path.Combine(RepoPaths.Root(), ".manabase-harness-on"));
         if (!enabled)
         {
             return; // gated: skipped in CI / normal runs (no env var, no sentinel file)
@@ -118,12 +118,12 @@ public sealed class BragoRealDeckHarness
         var lines = ParseDeck(DeckList);
 
         // Cache resolved CardFacts so the simulator can be iterated without re-hitting Scryfall.
-        string cachePath = Path.Combine(RepoRoot(), "DeckFlow.Web.Tests", "Manabase", "fixtures", ".manabase-brago-facts.json");
+        string cachePath = Path.Combine(RepoPaths.Root(), "DeckFlow.Web.Tests", "Manabase", "fixtures", ".manabase-brago-facts.json");
         IReadOnlyList<CardFact> facts;
         int resolvedCount;
         if (File.Exists(cachePath))
         {
-            facts = JsonSerializer.Deserialize<List<CardFact>>(await File.ReadAllTextAsync(cachePath))!;
+            facts = await CardFactFixtureFile.LoadAsync(cachePath);
             resolvedCount = facts.Sum(f => f.Quantity);
         }
         else
@@ -153,7 +153,7 @@ public sealed class BragoRealDeckHarness
         AppendReport(sb, "Casual · Central (Brago)", deck, ManabaseMode.Casual, CommanderImportance.Central);
         AppendReport(sb, "Casual · Low", deck, ManabaseMode.Casual, CommanderImportance.Low);
 
-        string outDir = Path.Combine(RepoRoot(), ".planning", "phases", "64-manabase-modes-castability");
+        string outDir = Path.Combine(RepoPaths.Root(), ".planning", "phases", "64-manabase-modes-castability");
         Directory.CreateDirectory(outDir);
         string outPath = Path.Combine(outDir, "64-harness-brago-output.md");
         await File.WriteAllTextAsync(outPath, sb.ToString());
@@ -311,16 +311,5 @@ public sealed class BragoRealDeckHarness
         }
 
         return entries;
-    }
-
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "DeckFlow.sln")))
-        {
-            dir = dir.Parent;
-        }
-
-        return dir?.FullName ?? Directory.GetCurrentDirectory();
     }
 }
