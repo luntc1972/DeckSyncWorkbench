@@ -211,6 +211,38 @@ public sealed class PlanRoleClassifierTests
             .HasFlag(PlanRole.Interaction));
     }
 
+    // Why: proves plan 09.1-01's Mother of Runes classification (singular "gains protection from")
+    // reaches PlanRoleClassifier.FromHeuristic in both modes. Asserted with HasFlag, not equality —
+    // a Creature with a tap ability may legitimately earn more than Interaction, and an equality
+    // assertion would encode a claim this plan has not measured.
+    [Theory]
+    [InlineData(ManabaseMode.Casual)]
+    [InlineData(ManabaseMode.Cedh)]
+    public void FromHeuristic_MotherOfRunes_EarnsInteractionInBothModes(ManabaseMode mode)
+    {
+        CardFact fact = Fact(
+            "Creature — Human Cleric",
+            "{T}: Target creature you control gains protection from the color of your choice until end of turn.",
+            name: "Mother of Runes");
+
+        Assert.True(PlanRoleClassifier.FromHeuristic(fact, mode).HasFlag(PlanRole.Interaction));
+    }
+
+    // Why: the permanent-only gate in Classify must not strip Interaction here — a Creature is a
+    // permanent, so Mother of Runes's protection merit survives Classify, not just FromHeuristic.
+    [Fact]
+    public void Classify_MotherOfRunes_HasInteractionFlag()
+    {
+        CardFact fact = Fact(
+            "Creature — Human Cleric",
+            "{T}: Target creature you control gains protection from the color of your choice until end of turn.",
+            name: "Mother of Runes");
+
+        PlanRole roles = PlanRoleClassifier.Classify(fact, Array.Empty<string>(), isComboPiece: false, ManabaseMode.Casual);
+
+        Assert.True(roles.HasFlag(PlanRole.Interaction));
+    }
+
     [Fact]
     public void Classify_ProtectionPermanent_IsInteractionAndNothingElse()
     {

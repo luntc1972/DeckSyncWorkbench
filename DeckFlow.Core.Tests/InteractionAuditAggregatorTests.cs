@@ -101,6 +101,19 @@ public sealed class InteractionAuditAggregatorTests
         Assert.Contains(audit.Counterspells.Confident, card => card.Name == "Counterspell" && card.Quantity == 2);
     }
 
+    // Why: proves plan 09.1-01's Mother of Runes classification (singular "gains protection from")
+    // reaches this second IsProtectionCard consumer, not just CutLabRoleAssigner.
+    [Fact]
+    public void Compute_MotherOfRunes_LandsInProtectionRecursionConfident()
+    {
+        var audit = InteractionAuditAggregator.Compute(new[]
+        {
+            Card(1, "Mother of Runes", "Creature — Human Cleric", "{T}: Target creature you control gains protection from the color of your choice until end of turn.", "{W}"),
+        });
+
+        Assert.Contains(audit.ProtectionRecursion.Confident, card => card.Name == "Mother of Runes" && card.Quantity == 1);
+    }
+
     [Fact]
     public void Compute_EmptyInputReturnsAllCoverageGaps()
     {
