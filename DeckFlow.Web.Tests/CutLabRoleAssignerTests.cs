@@ -41,6 +41,27 @@ public sealed class CutLabRoleAssignerTests
         Assert.Equal(["ramp"], roles);
     }
 
+    // Why: singular "gains protection from" is the ROADMAP-named D-06 defect (09.1-RESEARCH.md).
+    // Assert.Contains rather than Assert.Equal, because a Cleric with a tap ability may
+    // legitimately earn other roles beyond protection and pinning the whole list would make this
+    // test fail for reasons unrelated to protection.
+    [Fact]
+    public void AssignRoles_MotherOfRunes_IncludesProtection()
+    {
+        CardFact fact = Fact(
+            "Mother of Runes",
+            "Creature — Human Cleric",
+            oracle: "{T}: Target creature you control gains protection from the color of your choice until end of turn.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
+            fact,
+            Array.Empty<string>(),
+            isComboPiece: false,
+            ManabaseMode.Casual);
+
+        Assert.Contains("protection", roles);
+    }
+
     [Fact]
     public void AssignRoles_ManaSymbolRock_IncludesRamp()
     {

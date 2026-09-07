@@ -312,6 +312,9 @@ public sealed class DeckStatClassifierTests
     [Theory]
     [InlineData("Heroic Intervention", "Permanents you control gain indestructible until end of turn.", true)]
     [InlineData("Teferi's Protection", "Your life total can't change. You gain protection from everything. All permanents you control phase out.", true)]
+    // Mother of Runes: singular "gains protection from" — the ROADMAP-named D-06 defect. This is
+    // the plan's real Scryfall oracle text, quoted verbatim from 09.1-RESEARCH.md.
+    [InlineData("Mother of Runes", "{T}: Target creature you control gains protection from the color of your choice until end of turn.", true)]
     public void IsProtectionCard_TrueCases(string name, string oracleText, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsProtectionCard(name, oracleText));
@@ -322,6 +325,20 @@ public sealed class DeckStatClassifierTests
     public void IsProtectionCard_FalseCases(string name, string oracleText, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsProtectionCard(name, oracleText));
+    }
+
+    // Why: a needle that is listed in ProtectionOracleNeedles but unreachable through
+    // IsProtectionCard is a defect — this asserts every row of the table actually classifies as
+    // protection when supplied on its own as the whole oracle text.
+    [Fact]
+    public void IsProtectionCard_EveryProtectionOracleNeedle_ClassifiesAsProtection()
+    {
+        foreach (ProtectionNeedle needle in DeckStatClassifier.ProtectionOracleNeedles)
+        {
+            Assert.True(
+                DeckStatClassifier.IsProtectionCard("Needle Test Card", needle.Text),
+                $"Needle '{needle.Text}' (effect={needle.Effect}, subjectForm={needle.SubjectForm}) did not classify as protection.");
+        }
     }
 
     // -----------------------------------------------------------------------
