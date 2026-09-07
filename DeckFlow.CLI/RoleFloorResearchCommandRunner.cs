@@ -94,16 +94,14 @@ internal static class RoleFloorResearchCommandRunner
     private const string ProtectionDeltaPath = ".planning/workstreams/cycle21-cut-lab/phases/01.1-plan-role-classifier-heuristic-fixes-fix-the-counters-counte/01.1-02-DELTA.md";
     // Why: the four needles the classifier originally carried, before Phase 9.1 widened
     // DeckStatClassifier.ProtectionOracleNeedles to the corpus-derived 17-needle table. Frozen
-    // historical fact describing runs produced before that widening, not a live vocabulary — the
-    // shipped needle list is read directly from DeckStatClassifier.ProtectionOracleNeedles below,
-    // so this array is not a second copy of it.
+    // historical fact describing runs produced before that widening, not a live vocabulary —
+    // derived from ProtectionNeedle.IsPreWideningBaseline so this stays the one place that flag is
+    // interpreted, instead of a second hand-typed copy of the four strings.
     private static readonly string[] ProtectionHistoricalNarrowNeedles =
-    [
-        "gains hexproof",
-        "gains indestructible",
-        "gain protection from",
-        "phases out",
-    ];
+        DeckStatClassifier.ProtectionOracleNeedles
+            .Where(needle => needle.IsPreWideningBaseline)
+            .Select(needle => needle.Text)
+            .ToArray();
     private static readonly ProtectionMissedCardDisclosure[] ProtectionKnownMissedCards =
     [
         new("Swiftfoot Boots", "measured", "Measured through a scratch dotnet harness against the repo code."),
@@ -1565,12 +1563,7 @@ internal static class RoleFloorResearchCommandRunner
             protectionUnderDetection = new
             {
                 affectedRole = "protection, interaction-targeted",
-                needles = DeckStatClassifier.ProtectionOracleNeedles.Select(needle => new
-                {
-                    text = needle.Text,
-                    effect = needle.Effect,
-                    subjectForm = needle.SubjectForm,
-                }).ToArray(),
+                needles = DeckStatClassifier.ProtectionOracleNeedles,
                 historicalNarrowNeedles = ProtectionHistoricalNarrowNeedles,
                 knownMissedCards = ProtectionKnownMissedCards.Select(card => new
                 {

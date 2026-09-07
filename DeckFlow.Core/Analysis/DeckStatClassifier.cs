@@ -244,15 +244,15 @@ public static class DeckStatClassifier
     /// </summary>
     public static readonly IReadOnlyList<ProtectionNeedle> ProtectionOracleNeedles =
     [
-        new ProtectionNeedle { Text = "gains hexproof", Effect = "hexproof", SubjectForm = "singular" },
+        new ProtectionNeedle { Text = "gains hexproof", Effect = "hexproof", SubjectForm = "singular", IsPreWideningBaseline = true },
         new ProtectionNeedle { Text = "has hexproof", Effect = "hexproof", SubjectForm = "singular" },
         new ProtectionNeedle { Text = "gain hexproof", Effect = "hexproof", SubjectForm = "plural" },
-        new ProtectionNeedle { Text = "gains indestructible", Effect = "indestructible", SubjectForm = "singular" },
+        new ProtectionNeedle { Text = "gains indestructible", Effect = "indestructible", SubjectForm = "singular", IsPreWideningBaseline = true },
         new ProtectionNeedle { Text = "gain indestructible", Effect = "indestructible", SubjectForm = "plural" },
-        new ProtectionNeedle { Text = "phases out", Effect = "phase-out", SubjectForm = "singular" },
+        new ProtectionNeedle { Text = "phases out", Effect = "phase-out", SubjectForm = "singular", IsPreWideningBaseline = true },
         new ProtectionNeedle { Text = "phase out", Effect = "phase-out", SubjectForm = "plural" },
         new ProtectionNeedle { Text = "gains protection from", Effect = "protection-from", SubjectForm = "singular" },
-        new ProtectionNeedle { Text = "gain protection from", Effect = "protection-from", SubjectForm = "plural" },
+        new ProtectionNeedle { Text = "gain protection from", Effect = "protection-from", SubjectForm = "plural", IsPreWideningBaseline = true },
         new ProtectionNeedle { Text = "regenerate target", Effect = "regenerate", SubjectForm = "none" },
         new ProtectionNeedle { Text = "regenerate this creature", Effect = "regenerate", SubjectForm = "none" },
         new ProtectionNeedle { Text = "has shroud", Effect = "shroud", SubjectForm = "singular" },
@@ -278,8 +278,25 @@ public static class DeckStatClassifier
     /// <param name="name">Card name.</param>
     /// <param name="oracleText">Normalized oracle text.</param>
     public static bool IsProtectionCard(string name, string oracleText)
-        => StaxProtectionCatalog.IsProtection(name)
-            || ProtectionOracleNeedles.Any(needle => oracleText.Contains(needle.Text, StringComparison.OrdinalIgnoreCase));
+    {
+        if (StaxProtectionCatalog.IsProtection(name))
+        {
+            return true;
+        }
+
+        // Plain loop, not ProtectionOracleNeedles.Any(needle => ...): this predicate runs once per
+        // card on the Mana Base analysis and Deck Analysis request paths, and a LINQ lambda here
+        // allocates a delegate per call for no benefit over a direct loop.
+        foreach (ProtectionNeedle needle in ProtectionOracleNeedles)
+        {
+            if (oracleText.Contains(needle.Text, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Parses a single mana symbol token (the text between <c>{</c> and <c>}</c>) into its

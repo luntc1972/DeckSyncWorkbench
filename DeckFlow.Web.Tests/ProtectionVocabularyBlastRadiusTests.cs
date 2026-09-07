@@ -42,7 +42,11 @@ public sealed class ProtectionVocabularyBlastRadiusTests
     // transcribed from PLAN.md. See docs/research/protection-vocabulary-blast-radius-2026-09.md for
     // the added/removed card breakdown and the needle that moved each one. ----
 
-    private static readonly string[] ExpectedCutLabProtectionNames =
+    // Shared by both the Cut Lab protection role assertion and the interaction-audit
+    // protection-attributable assertion below: the docs confirm the two consumers land on the
+    // identical 20-card set for this fixture corpus ("no recursion collision in this fixture
+    // set"), so one array expresses that fact instead of two copies that could silently diverge.
+    private static readonly string[] ExpectedProtectionAttributableNames =
     [
         "Amalia Benavides Aguirre",
         "Boromir, Warden of the Tower",
@@ -176,30 +180,6 @@ public sealed class ProtectionVocabularyBlastRadiusTests
         "Whispersilk Cloak",
     ];
 
-    private static readonly string[] ExpectedAuditProtectionAttributableNames =
-    [
-        "Amalia Benavides Aguirre",
-        "Boromir, Warden of the Tower",
-        "Brave the Elements",
-        "Deflecting Swat",
-        "Flare of Fortitude",
-        "Flawless Maneuver",
-        "Giver of Runes",
-        "Heroic Intervention",
-        "Kytheon, Hero of Akros // Gideon, Battle-Forged",
-        "Lightning Greaves",
-        "Loran's Escape",
-        "Mother of Runes",
-        "Plaza of Heroes",
-        "Revitalizing Repast // Old-Growth Grove",
-        "Seasoned Dungeoneer",
-        "Swiftfoot Boots",
-        "Sylvan Safekeeper",
-        "Teferi's Protection",
-        "The One Ring",
-        "Whispersilk Cloak",
-    ];
-
     // ---- BEFORE (narrow, historical) sets -- a test-local reproduction of the FOUR needles that
     // shipped before this phase ("gains hexproof", "gains indestructible", "gain protection from",
     // "phases out", each an OrdinalIgnoreCase substring, plus the curated StaxProtectionCatalog
@@ -234,7 +214,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
     [Fact]
     public void ProtectionRole_AcrossNineFixtures_MatchesMeasuredAcceptedSet()
     {
-        IReadOnlyList<CardFact> cards = LoadDistinctFixtureCards();
+        IReadOnlyList<CardFact> cards = DistinctFixtureCardsCache.Value;
 
         string[] afterNames = cards
             .Where(fact => CutLabRoleAssigner
@@ -244,13 +224,13 @@ public sealed class ProtectionVocabularyBlastRadiusTests
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(ExpectedCutLabProtectionNames, afterNames);
+        Assert.Equal(ExpectedProtectionAttributableNames, afterNames);
     }
 
     [Fact]
     public void InteractionTargetedRole_AcrossNineFixtures_MatchesMeasuredAcceptedSet()
     {
-        IReadOnlyList<CardFact> cards = LoadDistinctFixtureCards();
+        IReadOnlyList<CardFact> cards = DistinctFixtureCardsCache.Value;
 
         string[] afterNames = cards
             .Where(fact => CutLabRoleAssigner
@@ -269,7 +249,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
     [Fact]
     public void PlanRoleInteractionViaProtection_AcrossNineFixtures_MatchesMeasuredAcceptedSet()
     {
-        IReadOnlyList<CardFact> cards = LoadDistinctFixtureCards();
+        IReadOnlyList<CardFact> cards = DistinctFixtureCardsCache.Value;
 
         string[] afterNames = cards
             .Where(fact =>
@@ -290,7 +270,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
     [Fact]
     public void InteractionAuditProtectionRecursionBucket_AttributableToProtection_MatchesMeasuredAcceptedSet()
     {
-        IReadOnlyList<CardFact> cards = LoadDistinctFixtureCards();
+        IReadOnlyList<CardFact> cards = DistinctFixtureCardsCache.Value;
 
         var inputs = cards
             .Select(fact => new InteractionCardInput(1, fact.Name, fact.TypeLine, FrontOracle(fact), fact.ManaCost ?? string.Empty))
@@ -312,13 +292,13 @@ public sealed class ProtectionVocabularyBlastRadiusTests
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(ExpectedAuditProtectionAttributableNames, afterNames);
+        Assert.Equal(ExpectedProtectionAttributableNames, afterNames);
     }
 
     [Fact]
     public void HistoricalNarrowVocabulary_AcrossNineFixtures_MatchesMeasuredBeforeSets()
     {
-        IReadOnlyList<CardFact> cards = LoadDistinctFixtureCards();
+        IReadOnlyList<CardFact> cards = DistinctFixtureCardsCache.Value;
 
         string[] beforeCutLabAndAudit = cards
             .Where(fact => BeforeProtection(fact.Name, FrontOracle(fact)))
@@ -355,7 +335,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
     [Fact]
     public void CannotBeRegeneratedRemovalFamily_NeverAppearsAsProtectionAtAnyConsumer()
     {
-        IReadOnlyList<CardFact> cards = LoadDistinctFixtureCards();
+        IReadOnlyList<CardFact> cards = DistinctFixtureCardsCache.Value;
         Dictionary<string, CardFact> byName = cards.ToDictionary(fact => fact.Name, StringComparer.Ordinal);
 
         var inputs = cards
@@ -412,24 +392,28 @@ public sealed class ProtectionVocabularyBlastRadiusTests
             || BeforeProtection(name, oracle);
     }
 
-    // The four needles ProtectionOracleNeedles carried before Phase 9.1 widened it: "gains
-    // hexproof", "gains indestructible", "gain protection from", "phases out" (each an
-    // OrdinalIgnoreCase substring), plus the curated StaxProtectionCatalog list. Frozen historical
-    // fact -- reproduced locally so the before/after delta in
+    // The four needles ProtectionOracleNeedles carried before Phase 9.1 widened it, read via
+    // ProtectionNeedle.IsPreWideningBaseline rather than retyped here, plus the curated
+    // StaxProtectionCatalog list. Frozen historical fact -- reproduced by filtering the shipped
+    // table (not a second hand-copy of it) so the before/after delta in
     // docs/research/protection-vocabulary-blast-radius-2026-09.md is a real in-test measurement,
     // not a number quoted from memory.
     private static bool BeforeProtection(string name, string oracle)
         => StaxProtectionCatalog.IsProtection(name)
-            || oracle.Contains("gains hexproof", StringComparison.OrdinalIgnoreCase)
-            || oracle.Contains("gains indestructible", StringComparison.OrdinalIgnoreCase)
-            || oracle.Contains("gain protection from", StringComparison.OrdinalIgnoreCase)
-            || oracle.Contains("phases out", StringComparison.OrdinalIgnoreCase);
+            || DeckStatClassifier.ProtectionOracleNeedles
+                .Where(needle => needle.IsPreWideningBaseline)
+                .Any(needle => oracle.Contains(needle.Text, StringComparison.OrdinalIgnoreCase));
+
+    // The nine fixtures are immutable for the life of the test run, so every [Fact] in this class
+    // reads the same cached load instead of re-globbing the directory and re-deserializing 9 JSON
+    // files apiece.
+    private static readonly Lazy<IReadOnlyList<CardFact>> DistinctFixtureCardsCache = new(LoadDistinctFixtureCardsFromDisk);
 
     // Loads all nine dot-prefixed real-deck fact fixtures (they are dot-prefixed, so a bare
     // "*.json" glob would silently match nothing -- the leading dot is part of the pattern) and
     // deduplicates cards by name across decks. Reuses the same repo-root resolution convention as
     // BragoRealDeckHarness/ManabaseHealthBandRegressionTests rather than inventing a second one.
-    private static IReadOnlyList<CardFact> LoadDistinctFixtureCards()
+    private static List<CardFact> LoadDistinctFixtureCardsFromDisk()
     {
         string fixturesDir = Path.Combine(RepoRoot(), "DeckFlow.Web.Tests", "Manabase", "fixtures");
         string[] files = Directory.GetFiles(fixturesDir, ".manabase-*-facts.json");

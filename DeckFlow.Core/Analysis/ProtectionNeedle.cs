@@ -16,8 +16,10 @@ public sealed record ProtectionNeedle
     public required string Text { get; init; }
 
     /// <summary>
-    /// The protection effect this needle detects. Documented allowed values: <c>hexproof</c>,
-    /// <c>indestructible</c>, <c>protection-from</c>, <c>phase-out</c>.
+    /// The protection effect this needle detects. Allowed values are whatever effects
+    /// <see cref="DeckStatClassifier.ProtectionOracleNeedles"/> currently carries — that table is
+    /// the single source of truth, so this doc does not enumerate a closed set that would drift
+    /// every time a needle is added.
     /// </summary>
     public required string Effect { get; init; }
 
@@ -27,4 +29,13 @@ public sealed record ProtectionNeedle
     /// distinction).
     /// </summary>
     public required string SubjectForm { get; init; }
+
+    /// <summary>
+    /// <see langword="true"/> for the four needles the classifier carried before Phase 9.1 widened
+    /// it to the corpus-derived table. This is the single source of truth for "the historical
+    /// narrow vocabulary" — consumers that need that frozen four-needle snapshot (the CLI's
+    /// disclosure report, the blast-radius test's before/after measurement) filter this flag
+    /// instead of each re-typing the four strings.
+    /// </summary>
+    public bool IsPreWideningBaseline { get; init; }
 }
