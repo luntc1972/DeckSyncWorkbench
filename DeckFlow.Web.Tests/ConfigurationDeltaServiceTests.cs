@@ -46,8 +46,26 @@ public sealed class ConfigurationDeltaServiceTests
     {
         var result = new ConfigurationDeltaService().ComputeDelta([Analysis("reference", colors: [Color("W")]), Analysis("other")], 0);
 
-        Assert.False(result.ColorRows[0].Values[0].IsPresent);
-        Assert.Null(result.ColorRows[0].Values[0].ActualSources);
+        Assert.False(result.ColorRows[0].Values[1].IsPresent);
+        Assert.Null(result.ColorRows[0].Values[1].ActualSources);
+    }
+
+    [Fact]
+    public void ComputeDelta_ColorRows_ValuesAlignOneToOneWithAllAnalyses()
+    {
+        var analyses = new[]
+        {
+            Analysis("reference", colors: [Color("W")]),
+            Analysis("other", colors: [Color("W")]),
+        };
+
+        var result = new ConfigurationDeltaService().ComputeDelta(analyses, 0);
+
+        // Every color row must carry one value per analysis (reference included), so it aligns
+        // 1:1 with the rendered [Reference, ...Columns] header. See CR-01.
+        Assert.Equal(analyses.Length, result.ColorRows[0].Values.Count);
+        Assert.True(result.ColorRows[0].Values[0].IsPresent);
+        Assert.Null(result.ColorRows[0].Values[0].ActualSourcesDelta);
     }
 
     [Fact]

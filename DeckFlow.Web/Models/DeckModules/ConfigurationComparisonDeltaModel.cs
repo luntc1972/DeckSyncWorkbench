@@ -36,8 +36,6 @@ public sealed record ConfigurationColorSourceDeltaRow
 {
     public required string Color { get; init; }
     public required string DisplayColor { get; init; }
-    public double? ReferenceActualSources { get; init; }
-    public int? ReferenceRequiredSources { get; init; }
     public IReadOnlyList<ConfigurationColorSourceDeltaValue> Values { get; init; } = [];
 }
 

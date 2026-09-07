@@ -341,4 +341,18 @@ describe('DeckFlowDeckModules', () => {
         await vi.waitFor(() => expect(document.querySelectorAll('[data-deck-modules-comparison-head] th')).toHaveLength(3));
         expect(document.querySelectorAll('[data-deck-modules-comparison-head] th')[2].textContent).toBe('Plan B — Core-only analysis');
     });
+
+    it('initialize_ComparisonColorRow_RendersSameCellCountAsMetricRows', async () => {
+        // CR-01: ColorRows.Values must carry one value per analysis (reference included) so the
+        // rendered row aligns 1:1 with the [Reference, ...Columns] header -- same td count as the
+        // metric rows above it, not one short.
+        const delta = { ...comparisonDelta(), colorRows: [{ color: 'U', displayColor: 'Blue', values: [{ configurationId: 'a', actualSources: 18, requiredSources: 20, actualSourcesDelta: null, isPresent: true }, { configurationId: 'b', actualSources: 20, requiredSources: 20, actualSourcesDelta: 2, isPresent: true }] }] };
+        const fetchMock = vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, status: 200, json: async () => url === '/deck-modules/compare' ? delta : imported })); vi.stubGlobal('fetch', fetchMock);
+        await prepareComparison(); document.querySelector<HTMLButtonElement>('[data-deck-modules-compare]')!.click();
+        await vi.waitFor(() => expect(document.querySelectorAll('[data-deck-modules-comparison-body] tr')).toHaveLength(6));
+        const rows = document.querySelectorAll('[data-deck-modules-comparison-body] tr');
+        const metricCellCount = rows[0].querySelectorAll('td').length;
+        const colorRow = Array.from(rows).find(row => row.querySelector('th')?.textContent === 'Blue sources')!;
+        expect(colorRow.querySelectorAll('td')).toHaveLength(metricCellCount);
+    });
 });

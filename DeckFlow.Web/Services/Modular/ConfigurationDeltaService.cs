@@ -88,14 +88,14 @@ public sealed class ConfigurationDeltaService : IConfigurationDeltaService
             {
                 Color = finding.Color,
                 DisplayColor = finding.DisplayColor,
-                ReferenceActualSources = referenceFinding?.ActualSources,
-                ReferenceRequiredSources = referenceFinding?.RequiredSources,
-                Values = analyses.Where((_, index) => index != referenceIndex).Select(analysis => ToColorValue(analysis, finding.Color, referenceFinding)).ToArray(),
+                // Values now covers every analysis in list order, reference included, so the row
+                // aligns 1:1 with [Reference, ...Columns] in the rendered header.
+                Values = analyses.Select((analysis, index) => ToColorValue(analysis, finding.Color, referenceFinding, index == referenceIndex)).ToArray(),
             });
         }
     }
 
-    private static ConfigurationColorSourceDeltaValue ToColorValue(ConfigurationAnalysisResult? analysis, string color, ConfigurationAttributedFinding? reference)
+    private static ConfigurationColorSourceDeltaValue ToColorValue(ConfigurationAnalysisResult? analysis, string color, ConfigurationAttributedFinding? reference, bool isReference)
     {
         ConfigurationAttributedFinding? finding = FindColor(analysis?.AttributedFindings, color);
         return new ConfigurationColorSourceDeltaValue
@@ -103,7 +103,7 @@ public sealed class ConfigurationDeltaService : IConfigurationDeltaService
             ConfigurationId = analysis?.ConfigurationId,
             ActualSources = finding?.ActualSources,
             RequiredSources = finding?.RequiredSources,
-            ActualSourcesDelta = finding is null || reference is null ? null : finding.ActualSources - reference.ActualSources,
+            ActualSourcesDelta = isReference || finding is null || reference is null ? null : finding.ActualSources - reference.ActualSources,
             IsPresent = finding is not null,
         };
     }
