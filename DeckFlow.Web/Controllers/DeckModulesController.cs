@@ -209,7 +209,13 @@ public sealed class DeckModulesController : DeckToolControllerBase
                 continue;
             }
 
-            _packetSessionCache.Set(side.AnalysisKey, side.Analysis, PacketSizeEstimator.EstimateSizeBytes(side.Analysis));
+            // Why: never let an unauthenticated caller write a client-chosen key/value pair into
+            // the process-wide singleton cache (CR-02) -- that let anyone pre-seat a fabricated
+            // analysis under a reproducible key and have it returned to a later Analyze caller,
+            // and cheap repeated posts could evict every other user's cached entries. The client
+            // already holds this snapshot in sessionStorage (recorded by analyze()), so the
+            // comparison is computed directly from the inline payload without touching shared
+            // state.
             resolvedAnalyses.Add(side.Analysis);
         }
 

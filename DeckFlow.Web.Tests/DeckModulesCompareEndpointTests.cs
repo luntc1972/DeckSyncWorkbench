@@ -44,7 +44,7 @@ public sealed class DeckModulesCompareEndpointTests
     }
 
     [Fact]
-    public void Compare_ReseatsInlineAnalysis_WhenCacheMisses()
+    public void Compare_UsesInlineAnalysis_WhenCacheMisses()
     {
         var cache = new PacketSessionCache();
         var controller = CreateController(cache);
@@ -53,8 +53,21 @@ public sealed class DeckModulesCompareEndpointTests
         var result = controller.Compare(request, CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result);
-        Assert.True(cache.TryGet<ConfigurationAnalysisResult>("key-a", out var cached));
-        Assert.Equal("alt-a", cached!.ConfigurationId);
+    }
+
+    [Fact]
+    public void Compare_InlineAnalysis_IsNotWrittenToTheSharedCache()
+    {
+        // CR-02 regression: an unauthenticated caller must not be able to make an arbitrary
+        // payload retrievable under a caller-chosen cache key by posting it through /compare.
+        var cache = new PacketSessionCache();
+        var controller = CreateController(cache);
+        var request = CreateRequest(CreateAnalysis("alt-a"), CreateAnalysis("alt-b"));
+
+        controller.Compare(request, CancellationToken.None);
+
+        Assert.False(cache.TryGet<ConfigurationAnalysisResult>("key-a", out _));
+        Assert.False(cache.TryGet<ConfigurationAnalysisResult>("key-b", out _));
     }
 
     [Fact]
