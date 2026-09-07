@@ -13,6 +13,7 @@ public static class DeckModulesAnalysisServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.AddScoped<IAnalysisWarningAttributionService, AnalysisWarningAttributionService>();
         services.AddScoped<IConfigurationAnalysisService, ConfigurationAnalysisService>();
+        services.AddScoped<IConfigurationDeltaService, ConfigurationDeltaService>();
         return services;
     }
 }
