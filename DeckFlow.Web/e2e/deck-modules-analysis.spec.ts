@@ -58,5 +58,20 @@ test('analyzes a compiled configuration', async ({ page }, testInfo) => {
   // "Winota Stax" is the last alternative added, so it is the selected/active one at compile time.
   await expect(page.locator('[data-deck-modules-declared-plan]')).toHaveText('Lock opponents while Winota supplies pressure.');
 
+  await page.getByRole('button', { name: /Winota Combat/ }).click();
+  const secondAnalysisResponse = page.waitForResponse('/deck-modules/analyze');
+  await page.locator('[data-deck-modules-analyze]').click();
+  expect((await secondAnalysisResponse).status()).toBe(200);
+
+  await page.locator('[data-deck-modules-compare-reference]').selectOption({ label: 'Winota Combat' });
+  await page.locator('[data-deck-modules-compare-other]').selectOption({ label: 'Winota Stax' });
+  const comparisonResponse = page.waitForResponse(response => response.url().endsWith('/deck-modules/compare') && response.status() === 200);
+  await page.locator('[data-deck-modules-compare]').click();
+  expect((await comparisonResponse).status()).toBe(200);
+  const comparison = page.locator('[data-deck-modules-comparison-table]');
+  await expect(comparison).toBeVisible();
+  await expect(comparison.locator('thead th')).toHaveCount(3);
+  await expect(comparison.locator('tbody tr').filter({ hasText: 'Land count' }).locator('td').first()).not.toBeEmpty();
+
   await page.screenshot({ path: join(uiDesignDir('deck-modules-analysis'), `${testInfo.title}.png`), fullPage: true });
 });

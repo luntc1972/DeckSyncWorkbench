@@ -150,6 +150,20 @@
             <p data-deck-modules-profile-note role="status" hidden></p>
         </div>
     </section>
+
+    <section class="deck-modules__panel deck-modules__comparison" aria-labelledby="deck-modules-comparison-heading" data-deck-modules-comparison hidden>
+        <h2 id="deck-modules-comparison-heading">Configuration comparison</h2>
+        <label>Reference <select data-deck-modules-compare-reference></select></label>
+        <label>Other configuration <select data-deck-modules-compare-other></select></label>
+        <button type="button" data-deck-modules-compare disabled>Compare</button>
+        <p data-deck-modules-comparison-message role="status"></p>
+        <div class="table-wrapper" tabindex="0" role="region" aria-label="Configuration comparison (scrollable)">
+            <table data-deck-modules-comparison-table>
+                <thead data-deck-modules-comparison-head></thead>
+                <tbody data-deck-modules-comparison-body></tbody>
+            </table>
+        </div>
+    </section>
 </section>
 
 @section Scripts {

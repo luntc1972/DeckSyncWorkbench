@@ -6016,4 +6016,14 @@ pre {
 .deck-modules__disclosure p {
   margin: 0.5rem 0;
 }
+
+.deck-modules__comparison table {
+  min-width: 390px;
+}
+
+.deck-modules__comparison th,
+.deck-modules__comparison td {
+  min-width: 9rem;
+  vertical-align: top;
+}
 /* end Phase 3: deck-modules analysis */
