@@ -82,6 +82,13 @@ public sealed class ManabaseAnalysisOptions
     /// Null lets the service label it (Override for an explicit bracket, Fallback for the mode default).
     /// </summary>
     public ManabaseBracketSource? BracketSource { get; init; }
+
+    /// <summary>
+    /// Whether to classify spells into plan roles. This costs crowd-category and Commander Spellbook
+    /// lookups, so it defaults to <see langword="false"/> to keep mana-base page behavior
+    /// byte-identical for existing callers.
+    /// </summary>
+    public bool ClassifyPlanRoles { get; init; }
 }
 
 /// <summary>The outcome of a mana-base analysis: the report plus presentation context.</summary>
@@ -156,6 +163,9 @@ public sealed record ManabaseAnalysisResult(
     /// override bound to a spell.
     /// </summary>
     public IReadOnlyList<string> UnmatchedOverrideNames { get; init; } = Array.Empty<string>();
+
+    /// <summary>Spells resolved for this completed analysis, including their optional plan roles.</summary>
+    public IReadOnlyList<SpellRequirement> AnalyzedSpells { get; init; } = Array.Empty<SpellRequirement>();
 }
 
 /// <summary>
@@ -408,7 +418,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 // Keep-shapes in cEDH also needs PlanRoles tagged: shapes B/C read roles and shape A
                 // reads Payoff/TutorCombo. keepShapes is already gated on showMulliganEval, so this
                 // extra I/O stays off whenever the opening-hand block is hidden.
-                classifyPlanRoles: showPlanPresence || showCedhInteractionLens || (keepShapes && options.Mode == ManabaseMode.Cedh),
+                classifyPlanRoles: options.ClassifyPlanRoles || showPlanPresence || showCedhInteractionLens || (keepShapes && options.Mode == ManabaseMode.Cedh),
                 options.Mode,
                 options.CompanionDesignator,
                 options.SelectedCommander,
@@ -548,6 +558,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             ShowSourceList = showSourceList,
             ShowCedhInteractionLens = showCedhInteractionLens,
             UnmatchedOverrideNames = report.UnmatchedOverrideNames,
+            AnalyzedSpells = resolved.Deck.Spells,
         };
     }
 
