@@ -1,25 +1,14 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withToolEnabled } from './support/admin-tools';
+import { assignWithKeyboard } from './support/deck-modules-assign';
 
 const winotaDeck = readFileSync(join(__dirname, 'fixtures', 'winota-cedh.txt'), 'utf8').trim();
 
 test.describe.configure({ mode: 'serial' });
 test.setTimeout(120_000);
 withToolEnabled('Deck Modules');
-
-async function assignWithKeyboard(page: Page, from: string, to: string): Promise<void> {
-  const selection = page.locator(`[data-deck-modules-entries="${from}"] [data-deck-modules-select]`).first();
-  await selection.focus();
-  await page.keyboard.press('Space');
-  await expect(selection).toBeChecked();
-
-  const move = page.locator(`[data-deck-modules-move="${from}:${to}"]`);
-  await move.focus();
-  await page.keyboard.press('Enter');
-  await expect(page.locator(`[data-deck-modules-filter="${to}"]`)).toBeFocused();
-}
 
 test('imports, assigns, compiles, and remains usable at the current viewport', async ({ page }, testInfo) => {
   const response = await page.goto('/deck-modules');
