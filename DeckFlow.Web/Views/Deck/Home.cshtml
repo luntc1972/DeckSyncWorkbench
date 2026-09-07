@@ -13,59 +13,96 @@
     var headlineWorkflow = sections
         .SelectMany(section => section.Tools)
         .FirstOrDefault(tool => tool.Key == "deck-analysis");
+
+    string HomeDescription(string toolKey, string fallback) => toolKey switch
+    {
+        "deck-analysis" => "Five-step external-AI workflow.",
+        "manabase" => "Evaluate mana sources and land balance.",
+        "deck-comparison" => "Compare two decks side by side.",
+        "cedh-meta-gap" => "Compare your deck against cEDH metagame lists.",
+        "bracket" => "Check your deck's Commander bracket.",
+        "deck-history" => "Track changes and restore versions.",
+        "cut-lab" => "Trim a Commander deck with deliberate cuts.",
+        "deck-primer" => "Build a structured deck primer.",
+        "deck-sync" => "Keep Moxfield and Archidekt decks aligned.",
+        "convert" => "Convert decklists between supported formats.",
+        "content-kb" => "Browse curated deckbuilding guidance.",
+        "card-lookup" => "Find Oracle text and card rulings.",
+        "mechanic-lookup" => "Understand keyword mechanics and rules.",
+        "judge-questions" => "Ask rules questions with a prompt backup.",
+        "suggest-categories" => "Get useful card category suggestions.",
+        "commander-categories" => "Browse categories used by suggestions.",
+        _ => fallback,
+    };
 }
 
 @await Html.PartialAsync("_DeckToolTabs", Model)
 
-<h1 class="hub-title">DeckFlow — Magic: The Gathering deck tools</h1>
-<p class="hub-lede">Magic: The Gathering tools for Commander and cEDH: mana base analysis, bracket checking, deck comparison, deck primers, and version tracking.</p>
+<h1 class="hub-title">Find the right tool for your deck</h1>
+<p class="hub-lede">Choose a tool to analyze, compare, and improve your Commander and cEDH decks.</p>
 
 @if (headlineWorkflow is not null)
 {
     <a class="hub-hero hub-hero--primary" href="@Url.Content("~" + headlineWorkflow.Route)">
+        <span class="hub-hero__icon">
+            @await Html.PartialAsync("_ToolTileIcon", headlineWorkflow.IconKey)
+        </span>
         <span class="hub-hero__eyebrow">Headline workflow</span>
-        <span class="hub-hero__title">Analyze Your Deck</span>
+        <span class="hub-hero__title">Deck Analysis</span>
         <span class="hub-hero__description">Five-step workflow: load your deck, pick your questions, and get back a structured review — one paste, one round-trip.</span>
     </a>
 }
 
-@foreach (var section in sections)
-{
-    var sectionName = section.Section.ToString();
-    var sectionId = $"hub-group-{sectionName.ToLowerInvariant()}";
-
-    <section class="hub-group" aria-labelledby="@sectionId">
-        <h2 id="@sectionId" class="hub-group__title">
-            <span class="hub-group__icon">
-                @switch (section.Section)
-                {
-                    case ToolNavSection.Analyze:
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
-                        break;
-                    case ToolNavSection.Build:
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8a5 5 0 0 1 9.9-1M13 8a5 5 0 0 1-9.9 1"/><polyline points="11,5 13,7 11,9"/><polyline points="5,11 3,9 5,7"/></svg>
-                        break;
-                    case ToolNavSection.Reference:
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
-                        break;
-                    case ToolNavSection.Categories:
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 4h5l1.5 2H14v7H2z"/></svg>
-                        break;
-                }
-            </span>
-            @sectionName
-        </h2>
-        <div class="hub-grid">
-            @foreach (var tool in section.Tools)
-            {
-                <a class="hub-card @(tool.IsPrimaryTile ? "hub-card--primary" : string.Empty)" href="@Url.Content("~" + tool.Route)">
-                    <span class="hub-card__icon">
-                        @await Html.PartialAsync("_ToolTileIcon", tool.IconKey)
-                    </span>
-                    <h3 class="hub-card__title">@tool.TileTitle</h3>
-                    <p class="hub-card__description">@tool.TileDescription</p>
-                </a>
-            }
-        </div>
-    </section>
+@{
+    var categorySection = sections.FirstOrDefault(section => section.Section == ToolNavSection.Categories);
 }
+<div class="home-directory">
+    @foreach (var section in sections)
+    {
+        if (section.Section == ToolNavSection.Categories)
+        {
+            continue;
+        }
+
+        var sectionName = section.Section == ToolNavSection.Reference ? "Reference & rules" : section.Section.ToString();
+        var sectionId = $"hub-group-{sectionName.ToLowerInvariant()}";
+        var sectionTools = section.Section == ToolNavSection.Reference && categorySection is not null
+            ? section.Tools.Concat(categorySection.Tools)
+            : section.Tools;
+
+        <section class="hub-group" aria-labelledby="@sectionId">
+            <h2 id="@sectionId" class="hub-group__title">
+                <span class="hub-group__icon">
+                    @switch (section.Section)
+                    {
+                        case ToolNavSection.Analyze:
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
+                            break;
+                        case ToolNavSection.Build:
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8a5 5 0 0 1 9.9-1M13 8a5 5 0 0 1-9.9 1"/><polyline points="11,5 13,7 11,9"/><polyline points="5,11 3,9 5,7"/></svg>
+                            break;
+                        case ToolNavSection.Reference:
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
+                            break;
+                        case ToolNavSection.Categories:
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 4h5l1.5 2H14v7H2z"/></svg>
+                            break;
+                    }
+                </span>
+                @sectionName
+            </h2>
+            <div class="hub-grid">
+                @foreach (var tool in sectionTools)
+                {
+                    <a class="hub-card @(tool.IsPrimaryTile ? "hub-card--primary" : string.Empty)" href="@Url.Content("~" + tool.Route)">
+                        <span class="hub-card__icon">
+                            @await Html.PartialAsync("_ToolTileIcon", tool.IconKey)
+                        </span>
+                        <h3 class="hub-card__title">@tool.TileTitle</h3>
+                        <p class="hub-card__description">@HomeDescription(tool.Key, tool.TileDescription)</p>
+                    </a>
+                }
+            </div>
+        </section>
+    }
+</div>

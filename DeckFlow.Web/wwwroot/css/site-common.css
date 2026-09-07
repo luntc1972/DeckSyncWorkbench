@@ -351,6 +351,171 @@ summary:focus-visible,
   font-size: var(--fs-base);
 }
 
+@media (min-width: 901px) {
+  .page-header .theme-picker {
+    margin-left: auto;
+  }
+
+  .page-header .page-nav {
+    margin-left: 0;
+  }
+
+  .hub-title {
+    margin-top: 1.25rem;
+    text-align: left;
+  }
+
+  .hub-lede {
+    max-width: 44rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .home-directory {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem 1.5rem;
+    align-items: start;
+  }
+
+  .home-directory .hub-group {
+    margin-top: 0;
+  }
+
+  .home-directory .hub-group__title {
+    margin-bottom: 0.4rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .home-directory .hub-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  .home-directory .hub-card {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    column-gap: 0.65rem;
+    row-gap: 0.15rem;
+    padding: 0.45rem 0.65rem;
+  }
+
+  .home-directory .hub-card__icon {
+    grid-row: span 2;
+    align-self: center;
+    margin: 0;
+  }
+
+  .home-directory .hub-card__title,
+  .home-directory .hub-card__description {
+    grid-column: 2;
+  }
+
+  .home-directory .hub-card {
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+  }
+
+  .home-directory .hub-card::after {
+    grid-row: span 2;
+    grid-column: 3;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-top: 1px solid currentColor;
+    border-right: 1px solid currentColor;
+    content: '';
+    opacity: 0.7;
+    transform: rotate(45deg);
+  }
+}
+
+@media (min-width: 1440px) {
+  body:has(.home-directory) .page-shell,
+  body:has(.home-directory) .page-frame {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+  }
+
+  body:has(.home-directory) .page-frame,
+  body:has(.home-directory) .content-shell {
+    width: 100%;
+  }
+
+  body:has(.home-directory) .page-frame,
+  body:has(.home-directory) .content-shell {
+    max-width: 1360px;
+  }
+
+  body:has(.home-directory) .page-footer {
+    display: grid;
+    grid-template-columns: max-content max-content minmax(20rem, 1fr);
+    gap: 1rem;
+    align-items: flex-start;
+    margin-top: 3rem;
+  }
+
+  body:has(.home-directory) .page-footer__links {
+    display: flex;
+    grid-column: 1;
+    grid-row: 1;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  body:has(.home-directory) .page-footer .share-bar {
+    grid-column: 2;
+    grid-row: 1;
+    align-items: flex-start;
+    margin: 0;
+    padding: 0;
+    order: 0;
+    gap: 0.25rem;
+  }
+
+  body:has(.home-directory) .page-footer .share-bar__label,
+  body:has(.home-directory) .page-footer .share-bar__button {
+    font-size: var(--fs-xs);
+  }
+
+  body:has(.home-directory) .page-footer .share-bar__buttons {
+    gap: 0.25rem;
+  }
+
+  body:has(.home-directory) .page-footer .share-bar__button {
+    min-height: 0;
+    padding: 0.35rem 0.25rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  body:has(.home-directory) .page-footer .share-bar__button:hover,
+  body:has(.home-directory) .page-footer .share-bar__button:focus-visible {
+    text-decoration: underline;
+  }
+
+  body:has(.home-directory) .page-footer .page-footer__legal {
+    grid-column: 3;
+    grid-row: 1;
+    min-width: 0;
+    max-width: none;
+    margin: 0 0 0 auto;
+    order: 0;
+    white-space: normal;
+    font-size: var(--fs-xs);
+    text-align: left;
+  }
+
+  body:has(.home-directory) .page-footer .page-footer__link--cta {
+    padding: 0.35rem 0.25rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+  }
+}
+
 .hub-group {
   margin-top: 1.5rem;
 }
@@ -368,6 +533,12 @@ summary:focus-visible,
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
   gap: 1rem;
+}
+
+@media (min-width: 901px) {
+  .hub-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .hub-card {
@@ -671,6 +842,37 @@ summary:focus-visible,
   color: var(--muted);
   margin: 0;
   line-height: 1.4;
+}
+
+@media (min-width: 901px) {
+  .hub-hero--primary {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.75rem 0;
+    border-width: 1px 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .hub-hero__icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    color: var(--accent);
+  }
+
+  .hub-hero__eyebrow {
+    display: none;
+  }
+
+  .hub-hero__title {
+    flex: 0 0 auto;
+    margin: 0;
+  }
+
+  .hub-hero__description {
+    margin: 0;
+  }
 }
 
 .hub-card--primary {
@@ -4106,6 +4308,22 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   border-color: var(--muted);
 }
 
+.page-footer .share-bar {
+  flex-basis: 100%;
+  justify-content: flex-end;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.page-footer .share-bar__buttons {
+  justify-content: flex-end;
+}
+
+.page-footer .page-footer__legal {
+  order: 2;
+}
+
 @media (max-width: 640px) {
   .share-bar {
     flex-direction: column;
@@ -5659,6 +5877,93 @@ html {
   margin-bottom: 1rem;
 }
 
+@media (min-width: 901px) {
+  .tool-nav {
+    position: absolute;
+    top: 0.25rem;
+    left: 9rem;
+    z-index: 51;
+    display: inline-flex;
+    flex-wrap: nowrap;
+    margin-bottom: 0;
+  }
+
+  .tool-nav .tool-nav__menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 40px;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: var(--fs-sm);
+    cursor: pointer;
+  }
+
+  .tool-nav .tool-nav__menu-toggle::after {
+    width: 0;
+    height: 0;
+    border-top: 0.35rem solid currentColor;
+    border-right: 0.25rem solid transparent;
+    border-left: 0.25rem solid transparent;
+    content: '';
+    opacity: 0.7;
+    transition: transform 0.2s ease;
+  }
+
+  .tool-nav.is-menu-open .tool-nav__menu-toggle::after {
+    transform: rotate(180deg);
+  }
+
+  .tool-nav .tool-nav__groups {
+    display: none;
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    grid-template-columns: repeat(2, max-content);
+    gap: 0.35rem;
+    padding: 0.5rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+
+  .tool-nav.is-menu-open .tool-nav__groups {
+    display: grid;
+  }
+
+  .tool-nav .tool-nav__groups > .tool-nav__group {
+    display: block;
+  }
+
+  .tool-nav .tool-nav__dropdown {
+    min-width: 16rem;
+  }
+
+  body:has(.home-directory) .share-bar {
+    gap: 0.35rem 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+  }
+
+  body:has(.home-directory) .share-bar__label,
+  body:has(.home-directory) .share-bar__button {
+    font-size: var(--fs-sm);
+  }
+
+  body:has(.home-directory) .share-bar__buttons {
+    gap: 0.35rem;
+  }
+
+  body:has(.home-directory) .share-bar__button {
+    min-height: 2rem;
+    padding: 0.25rem 0.55rem;
+  }
+}
+
 /* aria-controls target for the mobile menu toggle. `display: contents` keeps the groups as direct
    layout children of .tool-nav in both the desktop flex row and the mobile grid, so the wrapper
    costs nothing visually. */
@@ -5717,6 +6022,24 @@ html {
 .tool-nav__link.is-active {
   color: var(--accent);
   font-weight: 600;
+}
+
+.tool-nav .tool-nav__link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tool-nav__link-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.tool-nav__link-icon svg {
+  display: block;
+  width: 1rem;
+  height: 1rem;
 }
 
 .field-grid,

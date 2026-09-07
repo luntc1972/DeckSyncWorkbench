@@ -48,9 +48,14 @@
       return;
     }
 
-    // Keep the control available across the full page, including near the footer.
-    button.setAttribute('aria-hidden', 'false');
-    button.tabIndex = 0;
+    const updateBackToTopVisibility = (): void => {
+      const canScroll = document.documentElement.scrollHeight > window.innerHeight;
+      const shouldShow = canScroll && window.scrollY >= 300;
+
+      button.classList.toggle('is-visible', shouldShow);
+      button.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+      button.tabIndex = shouldShow ? 0 : -1;
+    };
 
     let themeResetTimer: number | undefined;
     const releaseThemeLock = (): void => {
@@ -74,7 +79,9 @@
       });
     });
 
-    button.classList.add('is-visible');
+    window.addEventListener('scroll', updateBackToTopVisibility, { passive: true });
+    window.addEventListener('resize', updateBackToTopVisibility);
+    updateBackToTopVisibility();
   };
 
   const attachThemePicker = (): void => {
@@ -179,6 +186,9 @@
     menuToggle?.addEventListener('click', () => {
       const isMenuOpen = nav.classList.toggle('is-menu-open');
       menuToggle.setAttribute('aria-expanded', isMenuOpen ? 'true' : 'false');
+      if (!isMenuOpen) {
+        closeAllGroups();
+      }
     });
 
     const closeAllGroups = (): void => {
@@ -186,6 +196,12 @@
         group.classList.remove('is-open');
         group.querySelector<HTMLButtonElement>('[data-tool-nav-trigger]')?.setAttribute('aria-expanded', 'false');
       });
+    };
+
+    const closeMenu = (): void => {
+      nav.classList.remove('is-menu-open');
+      menuToggle?.setAttribute('aria-expanded', 'false');
+      closeAllGroups();
     };
 
     nav.querySelectorAll<HTMLButtonElement>('[data-tool-nav-trigger]').forEach(trigger => {
@@ -202,18 +218,18 @@
     });
 
     nav.querySelectorAll<HTMLAnchorElement>('.tool-nav__link').forEach(link => {
-      link.addEventListener('click', closeAllGroups);
+      link.addEventListener('click', closeMenu);
     });
 
     document.addEventListener('click', event => {
       if (!nav.contains(event.target as Node)) {
-        closeAllGroups();
+        closeMenu();
       }
     });
 
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape') {
-        closeAllGroups();
+        closeMenu();
       }
     });
   };

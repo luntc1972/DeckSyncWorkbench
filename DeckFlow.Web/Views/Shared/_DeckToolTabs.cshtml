@@ -34,7 +34,12 @@
 
                     <a class="tool-nav__link @(tool.Tab == Model ? "is-active" : string.Empty)"
                        href="@Url.Content("~" + tool.Route)"
-                       title="@linkTitle">@tool.Label</a>
+                       title="@linkTitle">
+                        <span class="tool-nav__link-icon" aria-hidden="true">
+                            @await Html.PartialAsync("_ToolTileIcon", tool.IconKey)
+                        </span>
+                        <span>@tool.Label</span>
+                    </a>
                 }
             </div>
         </div>

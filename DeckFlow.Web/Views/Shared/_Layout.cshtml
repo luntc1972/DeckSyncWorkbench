@@ -122,9 +122,6 @@
         <div class="page-frame">
             <header class="page-header">
                 <a class="page-brand" href="@Url.Content("~/")" aria-label="DeckFlow home">DeckFlow</a>
-                <nav class="page-nav" aria-label="Primary">
-                    <a class="page-nav__link" href="@Url.Content("~/help")">Help</a>
-                </nav>
                 <div class="theme-picker">
                     <label class="theme-picker__label" for="theme-picker">Theme</label>
                     <select id="theme-picker" class="theme-picker__select" data-df-select>
@@ -134,24 +131,29 @@
                         }
                     </select>
                 </div>
+                <nav class="page-nav" aria-label="Primary">
+                    <a class="page-nav__link" href="@Url.Content("~/help")">Help</a>
+                </nav>
             </header>
             <main role="main" id="main-content" class="content-shell">
                 @RenderBody()
             </main>
-            @if (shareLinks is not null)
-            {
-                <partial name="_ShareBar" model="shareLinks" />
-            }
             <footer class="page-footer">
-                <a class="page-footer__link" href="@Url.Content("~/about")">About</a>
-                <a class="page-footer__link page-footer__link--support" href="https://ko-fi.com/deckflowgg" target="_blank" rel="noopener noreferrer"><span class="page-footer__heart" aria-hidden="true">♥</span> Support</a>
-                @if (isFeedbackPage)
+                <div class="page-footer__links">
+                    <a class="page-footer__link" href="@Url.Content("~/about")">About</a>
+                    <a class="page-footer__link page-footer__link--support" href="https://ko-fi.com/deckflowgg" target="_blank" rel="noopener noreferrer"><span class="page-footer__heart" aria-hidden="true">♥</span> Support</a>
+                    @if (isFeedbackPage)
+                    {
+                        <span class="page-footer__link page-footer__link--current" aria-current="page">Feedback</span>
+                    }
+                    else
+                    {
+                        <a class="page-footer__link page-footer__link--cta" href="@Url.Content("~/feedback")">Feedback</a>
+                    }
+                </div>
+                @if (shareLinks is not null)
                 {
-                    <span class="page-footer__link page-footer__link--current" aria-current="page">Feedback</span>
-                }
-                else
-                {
-                    <a class="page-footer__link page-footer__link--cta" href="@Url.Content("~/feedback")">Feedback</a>
+                    <partial name="_ShareBar" model="shareLinks" />
                 }
                 <p class="page-footer__legal">DeckFlow is unofficial Fan Content permitted under the <a href="https://company.wizards.com/en/legal/fancontentpolicy" target="_blank" rel="noopener noreferrer">Fan Content Policy</a>. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. &copy;Wizards of the Coast LLC.</p>
             </footer>
