@@ -6,7 +6,7 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
-### Unreleased
+### 2026.09.2 — Scryfall Batching, Proven-Equivalence Evidence, Protection Vocabulary (2026-09-07)
 
 Card classification, affecting Mana Base and Deck Analysis:
 - **Protection detection no longer depends on how a card happens to word the effect.** The card
@@ -19,6 +19,32 @@ Card classification, affecting Mana Base and Deck Analysis:
   Cloak), shroud grants, regeneration, and Ward. On the nine reference decks this added 9 cards to
   Mana Base's interaction read and 10 to the interaction audit's protection bucket; no card was
   removed.
+
+Cut Lab, still behind the `tool.cut-lab.enabled` flag:
+- **Proven-equivalence evidence (dark behind `analysis.cut-lab.proven-equivalence`).** A new
+  disclosure-only finding flags pairs of distinct cards whose full Oracle profile — text (with the
+  card's own name redacted first), mana cost, type line, power/toughness, keywords, color identity,
+  and layout — is identical, such as Llanowar Elves, Elvish Mystic, and Fyndhorn Elves. It never
+  picks a preferred member and never feeds the cut engine's tally or proposal queue; it fails
+  closed on multi-face cards, X-cost or alternative-cost wording, and any pair that would need to
+  share an Oracle ID. Evaluated at precision 1.0 with zero false positives against a 25-case
+  labeled corpus. Defaults OFF; enabled and disabled runs are byte-identical everywhere else.
+- **The floor-feasibility warning renders now.** The commander-aware role-floors panel could
+  compute a feasibility warning that never reached the page. It now renders, independently of the
+  commander-floors flag.
+- **The enabler-starved help note survives a re-render.** A combo-package note explaining that a
+  combo line is missing its partner used to vanish after the next AJAX update instead of staying
+  attached to the card.
+
+Scryfall reliability and throughput (internal, no user-visible change):
+- **One endpoint's traffic no longer waits behind another's.** The shared 500ms pacing floor used
+  to serialize every Scryfall call process-wide. It is now gated per endpoint (collection lookup,
+  search, named lookup, rulings, sets), so a search request no longer waits behind an unrelated
+  collection fetch.
+- **A miss-heavy import costs one request instead of one per miss.** The exact-name fallback that
+  runs when a card isn't found by collection lookup now batches up to 60 misses into a single
+  `cards/search` OR-query, with a per-name retry only for the rare card that comes back
+  unattributed. Wired through Cut Lab, Deck Comparison, and Meta-Gap.
 
 ### 2026.09.1 — Deck Modules (Modular Deck Compiler)
 
