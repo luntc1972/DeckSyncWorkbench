@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace DeckFlow.Core.Analysis;
@@ -218,6 +219,31 @@ public static class DeckStatClassifier
                         || oracleText.Contains("end of turn", StringComparison.OrdinalIgnoreCase)
                         || oracleText.Contains("next", StringComparison.OrdinalIgnoreCase)));
 
+    // Why: a table (not an inline `||` chain) makes two properties checkable that an inline chain
+    // cannot be asserted over — pairable subject forms (Success Criterion 2 of Phase 9.1), and a
+    // future single source of truth for the research-report disclosure that
+    // DeckFlow.CLI/RoleFloorResearchCommandRunner.cs currently hand-copies. That CLI array is NOT
+    // retired by this table — it stays a stale hand-copied duplicate until plan 09.1-03 Task 3
+    // deletes it and points the disclosure at this table.
+    //
+    // Five rows: the four needles that existed before this table (singular hexproof/indestructible,
+    // plural protection-from, singular phase-out) plus the singular protection-from row this plan
+    // adds (Mother of Runes — the ROADMAP-named D-06 defect). Every other verb-form pairing (plural
+    // hexproof/indestructible/phase-out, "has" forms, shroud, regenerate) is plan 09.1-02's job and
+    // waits for its own corpus counts; do not add rows here ahead of that measurement.
+    /// <summary>
+    /// The oracle vocabulary <see cref="IsProtectionCard"/> matches against, as data rather than an
+    /// inline predicate chain.
+    /// </summary>
+    public static readonly IReadOnlyList<ProtectionNeedle> ProtectionOracleNeedles =
+    [
+        new ProtectionNeedle { Text = "gains hexproof", Effect = "hexproof", SubjectForm = "singular" },
+        new ProtectionNeedle { Text = "gains indestructible", Effect = "indestructible", SubjectForm = "singular" },
+        new ProtectionNeedle { Text = "gain protection from", Effect = "protection-from", SubjectForm = "plural" },
+        new ProtectionNeedle { Text = "gains protection from", Effect = "protection-from", SubjectForm = "singular" },
+        new ProtectionNeedle { Text = "phases out", Effect = "phase-out", SubjectForm = "singular" },
+    ];
+
     /// <summary>
     /// Returns <see langword="true"/> when the card is a curated or text-detected protection effect.
     /// </summary>
@@ -225,10 +251,7 @@ public static class DeckStatClassifier
     /// <param name="oracleText">Normalized oracle text.</param>
     public static bool IsProtectionCard(string name, string oracleText)
         => StaxProtectionCatalog.IsProtection(name)
-            || oracleText.Contains("gains hexproof", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("gains indestructible", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("gain protection from", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("phases out", StringComparison.OrdinalIgnoreCase);
+            || ProtectionOracleNeedles.Any(needle => oracleText.Contains(needle.Text, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Parses a single mana symbol token (the text between <c>{</c> and <c>}</c>) into its
