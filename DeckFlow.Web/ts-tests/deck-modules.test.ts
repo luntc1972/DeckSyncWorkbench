@@ -13,7 +13,7 @@ const markup = () => `
   ${['unassigned', 'core', 'strategy', 'mana'].map(panel => `<section data-deck-modules-panel="${panel}"><span data-deck-modules-count="${panel}"></span>${panel === 'strategy' ? '<span data-deck-modules-active-name></span>' : ''}<input data-deck-modules-filter="${panel}"><table><tbody data-deck-modules-entries="${panel}"></tbody></table><button data-deck-modules-move="${panel}:unassigned">Move</button><button data-deck-modules-move="${panel}:core">Move</button><button data-deck-modules-move="${panel}:strategy">Move</button><button data-deck-modules-move="${panel}:mana">Move</button></section>`).join('')}
   <p data-deck-modules-balance></p><button data-deck-modules-compile>Compile</button><button data-deck-modules-analyze>Analyze mana base</button><button data-deck-modules-export>Export</button><button data-deck-modules-copy>Copy</button><button data-deck-modules-download>Download</button><button data-deck-modules-restart>Restart</button>
   <section data-deck-modules-report><span data-deck-modules-report-total></span><span data-deck-modules-report-strategy></span><span data-deck-modules-report-mana></span><ul data-deck-modules-diagnostics></ul><ul data-deck-modules-compiled></ul><ul data-deck-modules-swap="add"></ul><ul data-deck-modules-swap="remove"></ul><ul data-deck-modules-swap="reset"></ul></section>
-  <section data-deck-modules-analysis hidden><p data-deck-modules-analysis-stale hidden>Cards changed since this analysis.</p><p data-deck-modules-core-only hidden></p><span data-deck-modules-analysis-health></span><span data-deck-modules-analysis-lands></span><span data-deck-modules-analysis-target></span><span data-deck-modules-analysis-land-delta></span><span data-deck-modules-analysis-ramp></span><span data-deck-modules-analysis-hardtocast></span><table><tbody data-deck-modules-analysis-colors></tbody></table><div data-deck-modules-signals hidden><span data-deck-modules-bracket></span><ul data-deck-modules-gamechangers></ul><p data-deck-modules-combo-availability></p><table data-deck-modules-interactions><tbody data-deck-modules-interactions></tbody></table><p data-deck-modules-interactions-unavailable hidden></p></div><div data-deck-modules-disclosure hidden><span data-deck-modules-declared-profile></span><p data-deck-modules-declared-plan></p><p data-deck-modules-profile-note hidden></p></div></section>
+  <section data-deck-modules-analysis hidden><p data-deck-modules-analysis-stale hidden>Cards changed since this analysis.</p><p data-deck-modules-core-only hidden></p><a data-deck-modules-manabase-handoff hidden></a><p data-deck-modules-handoff-note></p><span data-deck-modules-analysis-health></span><span data-deck-modules-analysis-lands></span><span data-deck-modules-analysis-target></span><span data-deck-modules-analysis-land-delta></span><span data-deck-modules-analysis-ramp></span><span data-deck-modules-analysis-hardtocast></span><table><tbody data-deck-modules-analysis-colors></tbody></table><div data-deck-modules-signals hidden><span data-deck-modules-bracket></span><ul data-deck-modules-gamechangers></ul><p data-deck-modules-combo-availability></p><table data-deck-modules-interactions><tbody data-deck-modules-interactions></tbody></table><p data-deck-modules-interactions-unavailable hidden></p></div><div data-deck-modules-disclosure hidden><span data-deck-modules-declared-profile></span><p data-deck-modules-declared-plan></p><p data-deck-modules-profile-note hidden></p></div></section>
   <section data-deck-modules-comparison hidden><select data-deck-modules-compare-reference></select><select data-deck-modules-compare-other></select><button data-deck-modules-compare disabled>Compare</button><p data-deck-modules-comparison-message></p><table data-deck-modules-comparison-table><thead data-deck-modules-comparison-head></thead><tbody data-deck-modules-comparison-body></tbody></table></section>
 </main>`;
 
@@ -188,6 +188,22 @@ describe('DeckFlowDeckModules', () => {
         (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); await analyzeDeck();
         const stored = JSON.parse(window.sessionStorage.getItem('deckflow.deck-modules.v1')!);
         expect(stored.analysis).toEqual(analysis); expect(stored.analysisKey).toBe('analysis-key'); expect(document.querySelector('[data-deck-modules-analysis-health]')!.textContent).toBe('Needs attention');
+    });
+
+    it('initialize_AnalysisWithHandoffKey_ShowsEncodedFullReportLink', async () => {
+        const handoffAnalysis = { ...analysis, manabaseHandoffKey: 'handoff key' };
+        vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, json: async () => url === '/deck-modules/analyze' ? { analysisKey: 'analysis-key', analysis: handoffAnalysis } : imported })));
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); await analyzeDeck();
+        const handoff = document.querySelector<HTMLAnchorElement>('[data-deck-modules-manabase-handoff]')!;
+        await vi.waitFor(() => expect(handoff.hidden).toBe(false)); expect(handoff.href).toContain('/manabase?handoff=handoff%20key');
+    });
+
+    it('initialize_StaleAnalysisWithHandoffKey_KeepsLinkAndExplainsEarlierConfiguration', async () => {
+        const handoffAnalysis = { ...analysis, manabaseHandoffKey: 'handoff-key' };
+        window.sessionStorage.setItem('deckflow.deck-modules.v1', JSON.stringify({ version: 1, baselineToken: 'token', commandZone: [], baselineMainboardEntries: [], unassignedEntries: [], coreEntries: [], alternatives: [], selectedAlternativeId: '', analysis: handoffAnalysis, analysisKey: 'analysis-key', analysisStale: true }));
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize();
+        await vi.waitFor(() => expect(document.querySelector<HTMLAnchorElement>('[data-deck-modules-manabase-handoff]')!.hidden).toBe(false));
+        expect(document.querySelector<HTMLElement>('[data-deck-modules-handoff-note]')!.textContent).toContain('earlier configuration');
     });
 
     it('initialize_NamedAttributedFinding_RendersNamedCause', async () => {

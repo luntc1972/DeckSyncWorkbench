@@ -5985,6 +5985,16 @@ pre {
   font-weight: 700;
 }
 
+.deck-modules__handoff {
+  display: inline-block;
+  margin-block-start: 1rem;
+}
+
+.deck-modules__handoff-note {
+  color: var(--muted-text, currentColor);
+  font-size: 0.875em;
+}
+
 .deck-modules__cause--named {
   display: block;
   font-weight: 700;
