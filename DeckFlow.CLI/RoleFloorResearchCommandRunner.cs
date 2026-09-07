@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Normalization;
@@ -87,21 +88,21 @@ internal static class RoleFloorResearchCommandRunner
     private const int ScryfallRateLimitRetryMaxAttempts = 4;
     private const string NoGoTemplatePath = ".planning/workstreams/cycle21-cut-lab/phases/02-role-floor-divergence-research/NO-GO-TEMPLATE.md";
     private const string CasualBiasArchivePath = ".planning/archive/2026-cycles/quick/260718-nip-investigate-usefulness-of-edhrec-dump-fo/";
-    private const string ProtectionClassifierPath = "DeckFlow.Core/Analysis/DeckStatClassifier.cs:226-231";
+    // Why: no line range. The prior value pinned DeckStatClassifier.cs:226-231, which Phase 9.1's
+    // widening already invalidated once and which would drift again on the next edit to that file.
+    private const string ProtectionClassifierPath = "DeckFlow.Core/Analysis/DeckStatClassifier.cs";
     private const string ProtectionDeltaPath = ".planning/workstreams/cycle21-cut-lab/phases/01.1-plan-role-classifier-heuristic-fixes-fix-the-counters-counte/01.1-02-DELTA.md";
-    private static readonly string[] ProtectionNeedles =
+    // Why: the four needles the classifier originally carried, before Phase 9.1 widened
+    // DeckStatClassifier.ProtectionOracleNeedles to the corpus-derived 17-needle table. Frozen
+    // historical fact describing runs produced before that widening, not a live vocabulary — the
+    // shipped needle list is read directly from DeckStatClassifier.ProtectionOracleNeedles below,
+    // so this array is not a second copy of it.
+    private static readonly string[] ProtectionHistoricalNarrowNeedles =
     [
         "gains hexproof",
         "gains indestructible",
         "gain protection from",
         "phases out",
-    ];
-    private static readonly ProtectionNeedleDisclosure[] ProtectionNeedleDisclosures =
-    [
-        new("gains hexproof", "singular", "creatures you control gain hexproof"),
-        new("gains indestructible", "singular", "permanents you control gain indestructible"),
-        new("gain protection from", "plural", "Mother of Runes' target creature gains protection from the color of your choice until end of turn."),
-        new("phases out", "singular", "permanents you control phase out"),
     ];
     private static readonly ProtectionMissedCardDisclosure[] ProtectionKnownMissedCards =
     [
@@ -1316,7 +1317,7 @@ internal static class RoleFloorResearchCommandRunner
         builder.AppendLine(FormattableString.Invariant($"- EDHREC quantity-parse failures excluded rather than dropped silently: {computation.EdhrecParseFailureCount} raw deck entries across all ingested cells failed the quantity-prefix parse and were left out of classification."));
         builder.AppendLine(FormattableString.Invariant($"- EDHREC parsed-card-count anomalies: {computation.EdhrecCardCountAnomalyCount} ingested cells did not sum to 100 parsed cards after quantity parsing."));
         builder.AppendLine("- `boardFilter: \"mainboard\"` commander-membership exclusion of `sideboard` and `maybeboard` rows is verified by `CategoryCacheSchemaParityTests.GetCategoryDeckMembershipForCommanderAsync_BoardFilterMainboard_ExcludesSideboardAndMaybeboardRows`.");
-        builder.AppendLine(FormattableString.Invariant($"- Protection under-detection disclosure (unconditional): {BuildProtectionUnderDetectionPointer()}"));
+        builder.AppendLine(FormattableString.Invariant($"- Protection vocabulary disclosure (unconditional): {BuildProtectionUnderDetectionPointer()}"));
         AppendBlock(builder, BuildCorpusHygieneNotice(computation));
         builder.AppendLine();
         builder.AppendLine("## Qualifying Commanders By DEDUPED-N Threshold");
@@ -1564,15 +1565,20 @@ internal static class RoleFloorResearchCommandRunner
             protectionUnderDetection = new
             {
                 affectedRole = "protection",
-                needles = ProtectionNeedles,
+                needles = DeckStatClassifier.ProtectionOracleNeedles.Select(needle => new
+                {
+                    text = needle.Text,
+                    effect = needle.Effect,
+                    subjectForm = needle.SubjectForm,
+                }).ToArray(),
+                historicalNarrowNeedles = ProtectionHistoricalNarrowNeedles,
                 knownMissedCards = ProtectionKnownMissedCards.Select(card => new
                 {
                     name = card.Name,
                     evidenceGrade = card.EvidenceGrade,
                     evidenceNote = card.EvidenceNote,
                 }).ToArray(),
-                consequence = "The protection role's measured floors in this run are a LOWER BOUND, and any protection go/no-go verdict is PROVISIONAL pending Phase 01.2.",
-                blockedBy = "Phase 01.2",
+                consequence = "The vocabulary was widened in Phase 9.1 (docs/research/protection-vocabulary-corpus-2026-09.md) from historicalNarrowNeedles to the corpus-derived table above. Runs produced before that widening used only historicalNarrowNeedles, so their reported protection counts are a lower bound, not the true count; this run uses the corpus-derived table.",
                 consumers = ProtectionConsumers,
             },
             corpusHygiene = new
@@ -1990,51 +1996,45 @@ internal static class RoleFloorResearchCommandRunner
 
     private static string BuildProtectionUnderDetectionNotice(
         bool includeHeading = true,
-        bool includeEvidencePriceSentence = true,
-        bool includeDeferralSentence = true)
+        bool includeHistoryPointer = true)
     {
         var builder = new StringBuilder();
         if (includeHeading)
         {
-            builder.AppendLine("### Protection under-detection disclosure");
+            builder.AppendLine("### Protection vocabulary disclosure");
         }
 
         builder.AppendLine(FormattableString.Invariant(
-            $"`DeckStatClassifier.IsProtectionCard` (`{ProtectionClassifierPath}`) is `StaxProtectionCatalog.IsProtection(name)` OR-ed with four oracle needles:"));
-        foreach (ProtectionNeedleDisclosure needle in ProtectionNeedleDisclosures)
+            $"`DeckStatClassifier.IsProtectionCard` (`{ProtectionClassifierPath}`) is `StaxProtectionCatalog.IsProtection(name)` OR-ed with a corpus-derived needle table, `DeckStatClassifier.ProtectionOracleNeedles` ({DeckStatClassifier.ProtectionOracleNeedles.Count} needles):"));
+        foreach (ProtectionNeedle needle in DeckStatClassifier.ProtectionOracleNeedles)
         {
             builder.AppendLine(FormattableString.Invariant(
-                $"- `{needle.Needle}` assumes a {needle.SubjectForm} subject and misses `{needle.MissedExample}`."));
+                $"- `{needle.Text}` ({needle.Effect}, {needle.SubjectForm} subject form)."));
         }
 
-        builder.AppendLine("The verb agreement is inconsistent across the four needles, so the predicate under-detects in both directions depending on phrasing. Shroud and regeneration are absent entirely.");
-        builder.AppendLine("Cards still scoring `PlanRole.None` after Phase 01.1, with evidence grade stated rather than flattened:");
+        builder.AppendLine(FormattableString.Invariant(
+            $"The vocabulary was widened in Phase 9.1 from the four needles the classifier originally carried ({string.Join(", ", ProtectionHistoricalNarrowNeedles.Select(needle => $"`{needle}`"))}). Runs produced before that widening used only those four needles, so their reported protection counts are a lower bound, not the true count; runs produced after it use the corpus-derived table above."));
+        builder.AppendLine("Cards previously missed under the narrow four-needle set, now detected, with evidence grade stated rather than flattened:");
         foreach (ProtectionMissedCardDisclosure card in ProtectionKnownMissedCards)
         {
             builder.AppendLine(FormattableString.Invariant(
                 $"- `{card.Name}` — {card.EvidenceGrade}. {card.EvidenceNote}"));
         }
 
-        if (includeEvidencePriceSentence)
+        if (includeHistoryPointer)
         {
             builder.AppendLine(FormattableString.Invariant(
-                $"The distinction is recorded because this disclosure is the price of deferring Phase 01.2, and presenting an inferred result as measured would overstate the very evidence that deferral rests on (`{ProtectionDeltaPath}`, Measurement notes)."));
-        }
-
-        builder.AppendLine("The `protection` role's measured floors in this run are a LOWER BOUND, and any protection go/no-go verdict is PROVISIONAL pending Phase 01.2.");
-        if (includeDeferralSentence)
-        {
-            builder.AppendLine("Phase 01.2 was deliberately deferred behind this phase by developer decision on 2026-07-27, taking the ROADMAP's escape hatch in exchange for this disclosure.");
+                $"Full corpus derivation and the measured blast radius across all three consumers are recorded at `docs/research/protection-vocabulary-corpus-2026-09.md` and `docs/research/protection-vocabulary-blast-radius-2026-09.md` (`{ProtectionDeltaPath}` records the original Phase 01.1 measurement notes this disclosure traces back to)."));
         }
 
         builder.AppendLine(FormattableString.Invariant(
-            $"The predicate is shared by three consumers, so widening it is a larger blast radius than a one-line fix: {string.Join(", ", ProtectionConsumers)}."));
+            $"The predicate is shared by three consumers: {string.Join(", ", ProtectionConsumers)}."));
         return builder.ToString().TrimEnd();
     }
 
     private static string BuildProtectionUnderDetectionPointer()
         => FormattableString.Invariant(
-            $"see `## Go/No-Go` below for the full disclosure; this run's protection floors are a LOWER BOUND and any protection verdict is PROVISIONAL pending Phase 01.2. {BuildProtectionUnderDetectionNotice(includeHeading: false, includeEvidencePriceSentence: false, includeDeferralSentence: false).ReplaceLineEndings("\n").Split('\n')[0]}");
+            $"see `## Go/No-Go` below for the full disclosure; the protection vocabulary was widened in Phase 9.1 and this run's counts use the corpus-derived needle table. {BuildProtectionUnderDetectionNotice(includeHeading: false, includeHistoryPointer: false).ReplaceLineEndings("\n").Split('\n')[0]}");
 
     private static string BuildCorpusHygieneNotice(ResearchComputation computation)
     {
@@ -2392,20 +2392,6 @@ internal static class RoleFloorResearchCommandRunner
         public required IReadOnlyList<string> DivergentBrackets { get; init; }
         public required string? ClosestReferenceSet { get; init; }
         public required IReadOnlyList<string> ComparisonBrackets { get; init; }
-    }
-
-    private sealed class ProtectionNeedleDisclosure
-    {
-        public ProtectionNeedleDisclosure(string needle, string subjectForm, string missedExample)
-        {
-            Needle = needle;
-            SubjectForm = subjectForm;
-            MissedExample = missedExample;
-        }
-
-        public string Needle { get; }
-        public string SubjectForm { get; }
-        public string MissedExample { get; }
     }
 
     private sealed class ProtectionMissedCardDisclosure
