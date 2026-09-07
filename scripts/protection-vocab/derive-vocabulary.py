@@ -17,11 +17,13 @@ the two are close enough to guide vocabulary selection, but the C# tests remain 
 on actual classification behavior. Do not try to reimplement ordinal casing here.
 
 Usage:
+    # Illustrative partial needle list; full ratified set is in
+    # docs/research/protection-vocabulary-corpus-2026-09.md.
     python3 scripts/protection-vocab/derive-vocabulary.py \\
         --needle "gains hexproof" --needle "gains indestructible" \\
         --needle "gain protection from" --needle "gains protection from" \\
         --needle "phases out" \\
-        --out docs/research/protection-vocabulary-corpus-2026-09.md
+        --out /tmp/needles.md
 """
 
 from __future__ import annotations
