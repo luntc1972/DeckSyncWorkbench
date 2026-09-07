@@ -93,19 +93,19 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
             ComboDetectionAvailable = classification.ComboDetectionAvailable,
             CatalogEffectiveDate = classification.EffectiveDate,
         };
-        var declaredAlternative = request.Configuration.Alternatives.FirstOrDefault(
+        var selectedAlternative = request.Configuration.Alternatives.FirstOrDefault(
             alternative => alternative.Id == request.Configuration.SelectedAlternativeId);
-        if (declaredAlternative is not null)
+        if (selectedAlternative is not null)
         {
             // WR-05: DeclaredProfileRanges is a hand-maintained dictionary; the indexer was safe
             // only because DeckModulesPageService.ValidateAlternative runs Enum.IsDefined first --
             // an implicit, undocumented coupling across two files. Adding a profile to the enum
             // without a matching range entry would compile clean and 500 at runtime.
-            if (!DeclaredProfileRanges.TryGetValue(declaredAlternative.Profile, out var profileRange))
+            if (!DeclaredProfileRanges.TryGetValue(selectedAlternative.Profile, out var profileRange))
             {
                 _logger.LogWarning(
                     "No declared bracket range for profile {Profile}; skipping the declared-profile disclosure.",
-                    declaredAlternative.Profile);
+                    selectedAlternative.Profile);
             }
             else
             {
@@ -118,7 +118,7 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
                     Declared = new ConfigurationDeclaredDisclosure
                     {
                         Profile = profileRange.DisplayLabel,
-                        PlayPlan = declaredAlternative.PlayPlan,
+                        PlayPlan = selectedAlternative.PlayPlan,
                         IsDeclared = true,
                         ProfileDisagreementNote = profileDisagreementNote,
                     },
@@ -171,8 +171,6 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
             InteractionsByModule = BuildInteractionRows(analysisResult.AnalyzedSpells, moduleMap),
         };
 
-        var selectedAlternative = request.Configuration.Alternatives.FirstOrDefault(
-            alternative => alternative.Id == request.Configuration.SelectedAlternativeId);
         var isCoreOnly = selectedAlternative is not null
             && selectedAlternative.MainboardEntries.Count == 0
             && selectedAlternative.ManaSupportEntries.Count == 0;
