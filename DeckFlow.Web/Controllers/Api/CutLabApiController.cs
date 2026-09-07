@@ -532,8 +532,8 @@ public sealed class CutLabApiController : ControllerBase
         => proposal is null
             ? null
             : proposal with
-        {
-            GlanceLine = CutLabViewModel.ComposeProposalGlance(
+            {
+                GlanceLine = CutLabViewModel.ComposeProposalGlance(
                 deltas is null
                     ? null
                     : new CutLabProposalDeltas
@@ -548,7 +548,7 @@ public sealed class CutLabApiController : ControllerBase
                         }).ToArray(),
                     },
                 CutLabMessages.NoChangeMessage),
-        };
+            };
 
     private static CutLabState SanitizePlanProfile(CutLabState state)
     {
