@@ -15,6 +15,14 @@ namespace DeckFlow.Web.Services.Modular;
 /// </summary>
 public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
 {
+    /// <summary>Maps each declared profile to its display label and implied inclusive bracket range.</summary>
+    private static readonly IReadOnlyDictionary<DeckModulesProfile, DeclaredProfileRange> DeclaredProfileRanges = new Dictionary<DeckModulesProfile, DeclaredProfileRange>
+    {
+        [DeckModulesProfile.Casual] = new("Casual", 1, 3),
+        [DeckModulesProfile.Bracket4HighPower] = new("Bracket 4 High Power", 4, 4),
+        [DeckModulesProfile.Cedh] = new("cEDH", 5, 5),
+    };
+
     private readonly IDeckModulesPageService _pageService;
     private readonly IManabaseAnalysisService _manabaseAnalysisService;
     private readonly IGameChangerCatalogService _gameChangerCatalogService;
@@ -70,6 +78,26 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
             ComboDetectionAvailable = classification.ComboDetectionAvailable,
             CatalogEffectiveDate = classification.EffectiveDate,
         };
+        var declaredAlternative = request.Configuration.Alternatives.FirstOrDefault(
+            alternative => alternative.Id == request.Configuration.SelectedAlternativeId);
+        if (declaredAlternative is not null)
+        {
+            var profileRange = DeclaredProfileRanges[declaredAlternative.Profile];
+            var profileDisagreementNote = signals.BracketNumber < profileRange.MinimumBracket
+                || signals.BracketNumber > profileRange.MaximumBracket
+                ? $"You declared {profileRange.DisplayLabel}; the bracket rubric reads this list as bracket {signals.BracketNumber}."
+                : null;
+            signals = signals with
+            {
+                Declared = new ConfigurationDeclaredDisclosure
+                {
+                    Profile = profileRange.DisplayLabel,
+                    PlayPlan = declaredAlternative.PlayPlan,
+                    IsDeclared = true,
+                    ProfileDisagreementNote = profileDisagreementNote,
+                },
+            };
+        }
         var decklistText = DeckModulesDecklistSerializer.BuildAnalysisDecklistText(compilation);
 
         var analysisResult = await _manabaseAnalysisService.AnalyzeAsync(
@@ -101,9 +129,10 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
             })
             .ToArray();
 
-        var selectedAlternative = request.Configuration.Alternatives.First(
+        var selectedAlternative = request.Configuration.Alternatives.FirstOrDefault(
             alternative => alternative.Id == request.Configuration.SelectedAlternativeId);
-        var isCoreOnly = selectedAlternative.MainboardEntries.Count == 0
+        var isCoreOnly = selectedAlternative is not null
+            && selectedAlternative.MainboardEntries.Count == 0
             && selectedAlternative.ManaSupportEntries.Count == 0;
         var result = new ConfigurationAnalysisResult
         {
@@ -127,4 +156,6 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
 
         return DeckModulesServiceResult<ConfigurationAnalysisResult>.Success(result);
     }
+
+    private sealed record DeclaredProfileRange(string DisplayLabel, int MinimumBracket, int MaximumBracket);
 }

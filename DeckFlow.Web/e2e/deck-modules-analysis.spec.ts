@@ -54,6 +54,9 @@ test('analyzes a compiled configuration', async ({ page }, testInfo) => {
   expect((await analysisResponse).status()).toBe(200);
   await expect(page.locator('[data-deck-modules-analysis]')).toBeVisible();
   await expect(page.locator('[data-deck-modules-analysis-health]')).not.toBeEmpty();
+  await expect(page.locator('[data-deck-modules-bracket]')).not.toBeEmpty();
+  // "Winota Stax" is the last alternative added, so it is the selected/active one at compile time.
+  await expect(page.locator('[data-deck-modules-declared-plan]')).toHaveText('Lock opponents while Winota supplies pressure.');
 
   await page.screenshot({ path: join(uiDesignDir('deck-modules-analysis'), `${testInfo.title}.png`), fullPage: true });
 });

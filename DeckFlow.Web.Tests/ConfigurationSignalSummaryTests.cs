@@ -62,6 +62,45 @@ public sealed class ConfigurationSignalSummaryTests
         Assert.Contains("Extra Turn", signals.ExtraTurnCards);
     }
 
+    [Theory]
+    [InlineData(DeckModulesProfile.Casual, "Plan", 4, true)]
+    [InlineData(DeckModulesProfile.Casual, "Plan", 5, true)]
+    [InlineData(DeckModulesProfile.Bracket4HighPower, "Plan", 4, false)]
+    [InlineData(DeckModulesProfile.Cedh, "Plan", 5, false)]
+    [InlineData(DeckModulesProfile.Cedh, "Plan", 2, true)]
+    public async Task AnalyzeAsync_DeclaredProfile_ReportsOnlyBracketDisagreements(DeckModulesProfile profile, string playPlan, int expectedBracket, bool expectsNote)
+    {
+        var mainboard = expectedBracket switch
+        {
+            4 => new[] { Entry("Land Denial"), Entry("Extra Turn") },
+            5 => [Entry("Mainboard Changer"), Entry("Changer 1"), Entry("Changer 2"), Entry("Changer 3"), Entry("Changer 4"), Entry("Changer 5"), Entry("Changer 6"), Entry("Changer 7"), Entry("Changer 8"), Entry("Changer 9")],
+            _ => new[] { Entry("Ordinary Card") },
+        };
+        var service = CreateService(new FakeManabaseAnalysisService(), [Entry("Commander")], mainboard);
+
+        var result = await service.AnalyzeAsync(Request(profile, playPlan));
+
+        var declared = Assert.IsType<ConfigurationSignalSummary>(result.Value!.Signals).Declared;
+        Assert.Equal(expectedBracket, Assert.IsType<ConfigurationSignalSummary>(result.Value!.Signals).BracketNumber);
+        Assert.Equal(expectsNote, declared!.ProfileDisagreementNote is not null);
+        if (expectsNote)
+        {
+            Assert.Contains(profile == DeckModulesProfile.Bracket4HighPower ? "Bracket 4 High Power" : profile == DeckModulesProfile.Cedh ? "cEDH" : "Casual", declared.ProfileDisagreementNote);
+            Assert.Contains(expectedBracket.ToString(), declared.ProfileDisagreementNote);
+        }
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_DeclaredPlayPlan_PreservesExactPlayerText()
+    {
+        const string playPlan = "  A grindy — \"value\" plan  ";
+        var service = CreateService(new FakeManabaseAnalysisService(), [Entry("Commander")], [Entry("Ordinary Card")]);
+
+        var result = await service.AnalyzeAsync(Request(DeckModulesProfile.Casual, playPlan));
+
+        Assert.Equal(playPlan, Assert.IsType<ConfigurationSignalSummary>(result.Value!.Signals).Declared!.PlayPlan);
+    }
+
     private static ConfigurationAnalysisService CreateService(FakeManabaseAnalysisService manabase, IReadOnlyList<DeckEntry> commandZone, IReadOnlyList<DeckEntry> mainboard)
         => new(new StubDeckModulesPageService(Compilation(commandZone, mainboard)), manabase, NullLogger<ConfigurationAnalysisService>.Instance, new StubGameChangerCatalogService());
 
@@ -82,7 +121,7 @@ public sealed class ConfigurationSignalSummaryTests
 
     private static DeckEntry Entry(string name) => new() { Name = name, NormalizedName = name.ToLowerInvariant(), Quantity = 1, Board = "ignored" };
 
-    private static ConfigurationAnalysisRequest Request() => new()
+    private static ConfigurationAnalysisRequest Request(DeckModulesProfile profile = DeckModulesProfile.Casual, string playPlan = "Plan") => new()
     {
         Configuration = new DeckModulesCompilationRequest
         {
@@ -91,7 +130,7 @@ public sealed class ConfigurationSignalSummaryTests
             BaselineMainboardEntries = [],
             CoreEntries = [],
             SelectedAlternativeId = "strategy",
-            Alternatives = [new DeckModulesAlternativeInput { Id = "strategy", Name = "Strategy", Profile = DeckModulesProfile.Casual, PlayPlan = "Plan", MainboardEntries = [Entry("Strategy Card")] }],
+            Alternatives = [new DeckModulesAlternativeInput { Id = "strategy", Name = "Strategy", Profile = profile, PlayPlan = playPlan, MainboardEntries = [Entry("Strategy Card")] }],
         },
     };
 
@@ -103,7 +142,7 @@ public sealed class ConfigurationSignalSummaryTests
 
     private sealed class StubGameChangerCatalogService : IGameChangerCatalogService
     {
-        public GameChangerCatalog GetCatalog() => new(new DateOnly(2026, 9, 1), ["Commander Changer", "Mainboard Changer"], ["Land Denial"], ["Extra Turn"], []);
+        public GameChangerCatalog GetCatalog() => new(new DateOnly(2026, 9, 1), ["Commander Changer", "Mainboard Changer", "Changer 1", "Changer 2", "Changer 3", "Changer 4", "Changer 5", "Changer 6", "Changer 7", "Changer 8", "Changer 9"], ["Land Denial"], ["Extra Turn"], []);
     }
 
     private sealed class FakeManabaseAnalysisService : IManabaseAnalysisService

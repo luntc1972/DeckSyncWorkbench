@@ -5992,4 +5992,12 @@ pre {
 .deck-modules__signals ul {
   margin: 0.5rem 0;
 }
+
+.deck-modules__disclosure {
+  margin-block-start: 1rem;
+}
+
+.deck-modules__disclosure p {
+  margin: 0.5rem 0;
+}
 /* end Phase 3: deck-modules analysis */

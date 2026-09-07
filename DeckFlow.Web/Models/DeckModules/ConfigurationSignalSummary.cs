@@ -25,9 +25,18 @@ public sealed record ConfigurationSignalSummary
     public ConfigurationDeclaredDisclosure? Declared { get; init; }
 }
 
-/// <summary>Placeholder for a player-declared configuration disclosure.</summary>
+/// <summary>Player-declared configuration disclosure.</summary>
 public sealed record ConfigurationDeclaredDisclosure
 {
+    /// <summary>Gets the declared profile display label.</summary>
+    public required string Profile { get; init; }
+
+    /// <summary>Gets the player text exactly as typed; it is disclosure, not a computed judgement, and must never be paraphrased, trimmed, truncated, or re-cased.</summary>
+    public required string PlayPlan { get; init; }
+
     /// <summary>Gets whether the configuration has a declaration.</summary>
     public required bool IsDeclared { get; init; }
+
+    /// <summary>Gets the optional neutral note when the declared profile and bracket rubric differ.</summary>
+    public string? ProfileDisagreementNote { get; init; }
 }
