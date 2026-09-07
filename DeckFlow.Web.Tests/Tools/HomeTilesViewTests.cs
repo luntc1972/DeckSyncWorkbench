@@ -59,6 +59,23 @@ public sealed class HomeTilesViewTests
         Assert.DoesNotContain("href=\"@Url.Content(\"~/deck-analysis\")\"", content, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Home_DeckAnalysisHeroExplainsExternalAiWorkflow()
+    {
+        var content = ReadHome();
+
+        Assert.Contains("Five-step external-AI workflow:", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Home_MobileStylesUseSingleColumnToolDirectory()
+    {
+        var content = ReadMobileStyles();
+
+        Assert.Contains("grid-template-columns: 1fr;", content, StringComparison.Ordinal);
+        Assert.Contains(".hub-card::after", content, StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// Every icon key the registry can actually emit. Derived from the registry rather than
     /// hand-listed: the previous hard-coded list had drifted to two keys that no longer existed
@@ -93,6 +110,18 @@ public sealed class HomeTilesViewTests
             "Views",
             "Deck",
             "Home.cshtml"));
+
+    private static string ReadMobileStyles()
+        => File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "DeckFlow.Web",
+            "wwwroot",
+            "css",
+            "site-mobile.css"));
 
     private static string ReadToolTileIconPartial()
         => File.ReadAllText(Path.Combine(

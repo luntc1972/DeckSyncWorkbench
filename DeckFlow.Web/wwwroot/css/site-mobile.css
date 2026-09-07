@@ -26,7 +26,12 @@
 
 @media (max-width: 600px) {
   .back-to-top-button {
-    display: none;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 44px;
+    min-height: 44px;
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: max(1rem, env(safe-area-inset-bottom));
   }
 
   .page-frame,
@@ -219,13 +224,46 @@
   }
 
   /* mobile UI phase 2: home hub */
+  .hub-title,
+  .hub-lede {
+    text-align: center;
+  }
+
   .hub-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.75rem;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
 
   .hub-card {
-    min-height: 8.75rem;
+    position: relative;
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    column-gap: 0.75rem;
+    row-gap: 0.2rem;
+    align-items: center;
+    min-height: 0;
+    padding: 1rem 2.75rem 1rem 1rem;
+  }
+
+  .hub-card__icon {
+    grid-row: 1 / span 2;
+    margin: 0;
+  }
+
+  .hub-card__title,
+  .hub-card__description {
+    grid-column: 2;
+  }
+
+  .hub-card::after {
+    position: absolute;
+    top: 50%;
+    right: 1rem;
+    color: var(--accent-strong, var(--accent));
+    content: "›";
+    font-size: var(--fs-xl);
+    line-height: 1;
+    transform: translateY(-50%);
   }
 
   .hub-card[data-kb-entry] {
@@ -237,11 +275,24 @@
   }
 
   .hub-hero--primary {
+    position: relative;
+    padding-right: 3rem;
     border-color: var(--accent);
     border-left-color: var(--accent-strong, var(--accent));
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--panel)) 0%, var(--panel) 100%);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  .hub-hero--primary::after {
+    position: absolute;
+    top: 50%;
+    right: 1rem;
+    color: var(--accent-strong, var(--accent));
+    content: "›";
+    font-size: var(--fs-xl);
+    line-height: 1;
+    transform: translateY(-50%);
   }
 
   .hub-hero--primary:hover,
