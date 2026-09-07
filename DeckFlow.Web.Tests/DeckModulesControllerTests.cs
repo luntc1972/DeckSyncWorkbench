@@ -251,7 +251,7 @@ public sealed class DeckModulesControllerTests
     {
         var actions = GetDeckModulesActions();
 
-        Assert.Equal(new[] { "Analyze", "Compile", "Export", "Import", "Index" }, actions.Select(static action => action.Name).OrderBy(static name => name).ToArray());
+        Assert.Equal(new[] { "Analyze", "Compare", "Compile", "Export", "Import", "Index" }, actions.Select(static action => action.Name).OrderBy(static name => name).ToArray());
 
         foreach (var method in actions)
         {

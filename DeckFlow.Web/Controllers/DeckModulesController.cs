@@ -19,6 +19,7 @@ public sealed class DeckModulesController : DeckToolControllerBase
     private const string FlagKey = "tool.deck-modules.enabled";
     private readonly IDeckModulesPageService _service;
     private readonly IConfigurationAnalysisService _analysisService;
+    private readonly IConfigurationDeltaService _configurationDeltaService;
     private readonly PacketSessionCache _packetSessionCache;
     private readonly ILogger<DeckModulesController> _logger;
 
@@ -28,12 +29,14 @@ public sealed class DeckModulesController : DeckToolControllerBase
     /// <param name="service">Deck Modules page service.</param>
     /// <param name="logger">Logger.</param>
     /// <param name="analysisService">Configuration analysis service.</param>
+    /// <param name="configurationDeltaService">Configuration comparison service.</param>
     /// <param name="packetSessionCache">Packet session cache.</param>
     public DeckModulesController(
         IDeckModulesPageService service,
         ILogger<DeckModulesController> logger,
         IConfigurationAnalysisService analysisService,
-        PacketSessionCache packetSessionCache)
+        PacketSessionCache packetSessionCache,
+        IConfigurationDeltaService? configurationDeltaService = null)
     {
         ArgumentNullException.ThrowIfNull(service);
         ArgumentNullException.ThrowIfNull(analysisService);
@@ -42,6 +45,7 @@ public sealed class DeckModulesController : DeckToolControllerBase
         _service = service;
         _logger = logger;
         _analysisService = analysisService;
+        _configurationDeltaService = configurationDeltaService ?? new ConfigurationDeltaService();
         _packetSessionCache = packetSessionCache;
     }
 
@@ -152,6 +156,62 @@ public sealed class DeckModulesController : DeckToolControllerBase
 
         _packetSessionCache.Set(key, result.Value!, PacketSizeEstimator.EstimateSizeBytes(result.Value!));
         return Ok(new { analysisKey = key, analysis = result.Value });
+    }
+
+    /// <summary>Compares cached analyses for Deck Modules configurations.</summary>
+    [HttpPost("/deck-modules/compare")]
+    [FeatureFlagGate(FlagKey)]
+    public IActionResult Compare([FromBody] ConfigurationComparisonRequest? request, CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return Forbidden();
+        }
+
+        if (request is null)
+        {
+            return BadRequest(new { message = "Request body is required." });
+        }
+
+        if (request.Sides is null || request.Sides.Count < ConfigurationComparisonRequest.MinSideCount || request.Sides.Count > ConfigurationComparisonRequest.MaxSideCount)
+        {
+            return Failure($"Submit between {ConfigurationComparisonRequest.MinSideCount} and {ConfigurationComparisonRequest.MaxSideCount} configuration analyses.");
+        }
+
+        var referenceIndex = request.Sides.ToList().FindIndex(side => side.ConfigurationId == request.ReferenceConfigurationId);
+        if (referenceIndex < 0)
+        {
+            return Failure("Reference configuration must be one of the submitted configurations.");
+        }
+
+        var resolvedAnalyses = new List<ConfigurationAnalysisResult?>(request.Sides.Count);
+        var missingConfigurationIds = new List<string>();
+        foreach (var side in request.Sides)
+        {
+            if (_packetSessionCache.TryGet<ConfigurationAnalysisResult>(side.AnalysisKey, out var cached))
+            {
+                resolvedAnalyses.Add(cached);
+                continue;
+            }
+
+            _logger.LogInformation("Configuration analysis cache miss for {KeyPrefix}", PacketSessionCache.GetKeyPrefix(side.AnalysisKey));
+            if (side.Analysis is null)
+            {
+                missingConfigurationIds.Add(side.ConfigurationId);
+                resolvedAnalyses.Add(null);
+                continue;
+            }
+
+            _packetSessionCache.Set(side.AnalysisKey, side.Analysis, PacketSizeEstimator.EstimateSizeBytes(side.Analysis));
+            resolvedAnalyses.Add(side.Analysis);
+        }
+
+        if (missingConfigurationIds.Count > 0)
+        {
+            return StatusCode(StatusCodes.Status409Conflict, new { message = "One or more configuration analyses are unavailable.", missingConfigurationIds });
+        }
+
+        return Ok(_configurationDeltaService.ComputeDelta(resolvedAnalyses, referenceIndex));
     }
 
     private IActionResult Forbidden()
