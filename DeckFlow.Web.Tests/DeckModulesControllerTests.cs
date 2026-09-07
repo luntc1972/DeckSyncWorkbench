@@ -274,7 +274,7 @@ public sealed class DeckModulesControllerTests
     private static DeckModulesController CreateController(
         IDeckModulesPageService service,
         IConfigurationAnalysisService analysisService) =>
-        new(service, NullLogger<DeckModulesController>.Instance, analysisService, new PacketSessionCache())
+        new(service, NullLogger<DeckModulesController>.Instance, analysisService, new PacketSessionCache(), new ConfigurationDeltaService())
         {
             ControllerContext = new ControllerContext
             {

@@ -2867,7 +2867,8 @@ public sealed class ManabaseControllerCompanionTests
             new StubCardSearchService(),
             new FakeFeatureFlagCache(),
             new FakeBracketClassificationService(),
-            NullLogger<ManabaseController>.Instance)
+            NullLogger<ManabaseController>.Instance,
+            new PacketSessionCache())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };

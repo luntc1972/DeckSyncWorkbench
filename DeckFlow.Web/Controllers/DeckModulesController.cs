@@ -36,16 +36,17 @@ public sealed class DeckModulesController : DeckToolControllerBase
         ILogger<DeckModulesController> logger,
         IConfigurationAnalysisService analysisService,
         PacketSessionCache packetSessionCache,
-        IConfigurationDeltaService? configurationDeltaService = null)
+        IConfigurationDeltaService configurationDeltaService)
     {
         ArgumentNullException.ThrowIfNull(service);
         ArgumentNullException.ThrowIfNull(analysisService);
         ArgumentNullException.ThrowIfNull(packetSessionCache);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(configurationDeltaService);
         _service = service;
         _logger = logger;
         _analysisService = analysisService;
-        _configurationDeltaService = configurationDeltaService ?? new ConfigurationDeltaService();
+        _configurationDeltaService = configurationDeltaService;
         _packetSessionCache = packetSessionCache;
     }
 

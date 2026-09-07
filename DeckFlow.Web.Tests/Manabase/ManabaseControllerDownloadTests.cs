@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Manabase;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -287,7 +288,8 @@ public sealed class ManabaseControllerDownloadTests
             new StubCardSearchService(),
             new FakeFeatureFlagCache(),
             new FakeBracketClassificationService(),
-            NullLogger<ManabaseController>.Instance)
+            NullLogger<ManabaseController>.Instance,
+            new PacketSessionCache())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };

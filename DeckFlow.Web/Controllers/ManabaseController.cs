@@ -33,20 +33,21 @@ public sealed class ManabaseController : DeckToolControllerBase
         IFeatureFlagCache featureFlags,
         IBracketClassificationService bracketClassification,
         ILogger<ManabaseController> logger,
-        PacketSessionCache? packetSessionCache = null)
+        PacketSessionCache packetSessionCache)
     {
         ArgumentNullException.ThrowIfNull(manabaseAnalysisService);
         ArgumentNullException.ThrowIfNull(cardSearchService);
         ArgumentNullException.ThrowIfNull(featureFlags);
         ArgumentNullException.ThrowIfNull(bracketClassification);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(packetSessionCache);
 
         _manabaseAnalysisService = manabaseAnalysisService;
         _cardSearchService = cardSearchService;
         _featureFlags = featureFlags;
         _bracketClassification = bracketClassification;
         _logger = logger;
-        _packetSessionCache = packetSessionCache ?? new PacketSessionCache();
+        _packetSessionCache = packetSessionCache;
     }
 
     /// <summary>Renders the empty mana-base form.</summary>

@@ -106,7 +106,7 @@ public sealed class DeckModulesAnalysisEndpointTests
     }
 
     private static DeckModulesController CreateController(IConfigurationAnalysisService analysisService) =>
-        new(new FakeDeckModulesPageService(), NullLogger<DeckModulesController>.Instance, analysisService, new PacketSessionCache())
+        new(new FakeDeckModulesPageService(), NullLogger<DeckModulesController>.Instance, analysisService, new PacketSessionCache(), new ConfigurationDeltaService())
         {
             ControllerContext = new ControllerContext
             {

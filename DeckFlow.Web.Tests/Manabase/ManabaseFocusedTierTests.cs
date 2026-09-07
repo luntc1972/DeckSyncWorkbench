@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Manabase;
 using Microsoft.AspNetCore.Hosting;
@@ -203,7 +204,8 @@ public sealed class ManabaseFocusedTierTests
                 [ManabaseAnalysisService.FocusedTierFlagKey] = focusedTierEnabled,
             }),
             new FakeBracketClassificationService(),
-            NullLogger<ManabaseController>.Instance)
+            NullLogger<ManabaseController>.Instance,
+            new PacketSessionCache())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };
