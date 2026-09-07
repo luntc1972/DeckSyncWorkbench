@@ -340,6 +340,33 @@ describe('DeckFlowDeckModules', () => {
         expect(fetchMock.mock.calls.filter(call => call[0] === '/deck-modules/compare')).toHaveLength(1);
     });
 
+    it('initialize_ComparisonAfterMoveInvalidatesSnapshots_PromptsToReanalyseInsteadOfRenderingStaleTable', async () => {
+        // CR-05: comparisonAnalyses snapshots must be invalidated by the same mutations that mark
+        // the single-configuration panel stale, or Compare silently posts and renders outdated
+        // numbers with no staleness signal of its own.
+        let ids: string[] = [];
+        const fetchMock = vi.fn().mockImplementation((url: string) => Promise.resolve(
+            url === '/deck-modules/compare' ? { ok: false, status: 409, json: async () => ({ missingConfigurationIds: ids }) }
+                : url === '/deck-modules/analyze' ? { ok: true, status: 200, json: async () => ({ analysisKey: 'analysis-key', analysis }) }
+                    : { ok: true, status: 200, json: async () => imported }));
+        vi.stubGlobal('fetch', fetchMock);
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft();
+        document.querySelector<HTMLInputElement>('[data-deck-modules-name]')!.value = 'Plan A'; document.querySelector<HTMLSelectElement>('[data-deck-modules-profile]')!.value = 'Cedh'; document.querySelector<HTMLTextAreaElement>('[data-deck-modules-plan]')!.value = 'A.'; document.querySelector<HTMLButtonElement>('[data-deck-modules-add-alternative]')!.click();
+        await analyzeDeck();
+        document.querySelector<HTMLInputElement>('[data-deck-modules-name]')!.value = 'Plan B'; document.querySelector<HTMLSelectElement>('[data-deck-modules-profile]')!.value = 'Cedh'; document.querySelector<HTMLTextAreaElement>('[data-deck-modules-plan]')!.value = 'B.'; document.querySelector<HTMLButtonElement>('[data-deck-modules-add-alternative]')!.click();
+        await analyzeDeck();
+        document.querySelectorAll<HTMLButtonElement>('[data-deck-modules-alternative]')[0].click();
+        await analyzeDeck();
+        const stored = JSON.parse(window.sessionStorage.getItem('deckflow.deck-modules.v1')!); ids = stored.alternatives.map((alternative: { id: string }) => alternative.id);
+        document.querySelector<HTMLSelectElement>('[data-deck-modules-compare-reference]')!.value = ids[0]; const other = document.querySelector<HTMLSelectElement>('[data-deck-modules-compare-other]')!; other.value = ids[1]; other.dispatchEvent(new Event('change', { bubbles: true }));
+        // Move a card -- this must invalidate every stored comparison snapshot, not just the
+        // single-configuration analysis panel.
+        document.querySelector<HTMLInputElement>('[data-deck-modules-entries="unassigned"] input')!.checked = true; document.querySelector<HTMLButtonElement>('[data-deck-modules-move="unassigned:core"]')!.click();
+        document.querySelector<HTMLButtonElement>('[data-deck-modules-compare]')!.click();
+        await vi.waitFor(() => expect(document.querySelector<HTMLElement>('[data-deck-modules-comparison-message]')!.textContent).toContain('first.'));
+        expect(document.querySelectorAll('[data-deck-modules-comparison-body] tr')).toHaveLength(0);
+    });
+
     it('initialize_ComparisonNotAnalysedColumn_MarksEveryMetricWhileOtherValuesRender', async () => {
         const fetchMock = vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, status: 200, json: async () => url === '/deck-modules/compare' ? comparisonDelta({ isAnalyzed: false }) : imported })); vi.stubGlobal('fetch', fetchMock);
         await prepareComparison(); document.querySelector<HTMLButtonElement>('[data-deck-modules-compare]')!.click();
