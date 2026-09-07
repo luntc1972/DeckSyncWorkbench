@@ -132,15 +132,19 @@ guards all three consumers at their shared root (every consumer requires `IsProt
 before it can add a card to a protection-adjacent set). None of the five appear in either the
 before or after set above.
 
-## What this means for the shipped role-floor snapshot
+## What this means for shipped behavior
 
-`protection` is not one of `RoleFloorBaseline.AdoptedRoleKeys`'s six commander-aware floor roles,
-but `interaction-targeted` is. The shipped commander role-floor snapshot
-`DeckFlow.Web/Data/role-floor-baseline/latest.json`, generated 2026-07-28 for 272 commanders with
-1,463 adopted floors, was computed under the old narrow protection vocabulary. Its
-`interaction-targeted` floors are therefore understated by this same widening: +9 cards, from 68
-to 77 on the nine-fixture sample. **ACCEPTED** — Cut Lab is dark behind the
-`tool.cut-lab.enabled` flag, so no live user is affected today. Baseline regeneration is deferred
-to a later phase and does not block this widening.
+Two of the three consumers are live today:
+- `PlanRoleClassifier` → `ManabaseAnalysisService` (`tool.manabase.enabled`, default ON):
+  9 additional cards earn `PlanRole.Interaction` on the nine-deck sample. This changes the
+  plan-presence opener read for real users.
+- `InteractionAuditAggregator` → `DeckAnalysisPacketService` (`tool.deck-analysis.enabled`):
+  10 additional cards enter the protection/recursion bucket of the generated prompt packet.
+- `CutLabRoleAssigner` is dark behind `tool.cut-lab.enabled` (seeded OFF).
+
+Separately, `role-floor-baseline/latest.json` (2026-07-28, 272 commanders) was computed under
+the narrow vocabulary and its `interaction-targeted` floors are stale. That snapshot is only read
+by Cut Lab, which is dark, so regeneration is deferred. **The live Mana Base / Deck Analysis
+change is NOT deferred and needs its own accept decision.**
 
 No fixture under `DeckFlow.Web.Tests/Manabase/fixtures/` was edited to produce this measurement.
