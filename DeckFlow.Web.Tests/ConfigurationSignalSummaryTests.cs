@@ -215,6 +215,36 @@ public sealed class ConfigurationSignalSummaryTests
         Assert.False(result.Value.IsCoreOnly);
     }
 
+    [Fact]
+    public async Task AnalyzeAsync_NullReportWithCommanderSelectionRequired_ReportsCommanderMessage()
+    {
+        var manabase = new FakeManabaseAnalysisService(nullReport: true, commanderSelectionRequired: true, commanderChoices: ["Alpha", "Beta"]);
+        var service = CreateService(manabase, [Entry("Commander")], [Entry("Ordinary Card")]);
+
+        var result = await service.AnalyzeAsync(Request());
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("Commander selection is required", result.ErrorMessage);
+        Assert.Contains("2 eligible commanders found", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_NullReportForNonCommanderReason_DoesNotReportCommanderMessage()
+    {
+        // WR-07: a null Report was previously always reported as a commander-selection gap,
+        // producing nonsense like "(0 eligible commanders found)" when the report was null for an
+        // unrelated reason. ManabaseController already distinguishes CommanderSelectionRequired
+        // from a bare null Report; this service must too.
+        var manabase = new FakeManabaseAnalysisService(nullReport: true, commanderSelectionRequired: false);
+        var service = CreateService(manabase, [Entry("Commander")], [Entry("Ordinary Card")]);
+
+        var result = await service.AnalyzeAsync(Request());
+
+        Assert.False(result.Succeeded);
+        Assert.DoesNotContain("Commander selection is required", result.ErrorMessage);
+        Assert.DoesNotContain("eligible commanders found", result.ErrorMessage);
+    }
+
     private static ConfigurationAnalysisService CreateService(FakeManabaseAnalysisService manabase, IReadOnlyList<DeckEntry> commandZone, IReadOnlyList<DeckEntry> mainboard)
         => new(new StubDeckModulesPageService(Compilation(commandZone, mainboard)), manabase, NullLogger<ConfigurationAnalysisService>.Instance, new StubGameChangerCatalogService());
 
@@ -294,7 +324,7 @@ public sealed class ConfigurationSignalSummaryTests
         public GameChangerCatalog GetCatalog() => new(new DateOnly(2026, 9, 1), ["Commander Changer", "Mainboard Changer", "Changer 1", "Changer 2", "Changer 3", "Changer 4", "Changer 5", "Changer 6", "Changer 7", "Changer 8", "Changer 9"], ["Land Denial"], ["Extra Turn"], []);
     }
 
-    private sealed class FakeManabaseAnalysisService(IReadOnlyList<SpellRequirement>? analyzedSpells = null) : IManabaseAnalysisService
+    private sealed class FakeManabaseAnalysisService(IReadOnlyList<SpellRequirement>? analyzedSpells = null, bool nullReport = false, bool commanderSelectionRequired = false, IReadOnlyList<string>? commanderChoices = null) : IManabaseAnalysisService
     {
         public int CallCount { get; private set; }
         public ManabaseAnalysisOptions? LastOptions { get; private set; }
@@ -302,7 +332,13 @@ public sealed class ConfigurationSignalSummaryTests
         {
             CallCount++;
             LastOptions = options;
-            return Task.FromResult(new ManabaseAnalysisResult(new ManabaseReport { ActualLands = 36, TargetLands = 36, ColorFindings = [], Summary = "" }, "", [], null, "", [], null, null, false) { AnalyzedSpells = analyzedSpells ?? [] });
+            var report = nullReport ? null : new ManabaseReport { ActualLands = 36, TargetLands = 36, ColorFindings = [], Summary = "" };
+            return Task.FromResult(new ManabaseAnalysisResult(report, "", [], null, "", [], null, null, false)
+            {
+                AnalyzedSpells = analyzedSpells ?? [],
+                CommanderSelectionRequired = commanderSelectionRequired,
+                CommanderChoices = commanderChoices ?? [],
+            });
         }
         public Task<ManabaseLoadResult> LoadAsync(string deckSource, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }

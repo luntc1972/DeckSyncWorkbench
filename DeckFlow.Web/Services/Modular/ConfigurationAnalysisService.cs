@@ -140,11 +140,22 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
 
         if (analysisResult.Report is null)
         {
-            _logger.LogInformation(
-                "Deck Modules analysis requires commander selection: {ChoiceCount} choices.",
-                analysisResult.CommanderChoices.Count);
+            // WR-07: a null Report is not always a commander-selection gap -- ManabaseController
+            // distinguishes CommanderSelectionRequired from a bare null Report. Collapsing both
+            // into the commander-selection message produced nonsense like "(0 eligible commanders
+            // found)" when the report was null for an unrelated reason.
+            if (analysisResult.CommanderSelectionRequired)
+            {
+                _logger.LogInformation(
+                    "Deck Modules analysis requires commander selection: {ChoiceCount} choices.",
+                    analysisResult.CommanderChoices.Count);
+                return DeckModulesServiceResult<ConfigurationAnalysisResult>.Failure(
+                    $"Commander selection is required before this configuration can be analysed ({analysisResult.CommanderChoices.Count} eligible commanders found).");
+            }
+
+            _logger.LogInformation("Deck Modules analysis produced no report for a non-commander reason.");
             return DeckModulesServiceResult<ConfigurationAnalysisResult>.Failure(
-                $"Commander selection is required before this configuration can be analysed ({analysisResult.CommanderChoices.Count} eligible commanders found).");
+                "This configuration could not be analysed. Resolve the deck import or compilation issue and try again.");
         }
 
         var report = analysisResult.Report;
