@@ -92,7 +92,7 @@ Hexing Squelcher, whose own oracle text uses only the `Ward—Pay 2 life.` cost 
 Ratified-set derivation (produces the table above):
 
 ```
-python3 scripts/protection-vocab/derive-vocabulary.py --needle "gains hexproof" --needle "gain hexproof" --needle "gains indestructible" --needle "gain indestructible" --needle "gain protection from" --needle "gains protection from" --needle "phases out" --needle "phase out" --needle "has hexproof" --needle "has shroud" --needle "have shroud" --needle "gains shroud" --needle "gain shroud" --needle "regenerate target" --needle "regenerate this creature" --needle "ward—pay" --out docs/research/protection-vocabulary-corpus-2026-09.md
+python3 scripts/protection-vocab/derive-vocabulary.py --needle "gains hexproof" --needle "gain hexproof" --needle "gains indestructible" --needle "gain indestructible" --needle "gain protection from" --needle "gains protection from" --needle "phases out" --needle "phase out" --needle "has hexproof" --needle "has shroud" --needle "have shroud" --needle "gains shroud" --needle "gain shroud" --needle "haste and shroud" --needle "regenerate target" --needle "regenerate this creature" --needle "ward—pay" --out /tmp/ratified-needles.md
 ```
 
 Rejected-candidate evidence derivation (produces the counts cited in "Rejected candidates" above):

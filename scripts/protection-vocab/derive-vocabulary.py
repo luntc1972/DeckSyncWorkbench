@@ -32,6 +32,7 @@ import json
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -51,8 +52,12 @@ def fetch_bulk_descriptor() -> dict[str, Any]:
         BULK_DATA_URL,
         headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
     )
-    with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 (fixed HTTPS host)
-        payload = json.load(response)
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 (fixed HTTPS host)
+            payload = json.load(response)
+    except (urllib.error.URLError, OSError) as exc:
+        print(f"FATAL: bulk-data descriptor request failed: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     for entry in payload.get("data", []):
         if entry.get("type") == "oracle_cards":
@@ -85,11 +90,18 @@ def ensure_archive_cached(descriptor: dict[str, Any], cache_dir: Path) -> Path:
         return archive_path
 
     download_uri = descriptor["jsonl_download_uri"]
+    parsed_uri = urllib.parse.urlparse(download_uri)
+    if parsed_uri.scheme != "https" or not parsed_uri.netloc:
+        print(
+            f"FATAL: oracle_cards download URI must be an absolute HTTPS URL: {download_uri}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     print(f"Downloading {download_uri} -> {archive_path}", file=sys.stderr)
     request = urllib.request.Request(download_uri, headers={"User-Agent": USER_AGENT})
     tmp_path = archive_path.with_suffix(archive_path.suffix + ".part")
     try:
-        with urllib.request.urlopen(request, timeout=120) as response, open(tmp_path, "wb") as fh:  # noqa: S310
+        with urllib.request.urlopen(request, timeout=120) as response, open(tmp_path, "wb") as fh:  # noqa: S310 (validated HTTPS descriptor URI)
             while True:
                 chunk = response.read(1024 * 1024)
                 if not chunk:
@@ -144,7 +156,15 @@ def load_needles(args: argparse.Namespace) -> list[str]:
         print("FATAL: no needles supplied — use --needle (repeatable) or --needles-file.", file=sys.stderr)
         sys.exit(1)
 
-    return needles
+    deduplicated_needles: list[str] = []
+    seen_needles: set[str] = set()
+    for needle in needles:
+        normalized = needle.casefold()
+        if normalized not in seen_needles:
+            seen_needles.add(normalized)
+            deduplicated_needles.append(needle)
+
+    return deduplicated_needles
 
 
 def count_needles(archive_path: Path, needles: list[str]) -> dict[str, Any]:
@@ -271,11 +291,26 @@ def main() -> None:
         help="Path to write the Markdown report to.",
     )
     parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Allow overwriting an existing output report.",
+    )
+    parser.add_argument(
         "--cache-dir",
         default=str(DEFAULT_CACHE_DIR),
         help=f"Directory to cache the downloaded archive in (default: {DEFAULT_CACHE_DIR}).",
     )
     args = parser.parse_args()
+
+    out_path = Path(args.out)
+    if out_path.exists() and not args.force:
+        print(
+            f"FATAL: refusing to overwrite existing file {out_path}; this would destroy curated "
+            "Ratified needles, Rejected candidates, and Written reason sections. Pass --force "
+            "only for disposable generated output.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     needles = load_needles(args)
     descriptor = fetch_bulk_descriptor()
@@ -287,9 +322,8 @@ def main() -> None:
     ) + f" --out {args.out}"
     report = render_markdown(descriptor, needles, results, command_line)
 
-    out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(report, encoding="utf-8")
+    out_path.write_text(report, encoding="utf-8", newline="\n")
     print(f"Wrote {out_path}", file=sys.stderr)
 
 
