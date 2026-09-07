@@ -49,11 +49,11 @@ public sealed class ManabaseBaselineWeightingTests
             commanderLands: 30, commanderRamp: 12, commanderDraw: 10, commanderDeckCount: 250,
             globalLands: 36, globalRamp: 8, globalDraw: 6);
 
-        Assert.Equal(33, r.Lands.Value.Value, 3);        // 0.5*30 + 0.5*36
+        Assert.Equal(33, r.Lands.Value!.Value, 3);        // 0.5*30 + 0.5*36
         Assert.Equal(ManabaseBaselineSource.Blended, r.Lands.Source);
-        Assert.Equal(10, r.Ramp.Value.Value, 3);         // 0.5*12 + 0.5*8
+        Assert.Equal(10, r.Ramp.Value!.Value, 3);         // 0.5*12 + 0.5*8
         Assert.Equal(ManabaseBaselineSource.Blended, r.Ramp.Source);
-        Assert.Equal(8, r.Draw.Value.Value, 3);          // 0.5*10 + 0.5*6
+        Assert.Equal(8, r.Draw.Value!.Value, 3);          // 0.5*10 + 0.5*6
         Assert.Equal(ManabaseBaselineSource.Blended, r.Draw.Source);
     }
 
@@ -66,7 +66,7 @@ public sealed class ManabaseBaselineWeightingTests
 
         Assert.Equal(35.5, r.Lands.Value);
         Assert.Equal(ManabaseBaselineSource.Global, r.Lands.Source);
-        Assert.Equal(44.5, r.TotalSources.Value, 3);     // 35.5 + 9
+        Assert.Equal(44.5, r.TotalSources!.Value, 3);     // 35.5 + 9
     }
 
     [Fact]
@@ -120,9 +120,9 @@ public sealed class ManabaseBaselineWeightingTests
             commanderLands: 30, commanderRamp: 12, commanderDraw: 10, commanderDeckCount: 100,
             globalLands: 36, globalRamp: 8, globalDraw: 6);
 
-        Assert.Equal(36, r.Lands.Value.Value, 3);
+        Assert.Equal(36, r.Lands.Value!.Value, 3);
         Assert.Equal(ManabaseBaselineSource.Blended, r.Lands.Source);
-        Assert.Equal(8, r.Ramp.Value.Value, 3);
+        Assert.Equal(8, r.Ramp.Value!.Value, 3);
         Assert.Equal(ManabaseBaselineSource.Blended, r.Ramp.Source);
     }
 
@@ -134,11 +134,11 @@ public sealed class ManabaseBaselineWeightingTests
             commanderLands: 30, commanderRamp: 12, commanderDraw: 10, commanderDeckCount: 400,
             globalLands: 36, globalRamp: 8, globalDraw: 6);
 
-        Assert.Equal(30, r.Lands.Value.Value, 3);
+        Assert.Equal(30, r.Lands.Value!.Value, 3);
         Assert.Equal(ManabaseBaselineSource.Commander, r.Lands.Source);
-        Assert.Equal(12, r.Ramp.Value.Value, 3);
+        Assert.Equal(12, r.Ramp.Value!.Value, 3);
         Assert.Equal(ManabaseBaselineSource.Commander, r.Ramp.Source);
-        Assert.Equal(10, r.Draw.Value.Value, 3);
+        Assert.Equal(10, r.Draw.Value!.Value, 3);
         Assert.Equal(ManabaseBaselineSource.Commander, r.Draw.Source);
     }
 

@@ -28,6 +28,7 @@ public sealed class CutLabStateSerializerTests
     {
         var state = CutLabStateSerializer.Deserialize("{\"intent\":{\"planProfile\":{\"genericStrategies\":null}}}");
 
+        Assert.NotNull(state.Intent.PlanProfile);
         Assert.NotNull(state.Intent.PlanProfile.GenericStrategies);
         Assert.Empty(state.Intent.PlanProfile.GenericStrategies);
     }

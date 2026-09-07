@@ -302,6 +302,7 @@ public sealed record CutLabViewModel
     /// <param name="result">Processed Cut Lab result.</param>
     /// <param name="whatif">Optional server-rendered what-if preview state.</param>
     /// <param name="export">Optional server-rendered export state.</param>
+    /// <param name="currentStepOverride">Optional current step override.</param>
     public static CutLabViewModel From(
         CutLabRequest request,
         CutLabProcessResult result,
