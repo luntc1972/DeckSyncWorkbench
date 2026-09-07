@@ -190,6 +190,26 @@ describe('DeckFlowDeckModules', () => {
         expect(stored.analysis).toEqual(analysis); expect(stored.analysisKey).toBe('analysis-key'); expect(document.querySelector('[data-deck-modules-analysis-health]')!.textContent).toBe('Needs attention');
     });
 
+    it('initialize_AnalyzeDoubleClickWhileInFlight_FiresOnlyOneRequest', async () => {
+        // WR-08: analyze() is the expensive Scryfall-backed path; an impatient double-click must
+        // not fire concurrent analyses (CLAUDE.md records live Cloudflare IP blocks from this).
+        let resolveAnalyze: ((value: unknown) => void) | null = null;
+        const fetchMock = vi.fn().mockImplementation((url: string) => url === '/deck-modules/analyze'
+            ? new Promise(resolve => { resolveAnalyze = resolve; }).then(() => ({ ok: true, json: async () => ({ analysisKey: 'analysis-key', analysis }) }))
+            : Promise.resolve({ ok: true, json: async () => imported }));
+        vi.stubGlobal('fetch', fetchMock);
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft();
+        const button = document.querySelector<HTMLButtonElement>('[data-deck-modules-analyze]')!;
+        button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await vi.waitFor(() => expect(fetchMock.mock.calls.filter(call => call[0] === '/deck-modules/analyze')).toHaveLength(1));
+        expect(button.disabled).toBe(true);
+        button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        resolveAnalyze!(undefined);
+        await vi.waitFor(() => expect(document.querySelector<HTMLElement>('[data-deck-modules-analysis]')!.hidden).toBe(false));
+        expect(fetchMock.mock.calls.filter(call => call[0] === '/deck-modules/analyze')).toHaveLength(1);
+    });
+
     it('initialize_AnalysisWithHandoffKey_ShowsEncodedFullReportLink', async () => {
         const handoffAnalysis = { ...analysis, manabaseHandoffKey: 'handoff key' };
         vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, json: async () => url === '/deck-modules/analyze' ? { analysisKey: 'analysis-key', analysis: handoffAnalysis } : imported })));
