@@ -205,6 +205,35 @@ describe('DeckFlowDeckModules', () => {
         expect(stored.analysis).toEqual(analysis); expect(stored.analysisKey).toBe('analysis-key'); expect(document.querySelector('[data-deck-modules-analysis-health]')!.textContent).toBe('Needs attention');
     });
 
+    it('initialize_AnalyzeCedhAlternative_PostsCedhMode', async () => {
+        // WR-15: the analysis mode was hardcoded to 'Casual' regardless of the selected
+        // alternative's declared profile, quietly contradicting the declared-profile disclosure
+        // rendered next to the numbers for a cEDH-declared configuration.
+        const fetchMock = vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, json: async () => url === '/deck-modules/analyze' ? { analysisKey: 'analysis-key', analysis } : imported }));
+        vi.stubGlobal('fetch', fetchMock);
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft();
+        document.querySelector<HTMLInputElement>('[data-deck-modules-name]')!.value = 'Plan A';
+        document.querySelector<HTMLSelectElement>('[data-deck-modules-profile]')!.value = 'Cedh';
+        document.querySelector<HTMLTextAreaElement>('[data-deck-modules-plan]')!.value = 'Win fast.';
+        document.querySelector<HTMLButtonElement>('[data-deck-modules-add-alternative]')!.click();
+        await analyzeDeck();
+        const analyzeCall = fetchMock.mock.calls.find(call => call[0] === '/deck-modules/analyze')!;
+        expect(JSON.parse(analyzeCall[1].body).mode).toBe('Cedh');
+    });
+
+    it('initialize_AnalyzeBracket4Alternative_PostsFocusedMode', async () => {
+        const fetchMock = vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, json: async () => url === '/deck-modules/analyze' ? { analysisKey: 'analysis-key', analysis } : imported }));
+        vi.stubGlobal('fetch', fetchMock);
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft();
+        document.querySelector<HTMLInputElement>('[data-deck-modules-name]')!.value = 'Plan A';
+        document.querySelector<HTMLSelectElement>('[data-deck-modules-profile]')!.value = 'Bracket4HighPower';
+        document.querySelector<HTMLTextAreaElement>('[data-deck-modules-plan]')!.value = 'Win eventually.';
+        document.querySelector<HTMLButtonElement>('[data-deck-modules-add-alternative]')!.click();
+        await analyzeDeck();
+        const analyzeCall = fetchMock.mock.calls.find(call => call[0] === '/deck-modules/analyze')!;
+        expect(JSON.parse(analyzeCall[1].body).mode).toBe('Focused');
+    });
+
     it('initialize_AnalyzeDoubleClickWhileInFlight_FiresOnlyOneRequest', async () => {
         // WR-08: analyze() is the expensive Scryfall-backed path; an impatient double-click must
         // not fire concurrent analyses (CLAUDE.md records live Cloudflare IP blocks from this).
