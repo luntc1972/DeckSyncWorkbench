@@ -6005,6 +6005,10 @@ pre {
   margin: 0.5rem 0;
 }
 
+.deck-modules__signals table {
+  margin: 0.5rem 0;
+}
+
 .deck-modules__disclosure {
   margin-block-start: 1rem;
 }

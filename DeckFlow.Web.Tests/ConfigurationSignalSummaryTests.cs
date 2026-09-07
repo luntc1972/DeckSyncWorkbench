@@ -101,6 +101,67 @@ public sealed class ConfigurationSignalSummaryTests
         Assert.Equal(playPlan, Assert.IsType<ConfigurationSignalSummary>(result.Value!.Signals).Declared!.PlayPlan);
     }
 
+    [Fact]
+    public async Task AnalyzeAsync_InteractionSpellInStrategy_ProjectsFixedModuleRows()
+    {
+        var manabase = new FakeManabaseAnalysisService([Interaction("Strategy Card", PlanRole.Interaction)]);
+        var service = CreateService(manabase, [Entry("Commander")], [Entry("Strategy Card")]);
+
+        var result = await service.AnalyzeAsync(Request());
+
+        var signals = Assert.IsType<ConfigurationSignalSummary>(result.Value!.Signals);
+        Assert.True(signals.InteractionAttributionAvailable);
+        Assert.True(manabase.LastOptions!.ClassifyPlanRoles);
+        Assert.Equal(
+            [ConfigurationModuleKind.CommandZone, ConfigurationModuleKind.Core, ConfigurationModuleKind.Strategy, ConfigurationModuleKind.ManaSupport, ConfigurationModuleKind.Multiple],
+            signals.InteractionsByModule.Select(row => row.ModuleKind));
+        Assert.Equal(1, Assert.Single(signals.InteractionsByModule, row => row.ModuleKind == ConfigurationModuleKind.Strategy).InteractionCount);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_InteractionSpellInCore_CountsCore()
+    {
+        var service = CreateService(new FakeManabaseAnalysisService([Interaction("Core Card", PlanRole.Interaction)]), [Entry("Commander")], [Entry("Core Card")]);
+
+        var result = await service.AnalyzeAsync(RequestWithCoreOnly("Core Card"));
+
+        Assert.Equal(1, Assert.Single(Assert.IsType<ConfigurationSignalSummary>(result.Value!.Signals).InteractionsByModule, row => row.ModuleKind == ConfigurationModuleKind.Core).InteractionCount);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_OneShotInteractionWithoutPlanRole_CountsInteraction()
+    {
+        var service = CreateService(new FakeManabaseAnalysisService([Interaction("Strategy Card", PlanRole.None)]), [Entry("Commander")], [Entry("Strategy Card")]);
+
+        var result = await service.AnalyzeAsync(Request());
+
+        Assert.Equal(1, Assert.Single(Assert.IsType<ConfigurationSignalSummary>(result.Value!.Signals).InteractionsByModule, row => row.ModuleKind == ConfigurationModuleKind.Strategy).InteractionCount);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_InteractionSpellInMultipleModule_CountsOnlyMultiple()
+    {
+        var service = CreateService(new FakeManabaseAnalysisService([Interaction("Shared Card", PlanRole.Interaction)]), [Entry("Commander")], [Entry("Shared Card")]);
+
+        var result = await service.AnalyzeAsync(RequestWithCore("Shared Card"));
+
+        var rows = Assert.IsType<ConfigurationSignalSummary>(result.Value!.Signals).InteractionsByModule;
+        Assert.Equal(1, Assert.Single(rows, row => row.ModuleKind == ConfigurationModuleKind.Multiple).InteractionCount);
+        Assert.Equal(0, Assert.Single(rows, row => row.ModuleKind == ConfigurationModuleKind.Core).InteractionCount);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_NoAnalyzedSpells_MarksInteractionAttributionUnavailable()
+    {
+        var service = CreateService(new FakeManabaseAnalysisService(), [Entry("Commander")], [Entry("Strategy Card")]);
+
+        var result = await service.AnalyzeAsync(Request());
+
+        var signals = Assert.IsType<ConfigurationSignalSummary>(result.Value!.Signals);
+        Assert.False(signals.InteractionAttributionAvailable);
+        Assert.Empty(signals.InteractionsByModule);
+    }
+
     private static ConfigurationAnalysisService CreateService(FakeManabaseAnalysisService manabase, IReadOnlyList<DeckEntry> commandZone, IReadOnlyList<DeckEntry> mainboard)
         => new(new StubDeckModulesPageService(Compilation(commandZone, mainboard)), manabase, NullLogger<ConfigurationAnalysisService>.Instance, new StubGameChangerCatalogService());
 
@@ -121,6 +182,15 @@ public sealed class ConfigurationSignalSummaryTests
 
     private static DeckEntry Entry(string name) => new() { Name = name, NormalizedName = name.ToLowerInvariant(), Quantity = 1, Board = "ignored" };
 
+    private static SpellRequirement Interaction(string name, PlanRole planRoles) => new()
+    {
+        Name = name,
+        ManaValue = 2,
+        Pips = new Dictionary<ManaColor, int>(),
+        PlanRoles = planRoles,
+        IsInteractionSpell = true,
+    };
+
     private static ConfigurationAnalysisRequest Request(DeckModulesProfile profile = DeckModulesProfile.Casual, string playPlan = "Plan") => new()
     {
         Configuration = new DeckModulesCompilationRequest
@@ -131,6 +201,32 @@ public sealed class ConfigurationSignalSummaryTests
             CoreEntries = [],
             SelectedAlternativeId = "strategy",
             Alternatives = [new DeckModulesAlternativeInput { Id = "strategy", Name = "Strategy", Profile = profile, PlayPlan = playPlan, MainboardEntries = [Entry("Strategy Card")] }],
+        },
+    };
+
+    private static ConfigurationAnalysisRequest RequestWithCore(string coreCard) => new()
+    {
+        Configuration = new DeckModulesCompilationRequest
+        {
+            BaselineToken = "token",
+            CommandZone = [],
+            BaselineMainboardEntries = [],
+            CoreEntries = [Entry(coreCard)],
+            SelectedAlternativeId = "strategy",
+            Alternatives = [new DeckModulesAlternativeInput { Id = "strategy", Name = "Strategy", Profile = DeckModulesProfile.Casual, PlayPlan = "Plan", MainboardEntries = [Entry(coreCard)] }],
+        },
+    };
+
+    private static ConfigurationAnalysisRequest RequestWithCoreOnly(string coreCard) => new()
+    {
+        Configuration = new DeckModulesCompilationRequest
+        {
+            BaselineToken = "token",
+            CommandZone = [],
+            BaselineMainboardEntries = [],
+            CoreEntries = [Entry(coreCard)],
+            SelectedAlternativeId = "strategy",
+            Alternatives = [new DeckModulesAlternativeInput { Id = "strategy", Name = "Strategy", Profile = DeckModulesProfile.Casual, PlayPlan = "Plan", MainboardEntries = [Entry("Strategy Card")] }],
         },
     };
 
@@ -145,13 +241,15 @@ public sealed class ConfigurationSignalSummaryTests
         public GameChangerCatalog GetCatalog() => new(new DateOnly(2026, 9, 1), ["Commander Changer", "Mainboard Changer", "Changer 1", "Changer 2", "Changer 3", "Changer 4", "Changer 5", "Changer 6", "Changer 7", "Changer 8", "Changer 9"], ["Land Denial"], ["Extra Turn"], []);
     }
 
-    private sealed class FakeManabaseAnalysisService : IManabaseAnalysisService
+    private sealed class FakeManabaseAnalysisService(IReadOnlyList<SpellRequirement>? analyzedSpells = null) : IManabaseAnalysisService
     {
         public int CallCount { get; private set; }
+        public ManabaseAnalysisOptions? LastOptions { get; private set; }
         public Task<ManabaseAnalysisResult> AnalyzeAsync(string deckSource, string? deckName, ManabaseAnalysisOptions? options = null, CancellationToken cancellationToken = default)
         {
             CallCount++;
-            return Task.FromResult(new ManabaseAnalysisResult(new ManabaseReport { ActualLands = 36, TargetLands = 36, ColorFindings = [], Summary = "" }, "", [], null, "", [], null, null, false));
+            LastOptions = options;
+            return Task.FromResult(new ManabaseAnalysisResult(new ManabaseReport { ActualLands = 36, TargetLands = 36, ColorFindings = [], Summary = "" }, "", [], null, "", [], null, null, false) { AnalyzedSpells = analyzedSpells ?? [] });
         }
         public Task<ManabaseLoadResult> LoadAsync(string deckSource, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }

@@ -13,7 +13,7 @@ const markup = () => `
   ${['unassigned', 'core', 'strategy', 'mana'].map(panel => `<section data-deck-modules-panel="${panel}"><span data-deck-modules-count="${panel}"></span>${panel === 'strategy' ? '<span data-deck-modules-active-name></span>' : ''}<input data-deck-modules-filter="${panel}"><table><tbody data-deck-modules-entries="${panel}"></tbody></table><button data-deck-modules-move="${panel}:unassigned">Move</button><button data-deck-modules-move="${panel}:core">Move</button><button data-deck-modules-move="${panel}:strategy">Move</button><button data-deck-modules-move="${panel}:mana">Move</button></section>`).join('')}
   <p data-deck-modules-balance></p><button data-deck-modules-compile>Compile</button><button data-deck-modules-analyze>Analyze mana base</button><button data-deck-modules-export>Export</button><button data-deck-modules-copy>Copy</button><button data-deck-modules-download>Download</button><button data-deck-modules-restart>Restart</button>
   <section data-deck-modules-report><span data-deck-modules-report-total></span><span data-deck-modules-report-strategy></span><span data-deck-modules-report-mana></span><ul data-deck-modules-diagnostics></ul><ul data-deck-modules-compiled></ul><ul data-deck-modules-swap="add"></ul><ul data-deck-modules-swap="remove"></ul><ul data-deck-modules-swap="reset"></ul></section>
-  <section data-deck-modules-analysis hidden><p data-deck-modules-analysis-stale hidden>Cards changed since this analysis.</p><p data-deck-modules-core-only hidden></p><span data-deck-modules-analysis-health></span><span data-deck-modules-analysis-lands></span><span data-deck-modules-analysis-target></span><span data-deck-modules-analysis-land-delta></span><span data-deck-modules-analysis-ramp></span><span data-deck-modules-analysis-hardtocast></span><table><tbody data-deck-modules-analysis-colors></tbody></table><div data-deck-modules-disclosure hidden><span data-deck-modules-declared-profile></span><p data-deck-modules-declared-plan></p><p data-deck-modules-profile-note hidden></p></div></section>
+  <section data-deck-modules-analysis hidden><p data-deck-modules-analysis-stale hidden>Cards changed since this analysis.</p><p data-deck-modules-core-only hidden></p><span data-deck-modules-analysis-health></span><span data-deck-modules-analysis-lands></span><span data-deck-modules-analysis-target></span><span data-deck-modules-analysis-land-delta></span><span data-deck-modules-analysis-ramp></span><span data-deck-modules-analysis-hardtocast></span><table><tbody data-deck-modules-analysis-colors></tbody></table><div data-deck-modules-signals hidden><span data-deck-modules-bracket></span><ul data-deck-modules-gamechangers></ul><p data-deck-modules-combo-availability></p><table data-deck-modules-interactions><tbody data-deck-modules-interactions></tbody></table><p data-deck-modules-interactions-unavailable hidden></p></div><div data-deck-modules-disclosure hidden><span data-deck-modules-declared-profile></span><p data-deck-modules-declared-plan></p><p data-deck-modules-profile-note hidden></p></div></section>
 </main>`;
 
 const imported = { baselineToken: 'token with exact bytes ==', commandZone: [{ name: 'Commander', quantity: 1 }], baselineMainboardEntries: [{ name: 'Arcane Signet', quantity: 1 }, { name: 'Swords // Plowshares', quantity: 1 }, { name: 'Lightning Bolt', quantity: 1 }], importNotice: 'Imported.' };
@@ -238,12 +238,22 @@ describe('DeckFlowDeckModules', () => {
 
     it('initialize_DeclaredPlayPlan_RendersAngleBracketsAsText', async () => {
         const playPlan = 'Win with <b>combat</b>.';
-        const declaredAnalysis = { ...analysis, signals: { bracketNumber: 4, gameChangers: [], massLandDenialCards: [], extraTurnCards: [], comboDetectionAvailable: false, catalogEffectiveDate: '2026-09-01', declared: { profile: 'Bracket 4 High Power', playPlan, isDeclared: true, profileDisagreementNote: null } } };
+        const declaredAnalysis = { ...analysis, signals: { bracketNumber: 4, gameChangers: [], massLandDenialCards: [], extraTurnCards: [], comboDetectionAvailable: false, catalogEffectiveDate: '2026-09-01', interactionAttributionAvailable: false, interactionsByModule: [], declared: { profile: 'Bracket 4 High Power', playPlan, isDeclared: true, profileDisagreementNote: null } } };
         vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, json: async () => url === '/deck-modules/analyze' ? { analysisKey: 'analysis-key', analysis: declaredAnalysis } : imported })));
 
         (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); await analyzeDeck();
 
         const plan = document.querySelector('[data-deck-modules-declared-plan]')!;
         expect(plan.textContent).toBe(playPlan); expect(plan.querySelector('b')).toBeNull();
+    });
+
+    it('initialize_InteractionAttributionUnavailable_ShowsUnavailableLineAndHidesTable', async () => {
+        const unavailableAnalysis = { ...analysis, signals: { bracketNumber: 4, gameChangers: [], massLandDenialCards: [], extraTurnCards: [], comboDetectionAvailable: false, catalogEffectiveDate: '2026-09-01', interactionAttributionAvailable: false, interactionsByModule: [], declared: null } };
+        vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve({ ok: true, json: async () => url === '/deck-modules/analyze' ? { analysisKey: 'analysis-key', analysis: unavailableAnalysis } : imported })));
+
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); await analyzeDeck();
+
+        expect(document.querySelector<HTMLElement>('[data-deck-modules-interactions-unavailable]')!.hidden).toBe(false);
+        expect(document.querySelector<HTMLElement>('[data-deck-modules-interactions]')!.closest('table')!.hidden).toBe(true);
     });
 });

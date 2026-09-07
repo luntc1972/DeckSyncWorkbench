@@ -118,7 +118,12 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
         var analysisResult = await _manabaseAnalysisService.AnalyzeAsync(
             decklistText,
             compilation.SelectedStrategyName,
-            new ManabaseAnalysisOptions { Mode = request.Mode },
+            new ManabaseAnalysisOptions
+            {
+                Mode = request.Mode,
+                // ANL-01: this explicit, user-triggered analysis runs once per Analyze press, never on a keystroke, so plan-role lookups are safe here.
+                ClassifyPlanRoles = true,
+            },
             cancellationToken);
 
         if (analysisResult.Report is null)
@@ -132,10 +137,16 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
 
         var report = analysisResult.Report;
         var hardToCastCount = report.Castability.Count(row => !row.IsCommander && row.CastPercent < ConfigurationAnalysisResult.HardToCastCastPercentThreshold);
+        var moduleMap = ConfigurationModuleMap.Build(request.Configuration);
         var attributedFindings = _warningAttributionService.AttributeFindings(
             report.ColorFindings,
             compilation.SwapPlan,
-            ConfigurationModuleMap.Build(request.Configuration));
+            moduleMap);
+        signals = signals with
+        {
+            InteractionAttributionAvailable = analysisResult.AnalyzedSpells.Count > 0,
+            InteractionsByModule = BuildInteractionRows(analysisResult.AnalyzedSpells, moduleMap),
+        };
 
         var selectedAlternative = request.Configuration.Alternatives.FirstOrDefault(
             alternative => alternative.Id == request.Configuration.SelectedAlternativeId);
@@ -164,6 +175,49 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
 
         return DeckModulesServiceResult<ConfigurationAnalysisResult>.Success(result);
     }
+
+    private static IReadOnlyList<ConfigurationModuleInteractionCount> BuildInteractionRows(
+        IReadOnlyList<SpellRequirement> analyzedSpells,
+        ConfigurationModuleMap moduleMap)
+    {
+        if (analyzedSpells.Count == 0)
+        {
+            return [];
+        }
+
+        var counts = new Dictionary<ConfigurationModuleKind, int>();
+        foreach (var spell in analyzedSpells)
+        {
+            if ((spell.PlanRoles & PlanRole.Interaction) == 0 && !spell.IsInteractionSpell)
+            {
+                continue;
+            }
+
+            if (moduleMap.TryResolve(spell.Name, out var kind, out _))
+            {
+                counts[kind] = counts.GetValueOrDefault(kind) + 1;
+            }
+        }
+
+        return
+        [
+            InteractionRow(ConfigurationModuleKind.CommandZone, "Command Zone", counts),
+            InteractionRow(ConfigurationModuleKind.Core, "Core", counts),
+            InteractionRow(ConfigurationModuleKind.Strategy, "Strategy", counts),
+            InteractionRow(ConfigurationModuleKind.ManaSupport, "Mana Support", counts),
+            InteractionRow(ConfigurationModuleKind.Multiple, "More than one module", counts),
+        ];
+    }
+
+    private static ConfigurationModuleInteractionCount InteractionRow(
+        ConfigurationModuleKind moduleKind,
+        string moduleName,
+        IReadOnlyDictionary<ConfigurationModuleKind, int> counts) => new()
+        {
+            ModuleKind = moduleKind,
+            ModuleName = moduleName,
+            InteractionCount = counts.GetValueOrDefault(moduleKind),
+        };
 
     private sealed record DeclaredProfileRange(string DisplayLabel, int MinimumBracket, int MaximumBracket);
 }

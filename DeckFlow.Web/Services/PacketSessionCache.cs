@@ -199,7 +199,8 @@ internal static class PacketSizeEstimator
                 : result.Signals.CatalogEffectiveDate.Length
                     + result.Signals.GameChangers.Sum(name => name.Length)
                     + result.Signals.MassLandDenialCards.Sum(name => name.Length)
-                    + result.Signals.ExtraTurnCards.Sum(name => name.Length));
+                    + result.Signals.ExtraTurnCards.Sum(name => name.Length)
+                    + result.Signals.InteractionsByModule.Sum(row => row.ModuleName.Length));
     }
 }
 
