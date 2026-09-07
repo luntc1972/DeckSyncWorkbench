@@ -108,7 +108,7 @@ stripped by the permanent-only-roles gate):** Amalia Benavides Aguirre; Boromir,
 Tower; Giver of Runes; Lightning Greaves; Mother of Runes; Seasoned Dungeoneer; Swiftfoot Boots;
 Sylvan Safekeeper; Whispersilk Cloak.
 
-Three of the ten added cards (Brave the Elements, Deflecting Swat, Flawless Maneuver, Heroic
+Seven of the ten before-set cards (Brave the Elements, Deflecting Swat, Flawless Maneuver, Heroic
 Intervention, Loran's Escape, Revitalizing Repast // Old-Growth Grove, Teferi's Protection — the
 before-set's seven instants) stay absent from `PlanRoleClassifier`'s after-set for the same
 permanent-front reason they were absent before: the gate strips `Interaction` from one-shot
@@ -134,16 +134,13 @@ before or after set above.
 
 ## What this means for the shipped role-floor snapshot
 
-**Nothing.** `protection` is not one of `RoleFloorBaseline.AdoptedRoleKeys`'s six commander-aware
-floor roles (`ramp`, `draw`, `interaction-targeted`, `engines`, `payoffs`, `wincons` —
-`DeckFlow.Core/Research/RoleFloorBaseline.cs:13-21`), and `CutLabFloorDefaults.cs:116-119`
-documents why: "protection are out of scope for insufficient breadth." The shipped commander
-role-floor snapshot `DeckFlow.Web/Data/role-floor-baseline/latest.json` (678 commanders, 1,463
-adopted floors) carries no protection floor for this phase's widened live count to out-run, and
-widening the classifier does not change that file. **`DeckFlow.Web/Data/role-floor-baseline/latest.json`
-stays as-is** — there is no floor-vs-live asymmetry here to accept, narrow, or defer, because there
-is no floor for `protection` in the first place. What plan `09.1-03` Task 2 accepts is simply the
-measured card movement above: that it is correct and intended, exactly what Success Criterion 3
-asks a human to sign off on.
+`protection` is not one of `RoleFloorBaseline.AdoptedRoleKeys`'s six commander-aware floor roles,
+but `interaction-targeted` is. The shipped commander role-floor snapshot
+`DeckFlow.Web/Data/role-floor-baseline/latest.json`, generated 2026-07-28 for 272 commanders with
+1,463 adopted floors, was computed under the old narrow protection vocabulary. Its
+`interaction-targeted` floors are therefore understated by this same widening: +9 cards, from 68
+to 77 on the nine-fixture sample. **ACCEPTED** — Cut Lab is dark behind the
+`tool.cut-lab.enabled` flag, so no live user is affected today. Baseline regeneration is deferred
+to a later phase and does not block this widening.
 
 No fixture under `DeckFlow.Web.Tests/Manabase/fixtures/` was edited to produce this measurement.

@@ -65,6 +65,100 @@ public sealed class ProtectionVocabularyBlastRadiusTests
         "Whispersilk Cloak",
     ];
 
+    private static readonly string[] ExpectedCutLabInteractionTargetedNames =
+    [
+        "Abrupt Decay",
+        "Akroma's Will",
+        "Amalia Benavides Aguirre",
+        "Anguished Unmaking",
+        "Artifact Mutation",
+        "Assassin's Trophy",
+        "Beast Within",
+        "Bojuka Bog",
+        "Bone Shards",
+        "Boromir, Warden of the Tower",
+        "Bounty Agent",
+        "Brave the Elements",
+        "Cabal Ritual",
+        "Casualties of War",
+        "Corrupted Conviction",
+        "Crop Rotation",
+        "Culling the Weak",
+        "Cyclonic Rift",
+        "Damn",
+        "Dark Ritual",
+        "Dawnbringer Cleric",
+        "Deadly Dispute",
+        "Deadly Rollick",
+        "Deduce",
+        "Deflecting Swat",
+        "Dispatch",
+        "Displace",
+        "Elspeth Conquers Death",
+        "Entomb",
+        "Ephemerate",
+        "Erode",
+        "Fell the Profane // Fell Mire",
+        "Flare of Fortitude",
+        "Flawless Maneuver",
+        "Generous Gift",
+        "Get Lost",
+        "Ghostly Flicker",
+        "Ghostway",
+        "Giver of Runes",
+        "Go for the Throat",
+        "Grisly Salvage",
+        "Harrow",
+        "Heliod's Intervention",
+        "Heroic Intervention",
+        "Hide on the Ceiling",
+        "Infernal Grasp",
+        "Kytheon, Hero of Akros // Gideon, Battle-Forged",
+        "Lightning Greaves",
+        "Loran's Escape",
+        "Mother of Runes",
+        "Nasty End",
+        "Path to Exile",
+        "Plaza of Heroes",
+        "Putrefy",
+        "Ravenous Chupacabra",
+        "Revitalizing Repast // Old-Growth Grove",
+        "Seasoned Dungeoneer",
+        "Songs of the Damned",
+        "Strip Mine",
+        "Swiftfoot Boots",
+        "Swords to Plowshares",
+        "Sylvan Safekeeper",
+        "Teferi's Protection",
+        "Teferi, Hero of Dominaria",
+        "Terminate",
+        "The One Ring",
+        "Thrill of Possibility",
+        "Umezawa's Jitte",
+        "Vampiric Tutor",
+        "Venser, Shaper Savant",
+        "Venser, the Sojourner",
+        "Village Rites",
+        "Wasteland",
+        "Whispersilk Cloak",
+        "Witch Enchanter // Witch-Blessed Meadow",
+        "Wither and Bloom",
+        "Y'shtola Rhul",
+    ];
+
+    private static readonly string[] ExpectedInteractionTargetedWideningNames =
+    [
+        "Amalia Benavides Aguirre",
+        "Boromir, Warden of the Tower",
+        "Giver of Runes",
+        "Lightning Greaves",
+        "Mother of Runes",
+        "Seasoned Dungeoneer",
+        "Swiftfoot Boots",
+        "Sylvan Safekeeper",
+        "Whispersilk Cloak",
+    ];
+
     private static readonly string[] ExpectedPlanRoleInteractionViaProtectionNames =
     [
         "Amalia Benavides Aguirre",
@@ -150,6 +244,25 @@ public sealed class ProtectionVocabularyBlastRadiusTests
             .ToArray();
 
         Assert.Equal(ExpectedCutLabProtectionNames, afterNames);
+    }
+
+    [Fact]
+    public void InteractionTargetedRole_AcrossNineFixtures_MatchesMeasuredAcceptedSet()
+    {
+        IReadOnlyList<CardFact> cards = LoadDistinctFixtureCards();
+
+        string[] afterNames = cards
+            .Where(fact => CutLabRoleAssigner
+                .AssignRoles(fact, Array.Empty<string>(), isComboPiece: false, ManabaseMode.Casual)
+                .Contains("interaction-targeted"))
+            .Select(fact => fact.Name)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(77, afterNames.Length);
+        Assert.Equal(ExpectedCutLabInteractionTargetedNames, afterNames);
+        Assert.Equal(9, afterNames.Intersect(ExpectedInteractionTargetedWideningNames).Count());
+        Assert.Equal(68, afterNames.Except(ExpectedInteractionTargetedWideningNames).Count());
     }
 
     [Fact]

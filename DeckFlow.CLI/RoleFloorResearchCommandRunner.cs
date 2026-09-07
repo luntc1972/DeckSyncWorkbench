@@ -1564,7 +1564,7 @@ internal static class RoleFloorResearchCommandRunner
             signalPresentRoles = GetRolesByStatus(computation.GoNoGo, "signal-present"),
             protectionUnderDetection = new
             {
-                affectedRole = "protection",
+                affectedRole = "protection, interaction-targeted",
                 needles = DeckStatClassifier.ProtectionOracleNeedles.Select(needle => new
                 {
                     text = needle.Text,
@@ -1578,7 +1578,7 @@ internal static class RoleFloorResearchCommandRunner
                     evidenceGrade = card.EvidenceGrade,
                     evidenceNote = card.EvidenceNote,
                 }).ToArray(),
-                consequence = "The vocabulary was widened in Phase 9.1 (docs/research/protection-vocabulary-corpus-2026-09.md) from historicalNarrowNeedles to the corpus-derived table above. Runs produced before that widening used only historicalNarrowNeedles, so their reported protection counts are a lower bound, not the true count; this run uses the corpus-derived table.",
+                consequence = "The vocabulary was widened in Phase 9.1 (docs/research/protection-vocabulary-corpus-2026-09.md) from historicalNarrowNeedles to the corpus-derived table above. Runs produced before that widening used only historicalNarrowNeedles, so their reported protection and interaction-targeted counts are lower bounds, not true counts; this run uses the corpus-derived table.",
                 consumers = ProtectionConsumers,
             },
             corpusHygiene = new
