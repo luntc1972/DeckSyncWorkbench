@@ -27,6 +27,21 @@ public sealed class DeckModulesAnalysisEndpointTests
     }
 
     [Fact]
+    public async Task Analyze_ReturnsBadRequest_WhenConfigurationIsNull()
+    {
+        // WR-01: System.Text.Json's `required` enforcement checks presence, not nullness, so
+        // {"configuration": null, "mode": 0} deserializes without throwing. Guard against the null
+        // reaching the analysis service, which would otherwise NRE as an unhandled 500.
+        var service = new FakeConfigurationAnalysisService();
+        var controller = CreateController(service);
+
+        var result = await controller.Analyze(CreateRequest() with { Configuration = null! }, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal(0, service.InvocationCount);
+    }
+
+    [Fact]
     public async Task Analyze_ReturnsForbidden_WhenCrossOrigin()
     {
         var service = new FakeConfigurationAnalysisService();

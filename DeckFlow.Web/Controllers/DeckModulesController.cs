@@ -137,7 +137,7 @@ public sealed class DeckModulesController : DeckToolControllerBase
             return Forbidden();
         }
 
-        if (request is null)
+        if (request?.Configuration is null)
         {
             return BadRequest(new { message = "Request body is required." });
         }
