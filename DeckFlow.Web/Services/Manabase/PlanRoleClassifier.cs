@@ -209,9 +209,9 @@ public static class PlanRoleClassifier
 
     /// <summary>
     /// Whether a card earns <see cref="PlanRole.Interaction"/> from the oracle-text heuristic. Removal,
-    /// board wipes, protection (curated staple or oracle text granting hexproof / indestructible /
-    /// protection-from, or phasing out), and non-counter instants always qualify. A pure counterspell
-    /// — one that counters a spell and does nothing else — qualifies only in
+    /// board wipes, protection (curated staple, or oracle text recognized by
+    /// <see cref="DeckStatClassifier.IsProtectionCard"/>), and non-counter instants always qualify. A
+    /// pure counterspell — one that counters a spell and does nothing else — qualifies only in
     /// <see cref="ManabaseMode.Cedh"/>: a casual counter is reactive insurance, not a card that
     /// advances the win plan. A card that both counters and removes still counts in casual (it has
     /// removal merit beyond the counter).

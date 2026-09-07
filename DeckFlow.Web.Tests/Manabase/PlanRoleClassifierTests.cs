@@ -197,7 +197,8 @@ public sealed class PlanRoleClassifierTests
         // IsInteractionCard misses it, there is no destroy/exile verb so IsBoardWipeCard misses it,
         // and IsTargetedRemovalCard excludes "you control". The third case covers the singular
         // "phases out" arm that IsProtectionCard actually matches; the plural-subject "permanents
-        // you control phase out" phrasing stays documented under D-06 instead of asserted here.
+        // you control phase out" phrasing is now asserted directly below (plan 09.1-02 widened the
+        // needle table to include it — no longer deferred under D-06).
         Assert.True(PlanRoleClassifier.FromHeuristic(
             Fact("Artifact", "{T}: Target creature you control gains hexproof until end of turn."), mode)
             .HasFlag(PlanRole.Interaction));
@@ -209,6 +210,27 @@ public sealed class PlanRoleClassifierTests
         Assert.True(PlanRoleClassifier.FromHeuristic(
             Fact("Artifact", "{T}: Target creature phases out."), mode)
             .HasFlag(PlanRole.Interaction));
+    }
+
+    // Why: proves plan 09.1-02's widened plural-subject "phase out" needle reaches
+    // PlanRoleClassifier.FromHeuristic in all three ManabaseMode values (the existing theory above
+    // only covers Casual/Cedh; this one deliberately also covers Focused so the gap does not
+    // perpetuate). Uses a non-curated name ("Uncatalogued fixture") — StaxProtectionCatalog already
+    // lists "Teferi's Protection", whose real oracle text happens to use plural-subject phrasing, so
+    // a Fact built from its real name and text would pass on the curated-name path even if the new
+    // plural needle were missing or broken, proving nothing about the vocabulary this task ships.
+    [Theory]
+    [InlineData(ManabaseMode.Casual)]
+    [InlineData(ManabaseMode.Focused)]
+    [InlineData(ManabaseMode.Cedh)]
+    public void FromHeuristic_PluralPhaseOutPermanent_EarnsInteractionInAllModes(ManabaseMode mode)
+    {
+        CardFact fact = Fact(
+            "Artifact",
+            "{T}: Permanents you control phase out.",
+            name: "Uncatalogued fixture");
+
+        Assert.True(PlanRoleClassifier.FromHeuristic(fact, mode).HasFlag(PlanRole.Interaction));
     }
 
     // Why: proves plan 09.1-01's Mother of Runes classification (singular "gains protection from")

@@ -395,6 +395,7 @@ public sealed class DeckStatClassifierTests
         ("phase-out", "singular"),      // phases out
         ("phase-out", "plural"),        // phase out
         ("shroud", "singular"),         // has shroud (Equipment/conditional status)
+        ("shroud", "singular"),         // haste and shroud (Equipment/conditional status, conjunction-tail) — Lightning Greaves
         ("shroud", "plural"),           // have shroud (Equipment/conditional status)
         ("shroud", "singular"),         // gains shroud (temporary grant)
         ("shroud", "plural"),           // gain shroud (temporary grant)
@@ -419,6 +420,28 @@ public sealed class DeckStatClassifierTests
             Assert.True(hasSingular, $"Effect '{effect}' has no singular-subject needle in the ratified pairing list.");
             Assert.True(hasPlural, $"Effect '{effect}' has no plural-subject needle in the ratified pairing list.");
         }
+    }
+
+    // Why: this is the assertion Task 2 deferred — it proves the SHIPPED table matches what Task 1
+    // ratified, by projecting the real DeckStatClassifier.ProtectionOracleNeedles and comparing it
+    // against the test-owned expected list above. Both sides are sorted by (Effect, SubjectForm)
+    // before comparing so the assertion checks content (every ratified (effect, subjectForm) pair
+    // present with the right multiplicity), not incidental row order in either file.
+    [Fact]
+    public void ProtectionOracleNeedles_MatchesRatifiedPairing()
+    {
+        List<(string Effect, string SubjectForm)> actual = DeckStatClassifier.ProtectionOracleNeedles
+            .Select(needle => (needle.Effect, needle.SubjectForm))
+            .OrderBy(entry => entry.Effect, StringComparer.Ordinal)
+            .ThenBy(entry => entry.SubjectForm, StringComparer.Ordinal)
+            .ToList();
+
+        List<(string Effect, string SubjectForm)> expected = RatifiedProtectionPairing
+            .OrderBy(entry => entry.Effect, StringComparer.Ordinal)
+            .ThenBy(entry => entry.SubjectForm, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.Equal(expected, actual);
     }
 
     // Why: a needle that is listed in ProtectionOracleNeedles but unreachable through

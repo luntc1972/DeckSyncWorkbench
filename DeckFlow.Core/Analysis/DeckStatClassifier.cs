@@ -226,11 +226,18 @@ public static class DeckStatClassifier
     // retired by this table — it stays a stale hand-copied duplicate until plan 09.1-03 Task 3
     // deletes it and points the disclosure at this table.
     //
-    // Five rows: the four needles that existed before this table (singular hexproof/indestructible,
-    // plural protection-from, singular phase-out) plus the singular protection-from row this plan
-    // adds (Mother of Runes — the ROADMAP-named D-06 defect). Every other verb-form pairing (plural
-    // hexproof/indestructible/phase-out, "has" forms, shroud, regenerate) is plan 09.1-02's job and
-    // waits for its own corpus counts; do not add rows here ahead of that measurement.
+    // Why: every row below is corpus-derived, not guessed — corpus total and needle-exclusive match
+    // counts for every ratified needle, plus the rejected candidates (bare `have hexproof`, bare
+    // `shroud`, bare `regenerate`) and the real cards that caused each rejection, are recorded in
+    // docs/research/protection-vocabulary-corpus-2026-09.md. A needle added here without a
+    // corresponding row in that artifact does not belong. Rows are ordered by effect then subject
+    // form so the singular/plural pairing is legible at a glance; `hexproof` and `shroud` both group
+    // an Equipment/conditional "has/have" status form alongside their "gains/gain" grant form under
+    // the same effect, so the pairing invariant is satisfied by the effect as a whole even though
+    // "has hexproof" (Swiftfoot Boots) has no ratified "have hexproof" sibling — that plural was
+    // measured and rejected (real hexproof-removal-enabler false positives), see the artifact's
+    // "Rejected candidates" table. Regenerate and Ward have subject form "none": their oracle-text
+    // phrasing is the ability text itself and does not inflect by subject number.
     /// <summary>
     /// The oracle vocabulary <see cref="IsProtectionCard"/> matches against, as data rather than an
     /// inline predicate chain.
@@ -238,14 +245,35 @@ public static class DeckStatClassifier
     public static readonly IReadOnlyList<ProtectionNeedle> ProtectionOracleNeedles =
     [
         new ProtectionNeedle { Text = "gains hexproof", Effect = "hexproof", SubjectForm = "singular" },
+        new ProtectionNeedle { Text = "has hexproof", Effect = "hexproof", SubjectForm = "singular" },
+        new ProtectionNeedle { Text = "gain hexproof", Effect = "hexproof", SubjectForm = "plural" },
         new ProtectionNeedle { Text = "gains indestructible", Effect = "indestructible", SubjectForm = "singular" },
-        new ProtectionNeedle { Text = "gain protection from", Effect = "protection-from", SubjectForm = "plural" },
-        new ProtectionNeedle { Text = "gains protection from", Effect = "protection-from", SubjectForm = "singular" },
+        new ProtectionNeedle { Text = "gain indestructible", Effect = "indestructible", SubjectForm = "plural" },
         new ProtectionNeedle { Text = "phases out", Effect = "phase-out", SubjectForm = "singular" },
+        new ProtectionNeedle { Text = "phase out", Effect = "phase-out", SubjectForm = "plural" },
+        new ProtectionNeedle { Text = "gains protection from", Effect = "protection-from", SubjectForm = "singular" },
+        new ProtectionNeedle { Text = "gain protection from", Effect = "protection-from", SubjectForm = "plural" },
+        new ProtectionNeedle { Text = "regenerate target", Effect = "regenerate", SubjectForm = "none" },
+        new ProtectionNeedle { Text = "regenerate this creature", Effect = "regenerate", SubjectForm = "none" },
+        new ProtectionNeedle { Text = "has shroud", Effect = "shroud", SubjectForm = "singular" },
+        // Lightning Greaves's real oracle text ("Equipped creature has haste and shroud.") does NOT
+        // match "has shroud" — shroud is the second item in the conjunction, not the word directly
+        // after "has". A bare "and shroud" needle was measured and rejected (also matches Arcane
+        // Lighthouse's anti-shroud removal-enabler clause); this needle is exhaustive at 1 corpus
+        // match total. See docs/research/protection-vocabulary-corpus-2026-09.md.
+        new ProtectionNeedle { Text = "haste and shroud", Effect = "shroud", SubjectForm = "singular" },
+        new ProtectionNeedle { Text = "gains shroud", Effect = "shroud", SubjectForm = "singular" },
+        new ProtectionNeedle { Text = "have shroud", Effect = "shroud", SubjectForm = "plural" },
+        new ProtectionNeedle { Text = "gain shroud", Effect = "shroud", SubjectForm = "plural" },
+        new ProtectionNeedle { Text = "ward—pay", Effect = "ward", SubjectForm = "none" },
     ];
 
     /// <summary>
-    /// Returns <see langword="true"/> when the card is a curated or text-detected protection effect.
+    /// Returns <see langword="true"/> when the card is a curated protection staple, or its oracle text
+    /// matches a corpus-derived protection needle — granting hexproof, indestructible, protection-from,
+    /// or shroud (temporary grant or Equipment/conditional status), phasing out, regenerating, or
+    /// carrying a Ward—Pay cost. See <see cref="ProtectionOracleNeedles"/> for the full vocabulary and
+    /// docs/research/protection-vocabulary-corpus-2026-09.md for the corpus evidence behind it.
     /// </summary>
     /// <param name="name">Card name.</param>
     /// <param name="oracleText">Normalized oracle text.</param>
