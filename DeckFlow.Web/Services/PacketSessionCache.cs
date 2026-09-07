@@ -141,6 +141,14 @@ public sealed class PacketSessionCache
 /// </summary>
 internal static class PacketSizeEstimator
 {
+    // WR-03: ManabaseHandoffPayload.Result is the whole ManabaseAnalysisResult -- the full
+    // castability table, every colour finding, tap analysis, mulligan evaluation, and
+    // AnalyzedSpells, each with its own nested collections. A hand-summed field list drifted
+    // every time a new field was added to that deep object graph (that is what caused this
+    // estimator to under-count). Serializing to UTF-8 JSON (the same technique
+    // PacketSessionCache.ComputeKey already uses) tracks the object graph automatically.
+    private static readonly JsonSerializerOptions SizeEstimationJsonOptions = new() { WriteIndented = false };
+
     public static int EstimateSizeBytes(DeckAnalysisPacketResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
@@ -200,20 +208,26 @@ internal static class PacketSizeEstimator
                     + result.Signals.GameChangers.Sum(name => name.Length)
                     + result.Signals.MassLandDenialCards.Sum(name => name.Length)
                     + result.Signals.ExtraTurnCards.Sum(name => name.Length)
-                    + result.Signals.InteractionsByModule.Sum(row => row.ModuleName.Length));
+                    + result.Signals.InteractionsByModule.Sum(row => row.ModuleName.Length)
+                    // WR-03: the Declared disclosure block (Profile, PlayPlan, ProfileDisagreementNote)
+                    // is stored in the cached result but was not walked, so it did not count toward
+                    // the 10 MB cap.
+                    + (result.Signals.Declared is null
+                        ? 0
+                        : result.Signals.Declared.Profile.Length
+                            + result.Signals.Declared.PlayPlan.Length
+                            + (result.Signals.Declared.ProfileDisagreementNote?.Length ?? 0)));
     }
 
     /// <summary>Estimates the cache footprint of a short-lived mana-base handoff payload.</summary>
     public static int EstimateSizeBytes(ManabaseHandoffPayload result)
     {
         ArgumentNullException.ThrowIfNull(result);
-        return result.DecklistText.Length
-            + result.DeckName.Length
-            + result.Result.InputSummary.Length
-            + (result.Result.ImportWarning?.Length ?? 0)
-            + result.Result.PromptSwapPrompt.Length
-            + result.Result.Unresolved.Sum(name => name.Length)
-            + (result.Result.Report?.Summary.Length ?? 0);
+
+        // The stored payload's dominant cost is result.Result (the full ManabaseAnalysisResult,
+        // including the castability table and AnalyzedSpells); serialize the whole payload so no
+        // future field addition silently drops back out of the size accounting.
+        return JsonSerializer.SerializeToUtf8Bytes(result, SizeEstimationJsonOptions).Length;
     }
 }
 
