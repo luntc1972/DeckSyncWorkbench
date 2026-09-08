@@ -6758,3 +6758,102 @@ pre {
   vertical-align: top;
 }
 /* end Phase 3: deck-modules analysis */
+
+/* Cut Lab desktop workspace: scoped so shared tool panels retain their existing treatment. */
+@media (min-width: 1024px) {
+  .cutlab-workspace {
+    margin: 2.5rem 0 4rem;
+  }
+
+  .cutlab-workspace > .cutlab-hero,
+  .cutlab-workspace > .cutlab-intake,
+  .cutlab-workspace > .error-banner,
+  .cutlab-workspace > .result-panel,
+  .cutlab-workspace .deck-history-results {
+    max-width: none;
+  }
+
+  .cutlab-workspace > .cutlab-hero {
+    padding: 2rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--accent);
+    border-radius: 10px;
+    background: var(--panel);
+  }
+
+  .cutlab-workspace > .cutlab-hero h1 {
+    margin: 0;
+    color: var(--ink);
+    font-size: var(--fs-xl);
+    line-height: 1.15;
+  }
+
+  .cutlab-workspace > .cutlab-hero .lede {
+    max-width: 48rem;
+    margin-top: 0.65rem;
+    font-size: var(--fs-sm);
+    line-height: 1.55;
+  }
+
+  .cutlab-workspace > .cutlab-hero .cutlab-collapsible {
+    max-width: 48rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .cutlab-workspace > .cutlab-intake {
+    margin-bottom: 1.5rem;
+  }
+
+  .cutlab-workspace > .cutlab-intake > form.result-panel,
+  .cutlab-workspace > .result-panel,
+  .cutlab-workspace .deck-history-results > .result-panel {
+    padding: 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    box-shadow: 0 12px 30px rgba(26, 31, 46, 0.06);
+  }
+
+  .cutlab-workspace .deck-history-results {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+
+  .cutlab-workspace .deck-history-results > :not(.result-panel) {
+    grid-column: 1 / -1;
+  }
+
+  .cutlab-workspace .deck-history-results > .result-panel {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+
+  .cutlab-workspace .deck-history-results .nested-panel {
+    margin-top: 1.25rem;
+    padding: 1.25rem;
+    border-color: var(--line);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--panel) 92%, var(--accent));
+  }
+
+  .cutlab-workspace .prompt-step-nav {
+    padding: 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+  }
+
+  .cutlab-workspace .prompt-step-tab {
+    min-height: 2.75rem;
+  }
+
+  .cutlab-workspace .cutlab-anchor-nav {
+    padding: 1rem 1.25rem;
+    border-left: 3px solid var(--accent);
+    background: color-mix(in srgb, var(--panel) 94%, var(--accent));
+  }
+}
