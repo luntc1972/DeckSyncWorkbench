@@ -670,6 +670,55 @@
   }
 }
 
+@media (max-width: 900px) {
+  .cutlab-workspace {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 0 0.75rem;
+  }
+
+  .cutlab-workspace > .result-panel,
+  .cutlab-workspace > .cutlab-intake > form.result-panel,
+  .cutlab-workspace .deck-history-results,
+  .cutlab-workspace .nested-panel {
+    margin-top: 1rem;
+  }
+
+  .cutlab-workspace > .result-panel,
+  .cutlab-workspace > .cutlab-intake > form.result-panel,
+  .cutlab-workspace .nested-panel {
+    padding: 1rem;
+  }
+
+  .cutlab-workspace button:not(.card-picker__add):not(.card-picker__remove),
+  .cutlab-workspace .prompt-step-tab,
+  .cutlab-workspace .cutlab-anchor-nav a,
+  .cutlab-workspace label.kb-chip,
+  .cutlab-workspace .cutlab-collapsible__summary {
+    box-sizing: border-box;
+    min-height: 44px;
+  }
+
+  .cutlab-workspace .cutlab-anchor-nav a,
+  .cutlab-workspace label.kb-chip {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .cutlab-workspace textarea {
+    box-sizing: border-box;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    overflow-x: auto;
+  }
+
+  .cutlab-workspace table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
+
 @media (max-width: 480px) {
   .page-shell {
     padding: 1rem 0.75rem 2rem;
