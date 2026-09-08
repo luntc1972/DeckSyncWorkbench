@@ -1158,4 +1158,33 @@ public sealed class DirectPushPageTests : BunitContext
             Assert.Contains("Resume", cut.Markup);
         });
     }
+
+    // ── F-09: the visibility contract is stated once and cross-referenced ──
+
+    [Fact]
+    public void VisibilityContract_IsStatedOnceAndAnchored()
+    {
+        // F-09: the production visibility mechanic must be stated exactly once, in the
+        // anchor-addressable TARGET: PRODUCTION danger banner, with every other site on the
+        // page pointing at it via a fragment link. This pins the consolidation so a later
+        // copy-editing pass cannot silently reintroduce the eleven-way repetition.
+        //
+        // A diff must be computed (Stage 2-5 render only once _diffReady) so at least one of
+        // the eight downstream cross-reference sites is present in the rendered markup — the
+        // Stage 4 card body paragraph renders unconditionally once the diff has New/Updated rows.
+        var local = new[] { MakeApprovedRow(1, "vid1") };
+        var (cut, _, _, _, _, _) = RenderDirectPush(local);
+
+        ComputeDiffAndConfirm(cut);
+
+        cut.WaitForAssertion(() =>
+        {
+            var banners = cut.FindAll("#direct-push-visibility-contract");
+            Assert.Single(banners);
+            Assert.Contains("alert-danger", banners[0].ClassList);
+
+            var crossRefs = cut.FindAll("a[href='#direct-push-visibility-contract']");
+            Assert.NotEmpty(crossRefs);
+        });
+    }
 }

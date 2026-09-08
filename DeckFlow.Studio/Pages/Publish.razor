@@ -18,6 +18,8 @@
     </ul>
 </HelpPanel>
 
+<PipelineStepper CurrentStage="publish" />
+
 <article class="content px-4">
 
     @if (_initError is not null)
@@ -30,9 +32,9 @@
             <span class="spinner-border spinner-border-sm text-primary"
                   role="status"
                   aria-label="Operation in progress">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">Loading…</span>
             </span>
-            <span class="text-muted">Resolving repository info...</span>
+            <span class="text-muted">Resolving repository info…</span>
         </div>
     }
     else
@@ -83,9 +85,9 @@
                         <span class="spinner-border spinner-border-sm text-primary"
                               role="status"
                               aria-label="Operation in progress">
-                            <span class="visually-hidden">Loading...</span>
+                            <span class="visually-hidden">Loading…</span>
                         </span>
-                        <span> Exporting &amp; computing diff...</span>
+                        <span> Exporting &amp; computing diff…</span>
                     }
                     else
                     {
@@ -177,9 +179,9 @@
                             <span class="spinner-border spinner-border-sm"
                                   role="status"
                                   aria-label="Operation in progress">
-                                <span class="visually-hidden">Loading...</span>
+                                <span class="visually-hidden">Loading…</span>
                             </span>
-                            <span> Committing...</span>
+                            <span> Committing…</span>
                         }
                         else
                         {

@@ -143,4 +143,60 @@ public sealed class NavMenuTests : BunitContext
         Assert.True(skippedIdx >= 0, "skipped link not found");
         Assert.True(harvestIdx < skippedIdx, "Pipeline links should precede Support links");
     }
+
+    // ── F-02: Collapse control is keyboard-complete and close-only ────────────
+
+    [Fact]
+    public void NavMenu_Toggler_StartsCollapsed_AndAnnouncesIt()
+    {
+        var cut = Render<NavMenu>();
+        var toggler = cut.Find(".navbar-toggler");
+
+        Assert.Equal("false", toggler.GetAttribute("aria-expanded"));
+        Assert.Equal("studio-nav-menu", toggler.GetAttribute("aria-controls"));
+    }
+
+    [Fact]
+    public void NavMenu_Wrapper_CarriesTheAriaControlsTargetId()
+    {
+        var cut = Render<NavMenu>();
+        var wrapper = cut.Find("#studio-nav-menu");
+
+        Assert.True(wrapper.ClassList.Contains("collapse"));
+    }
+
+    [Fact]
+    public void NavMenu_ClickingToggler_Expands()
+    {
+        var cut = Render<NavMenu>();
+
+        cut.Find(".navbar-toggler").Click();
+
+        Assert.Equal("true", cut.Find(".navbar-toggler").GetAttribute("aria-expanded"));
+        Assert.False(cut.Find("#studio-nav-menu").ClassList.Contains("collapse"));
+    }
+
+    [Fact]
+    public void NavMenu_ClickingTogglerTwice_ReturnsToCollapsed()
+    {
+        var cut = Render<NavMenu>();
+        var toggler = cut.Find(".navbar-toggler");
+
+        toggler.Click();
+        toggler.Click();
+
+        Assert.Equal("false", toggler.GetAttribute("aria-expanded"));
+        Assert.True(cut.Find("#studio-nav-menu").ClassList.Contains("collapse"));
+    }
+
+    [Fact]
+    public void NavMenu_ClickingWrapperWhileCollapsed_DoesNotOpenIt()
+    {
+        var cut = Render<NavMenu>();
+
+        cut.Find("#studio-nav-menu").Click();
+
+        Assert.True(cut.Find("#studio-nav-menu").ClassList.Contains("collapse"));
+        Assert.Equal("false", cut.Find(".navbar-toggler").GetAttribute("aria-expanded"));
+    }
 }

@@ -1,0 +1,30 @@
+.harvest-section-nav {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    padding: var(--sp-2) 0;
+    margin-bottom: var(--sp-2);
+    background-color: var(--studio-bg);
+    border-bottom: 1px solid var(--studio-border);
+}
+
+.harvest-section-link {
+    font-size: var(--fs-meta);
+    color: var(--studio-link);
+    text-decoration: none;
+    padding: var(--sp-1) var(--sp-2);
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.harvest-section-link:hover, .harvest-section-link:focus {
+    background-color: color-mix(in srgb, var(--studio-accent) 10%, transparent);
+    text-decoration: underline;
+}
+
+#harvest-browse, #harvest-queue, #harvest-run, #harvest-distill {
+    scroll-margin-top: 4rem;
+}

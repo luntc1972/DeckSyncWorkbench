@@ -1188,6 +1188,116 @@ namespace DeckFlow.Studio.Tests
             });
         }
 
+        // ── F-03: thumbnails carry a meaningful alternative text ──
+
+        [Fact]
+        public void ChannelBrowseThumbnail_AltNamesTheVideo()
+        {
+            var (cut, _, _, _) = RenderHarvest(
+                new[] { Vid("v1", "Sultai Cavern Deep Dive") },
+                new MapBlockedStore(),
+                new MapSiteIndexStore());
+
+            BrowseChannel(cut);
+
+            cut.WaitForAssertion(() =>
+            {
+                var thumb = cut.Find("img[src*='img.youtube.com']");
+                Assert.Equal("Sultai Cavern Deep Dive thumbnail", thumb.GetAttribute("alt"));
+            });
+        }
+
+        [Fact]
+        public void NoThumbnailDeclaresItselfDecorative()
+        {
+            var (cut, _, _, _) = RenderHarvest(
+                new[] { Vid("v1", "Sultai Cavern Deep Dive") },
+                new MapBlockedStore(),
+                new MapSiteIndexStore());
+
+            BrowseChannel(cut);
+
+            cut.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(cut.FindAll("img[src*='img.youtube.com']"));
+                Assert.Empty(cut.FindAll("img[alt='']"));
+            });
+        }
+
+        // ── F-08: in-page section navigation ──
+
+        [Fact]
+        public void SectionNav_RendersFourJumpLinks()
+        {
+            var (cut, _, _, _) = RenderHarvest(
+                Array.Empty<YouTubeChannelVideo>(),
+                new MapBlockedStore(),
+                new MapSiteIndexStore());
+
+            cut.WaitForAssertion(() =>
+            {
+                var links = cut.FindAll("nav.harvest-section-nav a");
+                Assert.Equal(4, links.Count);
+                Assert.Equal(
+                    new[] { "#harvest-browse", "#harvest-queue", "#harvest-run", "#harvest-distill" },
+                    links.Select(l => l.GetAttribute("href")).ToArray());
+            });
+        }
+
+        [Fact]
+        public void EverySectionNavTarget_ExistsOnThePage()
+        {
+            var (cut, _, _, _) = RenderHarvest(
+                Array.Empty<YouTubeChannelVideo>(),
+                new MapBlockedStore(),
+                new MapSiteIndexStore());
+
+            cut.WaitForAssertion(() =>
+            {
+                Assert.NotNull(cut.Find("#harvest-browse"));
+                Assert.NotNull(cut.Find("#harvest-queue"));
+                Assert.NotNull(cut.Find("#harvest-run"));
+                Assert.NotNull(cut.Find("#harvest-distill"));
+            });
+        }
+
+        [Fact]
+        public void SectionNavTargets_AreProgrammaticallyFocusable()
+        {
+            var (cut, _, _, _) = RenderHarvest(
+                Array.Empty<YouTubeChannelVideo>(),
+                new MapBlockedStore(),
+                new MapSiteIndexStore());
+
+            cut.WaitForAssertion(() =>
+            {
+                foreach (var id in new[] { "harvest-browse", "harvest-queue", "harvest-run", "harvest-distill" })
+                {
+                    Assert.Equal("-1", cut.Find($"#{id}").GetAttribute("tabindex"));
+                }
+            });
+        }
+
+        // ── F-10: in-table actions opt out of the touch floor ──
+
+        [Fact]
+        public void TableActionButtons_CarryTheCompactClass()
+        {
+            var (cut, _, _, _) = RenderHarvest(
+                new[] { Vid("v1", "Sultai Cavern Deep Dive") },
+                new MapBlockedStore(),
+                new MapSiteIndexStore());
+
+            BrowseChannel(cut);
+
+            cut.WaitForAssertion(() =>
+            {
+                var tableButtons = cut.FindAll("td button");
+                Assert.NotEmpty(tableButtons);
+                Assert.All(tableButtons, b => Assert.Contains("btn-table-action", b.ClassList));
+            });
+        }
+
         private (IRenderedComponent<Harvest> Cut, FakeContentKbOrchestrator Maint, RecordingHarvestOrchestrator Harv, StubLister Lister) RenderHarvest(
             IReadOnlyList<YouTubeChannelVideo> recent,
             MapBlockedStore blocked,

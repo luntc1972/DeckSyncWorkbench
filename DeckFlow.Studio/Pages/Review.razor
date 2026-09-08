@@ -17,6 +17,8 @@
     </ul>
 </HelpPanel>
 
+<PipelineStepper CurrentStage="review" />
+
 <article class="content px-4">
 
     @if (_loading)
@@ -25,9 +27,9 @@
             <span class="spinner-border spinner-border-sm text-primary"
                   role="status"
                   aria-label="Operation in progress">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">Loading…</span>
             </span>
-            <span class="text-muted">Loading review queue...</span>
+            <span class="text-muted">Loading review queue…</span>
         </div>
     }
     else if (!string.IsNullOrEmpty(_loadError))
@@ -147,13 +149,13 @@
                                             ? "Approve Entry disabled — artifact file missing"
                                             : "Approve Entry";
                                     }
-                                    <button class="btn btn-sm btn-outline-primary me-1"
+                                    <button class="btn btn-sm btn-outline-primary me-1 btn-table-action"
                                             @onclick='() => SetRowStatusAsync(vm, "approved")'
                                             disabled="@(vm.ApprovalStatus == "approved" || missing)"
                                             aria-label="@approveAriaLabel">
                                         Approve Entry
                                     </button>
-                                    <button class="btn btn-sm btn-outline-danger"
+                                    <button class="btn btn-sm btn-outline-danger btn-table-action"
                                             @onclick='() => SetRowStatusAsync(vm, "rejected")'
                                             disabled="@(vm.ApprovalStatus == "rejected")"
                                             aria-label="Reject Entry">
@@ -161,7 +163,7 @@
                                     </button>
                                 </td>
                                 <td>
-                                    <button class="btn btn-sm btn-link p-0"
+                                    <button class="btn btn-sm btn-link p-0 btn-table-action"
                                             type="button"
                                             @onclick="() => ToggleExpand(vm)"
                                             aria-expanded="@vm.Expanded.ToString().ToLowerInvariant()"
@@ -184,7 +186,7 @@
                                         }
                                         @if (!hasCached)
                                         {
-                                            <span class="text-muted small">Loading preview...</span>
+                                            <span class="text-muted small">Loading preview…</span>
                                         }
                                         else if (cachedText is null)
                                         {
@@ -310,9 +312,9 @@
                     <span class="spinner-border spinner-border-sm"
                           role="status"
                           aria-label="Operation in progress">
-                        <span class="visually-hidden">Loading...</span>
+                        <span class="visually-hidden">Loading…</span>
                     </span>
-                    <span> Approving...</span>
+                    <span> Approving…</span>
                 }
                 else
                 {
@@ -327,9 +329,9 @@
                     <span class="spinner-border spinner-border-sm"
                           role="status"
                           aria-label="Operation in progress">
-                        <span class="visually-hidden">Loading...</span>
+                        <span class="visually-hidden">Loading…</span>
                     </span>
-                    <span> Rejecting...</span>
+                    <span> Rejecting…</span>
                 }
                 else
                 {

@@ -61,6 +61,20 @@
     color: var(--studio-muted) !important;
 }
 
+.nav-footer-link {
+    color: var(--studio-muted);
+    font-size: var(--fs-meta);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-floor);
+}
+
+.nav-footer-link:hover, .nav-footer-link:focus {
+    color: var(--studio-accent);
+    text-decoration: underline;
+}
+
 @media (min-width: 641px) {
     .navbar-toggler {
         display: none;

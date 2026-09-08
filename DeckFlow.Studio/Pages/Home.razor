@@ -63,8 +63,18 @@
                 @foreach (var bucket in VideoStatusBuckets)
                 {
                     <article class="dashboard-card hub-card" data-video-status="@bucket.Status">
-                        <div class="studio-count">@GetVideoStatusCount(bucket.Status)</div>
-                        <div class="dashboard-card-label">@bucket.Label</div>
+                        @if (bucket.Href is not null)
+                        {
+                            <a class="dashboard-card-link" href="@bucket.Href">
+                                <div class="studio-count">@GetVideoStatusCount(bucket.Status)</div>
+                                <div class="dashboard-card-label">@bucket.Label</div>
+                            </a>
+                        }
+                        else
+                        {
+                            <div class="studio-count">@GetVideoStatusCount(bucket.Status)</div>
+                            <div class="dashboard-card-label">@bucket.Label</div>
+                        }
                     </article>
                 }
             </div>
@@ -73,11 +83,21 @@
         <section class="dashboard-panel" aria-labelledby="publish-summary-title">
             <h2 id="publish-summary-title" class="home-subheading">Publish state summary</h2>
             <div class="publish-state-list">
-                @foreach (var state in PublishStateBuckets)
+                @foreach (var bucket in PublishStateBuckets)
                 {
-                    <div class="publish-state-item" data-publish-state="@state">
-                        <PublishStateBadge State="state" />
-                        <span class="publish-state-count">@GetPublishStateCount(state)</span>
+                    <div class="publish-state-item" data-publish-state="@bucket.State">
+                        @if (bucket.Href is not null)
+                        {
+                            <a class="publish-state-link" href="@bucket.Href">
+                                <PublishStateBadge State="bucket.State" />
+                                <span class="publish-state-count">@GetPublishStateCount(bucket.State)</span>
+                            </a>
+                        }
+                        else
+                        {
+                            <PublishStateBadge State="bucket.State" />
+                            <span class="publish-state-count">@GetPublishStateCount(bucket.State)</span>
+                        }
                     </div>
                 }
             </div>
@@ -86,20 +106,30 @@
 </div>
 
 @code {
-    private static readonly (VideoStatus Status, string Label)[] VideoStatusBuckets =
+    // Why: a bucket is linked only when a surface in this app filters to that slice AND the count
+    // shown can actually reach that surface's data. The harvested bucket fails the second half:
+    // these counts are built from content_site_index rows, and by the enum's own definition such a
+    // row is already past the harvested state, so the shared status mapper
+    // (VideoStatusResolver.FromContentRow) has no branch that can return it and the count is pinned
+    // at zero — pinned by HarvestedStatus_IsUnreachableFromAnIndexRow. Linking it would send an
+    // operator from a permanently-zero number to the pending-distill queue, a page fed by an
+    // entirely different source. The published video-status and publish-state rows stay unlinked
+    // for the original, still-correct reason: Publish shows the pending export diff, not a published
+    // list. Direct Push's Awaiting Confirm resume card is exactly the pushed-hidden destination.
+    private static readonly (VideoStatus Status, string Label, string? Href)[] VideoStatusBuckets =
     {
-        (VideoStatus.Harvested, "Harvested"),
-        (VideoStatus.Distilled, "Distilled"),
-        (VideoStatus.Approved, "Approved"),
-        (VideoStatus.Published, "Published"),
+        (VideoStatus.Harvested, "Harvested", null),
+        (VideoStatus.Distilled, "Distilled", "/review?tab=pending"),
+        (VideoStatus.Approved, "Approved", "/review?tab=approved"),
+        (VideoStatus.Published, "Published", null),
     };
 
-    private static readonly PublishState[] PublishStateBuckets =
+    private static readonly (PublishState State, string? Href)[] PublishStateBuckets =
     {
-        PublishState.NeverPublished,
-        PublishState.PushedHidden,
-        PublishState.Published,
-        PublishState.LocalNewer,
+        (PublishState.NeverPublished, "/publish"),
+        (PublishState.PushedHidden, "/direct-push"),
+        (PublishState.Published, null),
+        (PublishState.LocalNewer, "/publish"),
     };
 
     private IReadOnlyList<ContentSiteIndexRow> _allRows = Array.Empty<ContentSiteIndexRow>();
@@ -154,7 +184,7 @@
 
     private Dictionary<PublishState, int> BuildPublishStateCounts(IReadOnlyList<ContentSiteIndexRow> rows)
     {
-        var counts = PublishStateBuckets.ToDictionary(state => state, _ => 0);
+        var counts = PublishStateBuckets.ToDictionary(bucket => bucket.State, _ => 0);
         foreach (var row in rows)
         {
             var state = Deriver.Derive(row.PushedToProdUtc, row.IsVisible, row.IndexedUtc);

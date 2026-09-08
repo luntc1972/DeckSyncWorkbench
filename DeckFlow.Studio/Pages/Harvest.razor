@@ -20,10 +20,22 @@
     </ul>
 </HelpPanel>
 
+<PipelineStepper CurrentStage="harvest" />
+
 <article class="content px-4">
 
+    <nav class="harvest-section-nav" aria-label="Harvest sections">
+        <a class="harvest-section-link" href="#harvest-browse">Browse</a>
+        <a class="harvest-section-link" href="#harvest-queue">Paste Queue</a>
+        <a class="harvest-section-link" href="#harvest-run">Harvest</a>
+        <a class="harvest-section-link" href="#harvest-distill">Distill</a>
+    </nav>
+
     @* ─── Section 1: Channel or Playlist Browse (HARV-01) ─── *@
-    <div class="card mt-4">
+    @* The negative tabindex on each section card below: a div is not natively focusable, so
+       without it a fragment jump from the sub-nav above moves the viewport but leaves keyboard
+       focus stranded at the top of the document. *@
+    <div class="card mt-4" id="harvest-browse" tabindex="-1">
         <div class="card-header">
             <h2 class="h5 fw-semibold mb-0">Browse Channel or Playlist</h2>
         </div>
@@ -87,9 +99,9 @@
                             <span class="spinner-border spinner-border-sm text-primary"
                                   role="status"
                                   aria-label="Operation in progress">
-                                <span class="visually-hidden">Loading...</span>
+                                <span class="visually-hidden">Loading…</span>
                             </span>
-                            <span> Fetching channel videos...</span>
+                            <span> Fetching channel videos…</span>
                         }
                         else
                         {
@@ -189,10 +201,14 @@
                                                @onchange="() => vm.Selected = !vm.Selected"
                                                aria-label="Select @vm.Title" />
                                     </td>
+                                    @* F-03: the thumbnail is the only per-row content not otherwise reachable by a
+                                       user scanning by image; the title also appears as adjacent link text, so it
+                                       is heard twice by assistive tech, but an empty alt made the row invisible
+                                       to that user entirely. *@
                                     <td>
                                         <img src="https://img.youtube.com/vi/@vm.VideoId/default.jpg"
                                              width="40" height="30"
-                                             alt=""
+                                             alt="@vm.Title thumbnail"
                                              onerror="this.style.display='none'" />
                                     </td>
                                     <td>
@@ -203,13 +219,13 @@
                                     <td>
                                         @if (!vm.PendingBlock)
                                         {
-                                            <button class="btn btn-sm btn-outline-secondary me-1"
+                                            <button class="btn btn-sm btn-outline-secondary me-1 btn-table-action"
                                                     @onclick="() => SkipVideoAsync(vm)"
                                                     disabled="@IsBusy"
                                                     aria-label="Skip @vm.Title">
                                                 Skip
                                             </button>
-                                            <button class="btn btn-sm btn-outline-danger"
+                                            <button class="btn btn-sm btn-outline-danger btn-table-action"
                                                     @onclick="() => BeginBlock(vm)"
                                                     disabled="@(IsBusy || vm.Status == VideoStatus.Blocked)"
                                                     aria-label="Block @vm.Title">
@@ -218,14 +234,14 @@
                                         }
                                         else
                                         {
-                                            <button class="btn btn-sm btn-danger"
+                                            <button class="btn btn-sm btn-danger btn-table-action"
                                                     @ref="_confirmBlockButton"
                                                     @onclick="() => ConfirmBlockAsync(vm)"
                                                     disabled="@IsBusy"
                                                     aria-label="Confirm block @vm.Title">
                                                 Confirm Block
                                             </button>
-                                            <button class="btn btn-sm btn-outline-secondary ms-1"
+                                            <button class="btn btn-sm btn-outline-secondary ms-1 btn-table-action"
                                                     @onclick="() => vm.PendingBlock = false"
                                                     aria-label="Keep @vm.Title">
                                                 Keep Video
@@ -263,7 +279,7 @@
                                             <td>
                                                 @if (isSkipped)
                                                 {
-                                                    <button class="btn btn-sm btn-outline-primary me-1"
+                                                    <button class="btn btn-sm btn-outline-primary me-1 btn-table-action"
                                                             @onclick="() => UnskipVideoAsync(vm)"
                                                             disabled="@IsBusy"
                                                             aria-label="Un-skip @vm.Title">
@@ -272,7 +288,7 @@
                                                 }
                                                 @if (vm.Status == VideoStatus.Blocked)
                                                 {
-                                                    <button class="btn btn-sm btn-outline-primary"
+                                                    <button class="btn btn-sm btn-outline-primary btn-table-action"
                                                             @onclick="() => UnblockVideoRowAsync(vm)"
                                                             disabled="@IsBusy"
                                                             aria-label="Un-block @vm.Title">
@@ -296,7 +312,7 @@
     </div>
 
     @* ─── Section 2: URL/ID Paste Queue (HARV-02) ─── *@
-    <div class="card mt-4">
+    <div class="card mt-4" id="harvest-queue" tabindex="-1">
         <div class="card-header">
             <h2 class="h5 fw-semibold mb-0">URL / ID Paste Queue</h2>
         </div>
@@ -315,9 +331,9 @@
                     <span class="spinner-border spinner-border-sm text-primary"
                           role="status"
                           aria-label="Operation in progress">
-                        <span class="visually-hidden">Loading...</span>
+                        <span class="visually-hidden">Loading…</span>
                     </span>
-                    <span> Resolving...</span>
+                    <span> Resolving…</span>
                 }
                 else
                 {
@@ -369,7 +385,7 @@
                                     <td>
                                         <img src="https://img.youtube.com/vi/@vm.VideoId/default.jpg"
                                              width="40" height="30"
-                                             alt=""
+                                             alt="@vm.Title thumbnail"
                                              onerror="this.style.display='none'" />
                                     </td>
                                     <td>
@@ -378,7 +394,7 @@
                                     <td class="text-nowrap">@(vm.PublishedUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
                                     <td><StatusBadge Status="vm.Status" /></td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-danger"
+                                        <button class="btn btn-sm btn-outline-danger btn-table-action"
                                                 @onclick="() => RemoveFromQueue(vm)"
                                                 aria-label="Remove video from queue">
                                             <span class="oi oi-x" aria-hidden="true"></span>
@@ -400,7 +416,7 @@
     <hr class="mt-4" />
 
     @* ─── Section 3: Harvest Trigger (HARV-04) ─── *@
-    <div class="card mt-4">
+    <div class="card mt-4" id="harvest-run" tabindex="-1">
         <div class="card-header">
             <h2 class="h5 fw-semibold mb-0">Harvest</h2>
         </div>
@@ -508,11 +524,11 @@
                 <div class="mb-2">
                     @if (Runner.IsRunning)
                     {
-                        <span class="fw-semibold me-2">Harvest/distill running...</span>
+                        <span class="fw-semibold me-2">Harvest/distill running…</span>
                         <div class="spinner-border spinner-border-sm text-primary d-inline-block"
                              role="status"
                              aria-label="Operation in progress">
-                            <span class="visually-hidden">Loading...</span>
+                            <span class="visually-hidden">Loading…</span>
                         </div>
                     }
                     else if (_harvestResult is not null)
@@ -543,7 +559,7 @@
     </div>
 
     @* ─── Section 4: Distill Spend Gate (HARV-05) ─── *@
-    <div class="card mt-4">
+    <div class="card mt-4" id="harvest-distill" tabindex="-1">
         <div class="card-header">
             <h2 class="h5 fw-semibold mb-0">Distill</h2>
         </div>
@@ -562,9 +578,9 @@
                         <span class="spinner-border spinner-border-sm text-primary"
                               role="status"
                               aria-label="Operation in progress">
-                            <span class="visually-hidden">Loading...</span>
+                            <span class="visually-hidden">Loading…</span>
                         </span>
-                        <span> Loading...</span>
+                        <span> Loading…</span>
                     }
                     else
                     {
@@ -650,9 +666,9 @@
 
                 @* Cap display (D-02) *@
                 <div class="d-flex gap-3 align-items-center flex-wrap mb-2">
-                    <span>Monthly cap: <strong>$@_monthlyCap.ToString("F2")</strong></span>
-                    <span>Spent this month: <strong>$@_monthlySpent.ToString("F2")</strong></span>
-                    <span>Remaining: <strong class="@(_monthlyCap - _monthlySpent < 0 ? "text-danger" : "text-success")">$@((_monthlyCap - _monthlySpent).ToString("F2"))</strong></span>
+                    <span>Monthly cap: <strong>$@Usd2(_monthlyCap)</strong></span>
+                    <span>Spent this month: <strong>$@Usd2(_monthlySpent)</strong></span>
+                    <span>Remaining: <strong class="@(_monthlyCap - _monthlySpent < 0 ? "text-danger" : "text-success")">$@Usd2(_monthlyCap - _monthlySpent)</strong></span>
                 </div>
 
                 @* Session cap-raise control (D-03) *@
@@ -663,7 +679,7 @@
                                style="width:120px"
                                min="0" step="1"
                                @bind="_capRaiseInput"
-                               placeholder="@_monthlyCap.ToString("F2")" />
+                               placeholder="@Usd2(_monthlyCap)" />
                     </div>
                     <button class="btn btn-outline-secondary btn-sm"
                             @onclick="RaiseCapAsync"
@@ -747,9 +763,9 @@
                             <span class="spinner-border spinner-border-sm"
                                   role="status"
                                   aria-label="Operation in progress">
-                                <span class="visually-hidden">Loading...</span>
+                                <span class="visually-hidden">Loading…</span>
                             </span>
-                            <span> Distilling...</span>
+                            <span> Distilling…</span>
                         }
                         else
                         {
@@ -778,9 +794,9 @@
                         <span class="spinner-border spinner-border-sm text-primary"
                               role="status"
                               aria-label="Operation in progress">
-                            <span class="visually-hidden">Loading...</span>
+                            <span class="visually-hidden">Loading…</span>
                         </span>
-                        <span> Estimating spend...</span>
+                        <span> Estimating spend…</span>
                     }
                     else
                     {
@@ -819,16 +835,16 @@
                             <dt class="col-sm-5">Videos that would distill:</dt>
                             <dd class="col-sm-7">@_distillDryRunResult.WouldRun</dd>
                             <dt class="col-sm-5">Projected spend:</dt>
-                            <dd class="col-sm-7">$@_distillDryRunResult.ProjectedSpendUsd.ToString("F4") USD</dd>
+                            <dd class="col-sm-7">$@Usd4(_distillDryRunResult.ProjectedSpendUsd) USD</dd>
                             <dt class="col-sm-5">Monthly cap remaining:</dt>
-                            <dd class="col-sm-7">$@remaining.ToString("F2") USD</dd>
+                            <dd class="col-sm-7">$@Usd2(remaining) USD</dd>
                         </dl>
 
                         @if (capExceeded)
                         {
                             <div class="alert alert-danger py-2 mt-2 mb-0">
                                 <span class="oi oi-warning me-1" aria-hidden="true"></span>
-                                Projected spend ($@_distillDryRunResult.ProjectedSpendUsd.ToString("F4")) exceeds your monthly cap ($@_monthlyCap.ToString("F2")). Reduce selection or raise the cap.
+                                Projected spend ($@Usd4(_distillDryRunResult.ProjectedSpendUsd)) exceeds your monthly cap ($@Usd2(_monthlyCap)). Reduce selection or raise the cap.
                             </div>
                         }
                     </div>
@@ -856,9 +872,9 @@
                                 <span class="spinner-border spinner-border-sm"
                                       role="status"
                                       aria-label="Operation in progress">
-                                    <span class="visually-hidden">Loading...</span>
+                                    <span class="visually-hidden">Loading…</span>
                                 </span>
-                                <span> Distilling...</span>
+                                <span> Distilling…</span>
                             }
                             else
                             {
@@ -908,7 +924,7 @@
                                 <dt class="col-sm-5">LLM calls:</dt>
                                 <dd class="col-sm-7">@_distillLiveResult.LlmCalls</dd>
                                 <dt class="col-sm-5">Actual spend:</dt>
-                                <dd class="col-sm-7">$@_distillLiveResult.LlmSpendUsd.ToString("F4") USD</dd>
+                                <dd class="col-sm-7">$@Usd4(_distillLiveResult.LlmSpendUsd) USD</dd>
                                 <dt class="col-sm-5">Videos filtered:</dt>
                                 <dd class="col-sm-7">@_distillLiveResult.VideosFiltered</dd>
                                 <dt class="col-sm-5">Failed:</dt>

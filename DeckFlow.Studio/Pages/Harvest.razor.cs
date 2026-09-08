@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
@@ -268,6 +269,15 @@ public partial class Harvest
 
     // Markup-facing alias for the canonical visible projection (render loop + empty-state gate).
     private IReadOnlyList<VideoViewModel> VisibleChannelVideos => GetVisibleChannelVideos();
+
+    // ── Currency formatting ─────────────────────────────────────────────────
+    // Why: each call site renders immediately after a literal dollar sign, so ambient CurrentCulture
+    // could let a comma-decimal locale make a decimal amount read as a thousands separator.
+    /// <summary>Formats a USD amount with two culture-invariant decimal places.</summary>
+    private static string Usd2(decimal value) => value.ToString("F2", CultureInfo.InvariantCulture);
+
+    /// <summary>Formats a USD amount with four culture-invariant decimal places.</summary>
+    private static string Usd4(decimal value) => value.ToString("F4", CultureInfo.InvariantCulture);
 
     // Skipped/blocked rows for the browsed creator — surfaced only under the "Show hidden" toggle,
     // for un-skip / un-block. Kept out of the harvestable list so a hidden row can never be harvested.

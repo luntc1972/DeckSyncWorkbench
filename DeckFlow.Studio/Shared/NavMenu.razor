@@ -1,13 +1,13 @@
 ﻿<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand studio-wordmark" href="">DeckFlow Studio</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+        <button title="Navigation menu" class="navbar-toggler" aria-controls="studio-nav-menu" aria-expanded="@((!collapseNavMenu).ToString().ToLowerInvariant())" @onclick="ToggleNavMenu">
             <span class="navbar-toggler-icon"></span>
         </button>
     </div>
 </div>
 
-<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+<div id="studio-nav-menu" class="@NavMenuCssClass" @onclick="CollapseNavMenu">
     <nav class="flex-column">
         <div class="nav-section-header px-3 pt-2 pb-1 text-uppercase small fw-semibold text-muted" aria-label="Pipeline">Pipeline</div>
         <div class="nav-item px-3">
@@ -73,6 +73,10 @@
             </NavLink>
         </div>
     </nav>
+    <div class="nav-footer px-3 pb-3 pt-2">
+        <div class="nav-section-divider mb-2" aria-hidden="true"></div>
+        <a class="nav-footer-link" href="https://www.deckflow.gg" target="_blank" rel="noopener noreferrer">About</a>
+    </div>
 </div>
 
 @code {
@@ -83,5 +87,11 @@
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
+    }
+
+    // Why: The wrapper keeps a mouse-only close shortcut (including after nav-link activation), while opening stays exclusively on the keyboard-operable button.
+    private void CollapseNavMenu()
+    {
+        collapseNavMenu = true;
     }
 }

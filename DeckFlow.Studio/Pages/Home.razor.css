@@ -112,6 +112,34 @@
     line-height: 1.2;
 }
 
+.dashboard-card-link {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex: 1;
+    color: inherit;
+    text-decoration: none;
+}
+
+.dashboard-card-link:is(:hover, :focus) {
+    color: inherit;
+    text-decoration: none;
+}
+
+.publish-state-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    flex: 1;
+    color: inherit;
+    text-decoration: none;
+}
+
+.publish-state-link:is(:hover, :focus) {
+    color: var(--studio-accent);
+}
+
 @media (max-width: 767.98px) {
     .home-quick-links {
         width: 100%;

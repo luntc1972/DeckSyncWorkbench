@@ -81,7 +81,7 @@ public sealed class PullFromProdCoordinator
 
         // R1: read prod via the read-only reader — plain SELECT, NO EnsureSchemaAsync/DDL.
         onStage("read production content_site_index");
-        log.Report("Reading production content_site_index...");
+        log.Report("Reading production content_site_index…");
 
         // Why: the prod conn string is read ephemerally here, never materialized into DI state (D-03/D-07).
         var rawConnStr = _prodConnection.ConnectionString;
@@ -90,7 +90,7 @@ public sealed class PullFromProdCoordinator
         log.Report($"  {prodRows.Count} row(s) read from production.");
 
         onStage("resolve local repo bodies");
-        log.Report($"Resolving {prodRows.Count} body/bodies from local repository...");
+        log.Report($"Resolving {prodRows.Count} body/bodies from local repository…");
 
         var availableBodies = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var prodRow in prodRows)
@@ -112,7 +112,7 @@ public sealed class PullFromProdCoordinator
         }
 
         onStage("classify");
-        log.Report("Classifying diff against local store...");
+        log.Report("Classifying diff against local store…");
 
         var localRows = await _indexStore.GetAllRowsAsync(cancellationToken).ConfigureAwait(false);
 

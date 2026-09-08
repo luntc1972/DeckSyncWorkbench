@@ -43,6 +43,17 @@ button,
     min-height: var(--touch-floor);
 }
 
+/* A dense queue row stacks two or three controls per cell, so the 44px touch floor above makes
+   the row roughly three times taller than its content. Scoping this to a .table descendant is
+   what keeps the floor governing every standalone control elsewhere in the app. 32px is the
+   natural rendered height of a small Bootstrap button, so this restores the intended size rather
+   than inventing a new one. */
+.table .btn-table-action {
+    min-height: 32px;
+    padding-top: var(--sp-1);
+    padding-bottom: var(--sp-1);
+}
+
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

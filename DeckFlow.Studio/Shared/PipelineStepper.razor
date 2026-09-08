@@ -1,0 +1,69 @@
+@* Phase 116 F-06 pipeline stepper. Direct Push is deliberately rendered as a variant of the
+   Publish stage rather than a fourth stage: the content pipeline has three stages (Harvest,
+   Review, Publish) and two publish paths (git-backed Publish, and the alternate Direct Push),
+   not four stages. *@
+
+<nav class="pipeline-stepper" aria-label="Content pipeline progress">
+    <ol class="pipeline-stepper-list">
+        @foreach (var stage in Stages)
+        {
+            var isCurrent = IsCurrentStage(stage.Id);
+            var label = EffectiveLabel(stage);
+            var destination = EffectiveDestination(stage);
+            var variantAttr = stage.Id == "publish" && IsDirectPush ? "direct-push" : null;
+
+            <li class="pipeline-step" data-stage="@stage.Id" data-variant="@variantAttr">
+                @if (isCurrent)
+                {
+                    <span class="pipeline-step-link pipeline-step-current" aria-current="step">@label</span>
+                }
+                else
+                {
+                    <a class="pipeline-step-link" href="@destination">@label</a>
+                }
+            </li>
+        }
+    </ol>
+</nav>
+
+@code {
+    /// <summary>
+    /// The pipeline stage the operator is currently on. Accepts <c>harvest</c>, <c>review</c>,
+    /// <c>publish</c>, or <c>direct-push</c> (case-insensitive). Any other value, including
+    /// empty or null, marks no step current rather than failing.
+    /// </summary>
+    [Parameter, EditorRequired]
+    public string CurrentStage { get; set; } = string.Empty;
+
+    private bool IsDirectPush => string.Equals(CurrentStage?.Trim(), "direct-push", StringComparison.OrdinalIgnoreCase);
+
+    private static readonly StageDefinition[] Stages =
+    [
+        new StageDefinition("harvest", "Harvest", "/harvest"),
+        new StageDefinition("review", "Review", "/review"),
+        new StageDefinition("publish", "Publish", "/publish"),
+    ];
+
+    private bool IsCurrentStage(string stageId)
+    {
+        var normalized = CurrentStage?.Trim() ?? string.Empty;
+
+        if (string.Equals(normalized, "direct-push", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Equals(stageId, "publish", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return string.Equals(normalized, stageId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string EffectiveLabel(StageDefinition stage)
+        => stage.Id == "publish" && IsDirectPush ? "Publish (Direct)" : stage.Label;
+
+    private string EffectiveDestination(StageDefinition stage)
+        => stage.Id == "publish" && IsDirectPush ? "/direct-push" : stage.Destination;
+
+    // Why: an unrecognised CurrentStage value must degrade to three plain links with none marked
+    // current, and must not fail — a stepper is not worth taking a workflow page down over,
+    // including Direct Push mid-production-write.
+    private sealed record StageDefinition(string Id, string Label, string Destination);
+}

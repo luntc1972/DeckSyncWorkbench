@@ -27,6 +27,14 @@ public partial class Review
     [Inject]
     private PublishStateDeriver Deriver { get; set; } = default!;
 
+    // ── Query parameters ────────────────────────────────────────────────────
+    /// <summary>
+    /// Seeds the initially selected tab from the query string; in-page tab buttons own the state thereafter.
+    /// </summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? Tab { get; set; }
+
     // ── Page state ──────────────────────────────────────────────────────────
     private bool _loading = true;
     private string _loadError = string.Empty;
@@ -80,6 +88,9 @@ public partial class Review
     // ── Lifecycle ──────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
+        // Why: this runs once per component instance, so an in-page tab click cannot be reverted by a re-render.
+        _activeTab = MapInitialTab(Tab);
+
         try
         {
             // Why: Task.Run moves the store calls off the Blazor sync context (Pitfall 1).
@@ -102,6 +113,21 @@ public partial class Review
             _loading = false;
             await InvokeAsync(StateHasChanged);
         }
+    }
+
+    private static string MapInitialTab(string? tab)
+    {
+        // Why: an unrecognised value must land on the existing default rather than produce an empty grid,
+        // because a stale bookmark or a mistyped link is the expected failure mode.
+        var trimmedTab = tab?.Trim();
+        return trimmedTab switch
+        {
+            var value when string.Equals(value, "pending", StringComparison.OrdinalIgnoreCase) => "pending",
+            var value when string.Equals(value, "approved", StringComparison.OrdinalIgnoreCase) => "approved",
+            var value when string.Equals(value, "rejected", StringComparison.OrdinalIgnoreCase) => "rejected",
+            var value when string.Equals(value, "all", StringComparison.OrdinalIgnoreCase) => "all",
+            _ => "pending",
+        };
     }
 
     // ── Tab switching ───────────────────────────────────────────────────────

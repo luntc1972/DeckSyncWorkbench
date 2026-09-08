@@ -3,6 +3,7 @@ using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio.Pages;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DeckFlow.Studio.Tests;
@@ -49,6 +50,11 @@ public sealed class ReviewPageTests : BunitContext
 
     private (IRenderedComponent<Review> Cut, FakeContentSiteIndexStore Store) RenderReview(
         IEnumerable<ContentSiteIndexRow> rows)
+        => RenderReview(rows, null);
+
+    private (IRenderedComponent<Review> Cut, FakeContentSiteIndexStore Store) RenderReview(
+        IEnumerable<ContentSiteIndexRow> rows,
+        string? tab)
     {
         var store = new FakeContentSiteIndexStore();
         foreach (var r in rows)
@@ -64,6 +70,9 @@ public sealed class ReviewPageTests : BunitContext
         // split); the coordinator is built from the fakes registered above, so behavior is unchanged.
         Services.AddSingleton<DeckFlow.Studio.ViewModels.ReviewCoordinator>();
 
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var uri = navigationManager.GetUriWithQueryParameter("tab", tab);
+        navigationManager.NavigateTo(uri);
         var cut = Render<Review>();
         return (cut, store);
     }
@@ -513,6 +522,77 @@ public sealed class ReviewPageTests : BunitContext
             Assert.Contains(keys, k => k.Value == "vid2");
             // The approved row (vid3) must NOT appear in the batch
             Assert.DoesNotContain(keys, k => k.Value == "vid3");
+        });
+    }
+
+    // ── F-07: query-addressable tab ─────────────────────────────────────────
+
+    [Fact]
+    public void Review_TabQueryValue_PreSelectsThatTab()
+    {
+        var (cut, _) = RenderReview(QueryTabRows(), "approved");
+
+        cut.WaitForAssertion(() =>
+        {
+            var tabs = cut.FindAll("ul.nav-tabs button[role='tab']");
+            Assert.Contains("active", tabs[1].ClassList);
+            Assert.DoesNotContain("active", tabs[0].ClassList);
+        });
+    }
+
+    [Fact]
+    public void Review_TabQueryValue_IsCaseInsensitive()
+    {
+        var (cut, _) = RenderReview(QueryTabRows(), "Approved");
+
+        cut.WaitForAssertion(() =>
+        {
+            var tabs = cut.FindAll("ul.nav-tabs button[role='tab']");
+            Assert.Contains("active", tabs[1].ClassList);
+            Assert.DoesNotContain("active", tabs[0].ClassList);
+        });
+    }
+
+    [Fact]
+    public void Review_UnknownTabQueryValue_FallsBackToPending()
+    {
+        var (cut, _) = RenderReview(QueryTabRows(), "bogus");
+
+        cut.WaitForAssertion(() =>
+            Assert.Contains("active", cut.FindAll("ul.nav-tabs button[role='tab']")[0].ClassList));
+    }
+
+    [Fact]
+    public void Review_NoTabQueryValue_KeepsPendingDefault()
+    {
+        var (cut, _) = RenderReview(QueryTabRows(), null);
+
+        cut.WaitForAssertion(() =>
+            Assert.Contains("active", cut.FindAll("ul.nav-tabs button[role='tab']")[0].ClassList));
+    }
+
+    private static ContentSiteIndexRow[] QueryTabRows()
+        =>
+        [
+            MakeYoutubeRow(1, "pending", "pending"),
+            MakeYoutubeRow(2, "approved", "approved"),
+        ];
+
+    // ── F-10: in-table actions opt out of the touch floor ──
+
+    [Fact]
+    public void TableActionButtons_CarryTheCompactClass()
+    {
+        var row = MakeYoutubeRow(1, "vidJKL", "pending");
+        var (cut, _) = RenderReview(new[] { row });
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
+
+        cut.WaitForAssertion(() =>
+        {
+            var tableButtons = cut.FindAll("td button");
+            Assert.NotEmpty(tableButtons);
+            Assert.All(tableButtons, b => Assert.Contains("btn-table-action", b.ClassList));
         });
     }
 }
