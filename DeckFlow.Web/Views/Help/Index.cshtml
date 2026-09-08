@@ -5,15 +5,20 @@
 }
 
 <section class="help-index">
-    <h1>Help</h1>
-    <p>User guides for each DeckFlow feature.</p>
+    <div class="help-index__heading">
+        <span class="help-index__eyebrow">DeckFlow guides</span>
+        <h1>Help</h1>
+        <p>User guides for each DeckFlow feature.</p>
+    </div>
 
     <ul class="help-index__list">
         @foreach (var topic in Model)
         {
             <li class="help-index__item">
-                <a class="help-index__link" href="@Url.Content($"~/help/{topic.Slug}")">@topic.Title</a>
-                <span class="help-index__summary">@topic.Summary</span>
+                <a class="help-index__link" href="@Url.Content($"~/help/{topic.Slug}")">
+                    <span class="help-index__title">@topic.Title</span>
+                    <span class="help-index__summary">@topic.Summary</span>
+                </a>
             </li>
         }
     </ul>

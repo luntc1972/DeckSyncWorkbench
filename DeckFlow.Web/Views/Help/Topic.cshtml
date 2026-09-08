@@ -7,12 +7,14 @@
     }
 }
 
-<nav class="help-breadcrumb" aria-label="Breadcrumb">
-    <a href="@Url.Content("~/help")">Help</a>
-    <span aria-hidden="true">›</span>
-    <span>@Model.Title</span>
-</nav>
+<section class="help-topic">
+    <nav class="help-breadcrumb" aria-label="Breadcrumb">
+        <a href="@Url.Content("~/help")">Help</a>
+        <span aria-hidden="true">›</span>
+        <span>@Model.Title</span>
+    </nav>
 
-<article class="help-prose">
-    @Html.Raw(Model.HtmlContent)
-</article>
+    <article class="help-prose">
+        @Html.Raw(Model.HtmlContent)
+    </article>
+</section>
