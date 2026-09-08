@@ -604,8 +604,46 @@
   .help-index__link {
     display: flex;
     align-items: center;
+    box-sizing: border-box;
     min-height: 44px;
     padding: 0.7rem 0;
+    width: 100%;
+  }
+
+  .help-index__feedback a,
+  .help-breadcrumb__back {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    min-height: 44px;
+  }
+
+  .help-topic {
+    margin: 1.5rem auto 2rem;
+    min-width: 0;
+  }
+
+  .help-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+    margin-bottom: 0.75rem;
+    min-width: 0;
+  }
+
+  .help-prose {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+    padding: 1rem;
+    overflow-wrap: anywhere;
+  }
+
+  .help-prose table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
   }
 
   .feedback-panel {
